@@ -1,5 +1,5 @@
 # iirose-Forge
-蔷薇花园安卓非官方客户端 提供插件与美化功能 是rose-core的安卓注入器   
+蔷薇花园安卓非官方客户端 目标是提供插件与美化功能 是rose-core的安卓注入器   
 
 ## 在哪里下载编译好的apk文件
 [releases](https://github.com/qwq0/iiroseForge/releases)   
