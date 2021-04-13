@@ -2,7 +2,8 @@
 蔷薇花园安卓非官方客户端 目标是提供插件与美化功能 是rose-core的安卓注入器   
 
 ## 在哪里下载编译好的apk文件
-[releases](https://github.com/qwq0/iiroseForge/releases)   
+[最新调试版](https://github.com/qwq0/iiroseForge/releases/download/v1.0-alpha/iirose-forge-v1.0alpha-debug.apk)   
+[所有版本](https://github.com/qwq0/iiroseForge/releases)   
 
 ## 开源嘛?
 iiroseForge客户端只负责脚本注入 注入器是开源的且提供MIT许可   
