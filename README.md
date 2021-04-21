@@ -15,6 +15,6 @@ rose-core开源在本项目page分支中
 (不建议的操作)   
 电脑端chrome用户可以在蔷薇花园网页端 浏览器开发者工具(Ctrl+Shift+I)-控制台(Console) 中输入   
 ```
-(function(d,s){s=d.createElement("script");s.src="//qwq0.rthe.xyz/iirose/l.js";d.body.appendChild(s);})(document)
+(function(d,s){s=d.createElement("script");s.src="https://qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
 ```
 每次重新进入都需要注入脚本   
