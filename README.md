@@ -6,10 +6,10 @@
 [所有版本](https://github.com/qwq0/iiroseForge/releases)   
 
 ## 开源嘛?
-iiroseForge客户端只负责脚本注入 注入器是开源的且提供MIT许可   
-rose-core的源码在 [https://qwq0.rthe.xyz/iirose/roseCore.src.js](https://qwq0.rthe.xyz/iirose/roseCore.src.js) (然而并没有上传)   
+iiroseForge注入器开源在本项目main分支中并提供MIT许可    
+rose-core开源在本项目page分支中   
 ### 为什么不使用git仓库管理源码
-因为 太 少 辽
+因为太少辽   
 
 ## 非安卓设备
 (不建议的操作)   
