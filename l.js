@@ -13,5 +13,5 @@
 		cw.document.body.appendChild(scr);
 	};
 	setTimeout(f, 1000);
-	setInterval(f, 10000);
+	setInterval(f, 6000);
 })();
