@@ -7,7 +7,7 @@
 
 ## 开源嘛?
 iiroseForge注入器开源在本项目main分支中并提供MIT许可    
-rose-core开源在本项目page分支中   
+rose-core开源在本项目page分支中(未上传)   
 ### 为什么不使用git仓库管理源码
 因为太少辽   
 
