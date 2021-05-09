@@ -11,10 +11,14 @@ rose-core开源在本项目page分支中(未上传)
 ### 为什么不使用git仓库管理源码
 因为太少辽   
 
-## 非安卓设备
-(不建议的操作)   
-电脑端chrome用户可以在蔷薇花园网页端 浏览器开发者工具(Ctrl+Shift+I)-控制台(Console) 中输入   
+## 在自己的iirose客户端中集成rose-core
+(这不会包括iiroseForge注入器)   
+当每次完成加载后执行以下js代码段   
 ```
-(function(d,s){s=d.createElement("script");s.src="https://qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
+(function(d,s){s=d.createElement("script");s.src="http://me.qwq7.net/iiroseForge/l.js";d.body.appendChild(s);})(document)
 ```
-每次重新进入都需要注入脚本   
+请仅仅在url为 https://iirose.com 时注入脚本 否者可能损坏注入的页面 rose-core将不会进行判断   
+
+## 对于浏览器用户
+已停止对浏览器用户的支持   
+旧的注入方式将不再生效 因为无法在https页面中以http获取脚本   
