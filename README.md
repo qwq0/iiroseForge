@@ -15,10 +15,15 @@ rose-core开源在本项目page分支中(未上传)
 (这不会包括iiroseForge注入器)   
 当每次完成加载后执行以下js代码段   
 ```
-(function(d,s){s=d.createElement("script");s.src="http://me.qwq7.net/iiroseForge/l.js";d.body.appendChild(s);})(document)
+(function(d,s){s=d.createElement("script");s.src="//me.qwq7.net/iiroseForge/l.js";d.body.appendChild(s);})(document)
 ```
 请仅仅在url为 https://iirose.com 时注入脚本 否者可能损坏注入的页面 rose-core将不会进行判断   
 
 ## 对于浏览器用户
-已停止对浏览器用户的支持   
-旧的注入方式将不再生效 因为无法在https页面中以http获取脚本   
+已恢复对浏览器用户的支持   
+请新建浏览器书签   
+并将以下内容保存至书签网站输入框   
+```
+javascript:(function(d,s){s=d.createElement("script");s.src="//me.qwq7.net/iiroseForge/l.js";d.body.appendChild(s);})(document)
+```
+访问蔷薇花园网页 https://iirose.com 并点击书签进行注入
