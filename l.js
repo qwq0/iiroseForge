@@ -9,7 +9,7 @@
 		cw["p_QwQ"] = "loaded";
 		var scr = cw.document.createElement("script");
 		scr.setAttribute("type", "text/javascript");
-		scr.setAttribute("src", "https://me.qwq7.net/iiroseForge/core.js?" + Math.random());
+		scr.setAttribute("src", "https://qwq0.github.io/iiroseForge/core.js?" + Math.random());
 		cw.document.body.appendChild(scr);
 	};
 	setTimeout(f, 1000);
