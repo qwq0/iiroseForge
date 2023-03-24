@@ -4,11 +4,159 @@ declare namespace cssG {
 }
 
 /**
+ * 钩子绑定信息
+ */
+declare class HookBindInfo {
+    /**
+     * @param {object} proxyObj
+     * @param {object} srcObj
+     * @param {Array<string | symbol>} keys
+     * @param {Map<string | symbol, Set<HookBindValue | HookBindCallback>>} hookMap
+     * @param {function(...any): any} ctFunc
+     */
+    constructor(proxyObj: object, srcObj: object, keys: Array<string | symbol>, hookMap: Map<string | symbol, Set<HookBindValue | HookBindCallback>>, ctFunc: (...args: any[]) => any);
+    /**
+     * 代理对象
+     * @type {object}
+     */
+    proxyObj: object;
+    /**
+     * 源对象
+     * @type {object}
+     */
+    srcObj: object;
+    /**
+     * 需要监听代理对象上的值
+     * @type {Array<string | symbol>}
+     */
+    keys: Array<string | symbol>;
+    /**
+     * 修改指定值时需要触发的钩子
+     * @type {Map<string | symbol, Set<HookBindValue | HookBindCallback>>}
+     */
+    hookMap: Map<string | symbol, Set<HookBindValue | HookBindCallback>>;
+    /**
+     * 值处理函数
+     * 若存在此函数则需要调用
+     * @type {function(...any): any}
+     */
+    ctFunc: (...args: any[]) => any;
+    /**
+     * 获取此钩子绑定的值
+     */
+    getValue(): any;
+    /**
+     * 添加钩子
+     * @package
+     * @param {HookBindValue | HookBindCallback} hookObj
+     */
+    addHook(hookObj: HookBindValue | HookBindCallback): void;
+    /**
+     * 移除钩子
+     * @package
+     * @param {HookBindValue | HookBindCallback} hookObj
+     */
+    removeHook(hookObj: HookBindValue | HookBindCallback): void;
+    /**
+     * 绑定到值
+     * @template {Object} T
+     * @param {T} targetObj
+     * @param {(keyof T) | (string & {}) | symbol} targetKey
+     * @returns {HookBindValue}
+     */
+    bindToValue<T extends unknown>(targetObj: T, targetKey: symbol | (string & {}) | keyof T): HookBindValue;
+    /**
+     * 绑定到回调函数
+     * @param {function(any): void} callback
+     * @returns {HookBindCallback}
+     */
+    bindToCallback(callback: (arg0: any) => void): HookBindCallback;
+}
+/**
+ * 钩子绑定到回调类
+ */
+declare class HookBindCallback {
+    /**
+     * @param {HookBindInfo} info
+     * @param {function(any): void} callback
+     */
+    constructor(info: HookBindInfo, callback: (arg0: any) => void);
+    /**
+     * 钩子信息
+     * @type {HookBindInfo}
+     */
+    info: HookBindInfo;
+    /**
+     * 回调函数的弱引用
+     * @type {WeakRef<function(any): void>}
+     */
+    cbRef: WeakRef<(arg0: any) => void>;
+    /**
+     * 回调函数
+     * 当此钩子绑定自动释放时为null
+     * @type {function(any): void}
+     */
+    callback: (arg0: any) => void;
+    /**
+     * 触发此钩子
+     */
+    emit(): void;
+    /**
+     * 销毁此钩子
+     * 销毁后钩子将不再自动触发
+     */
+    destroy(): void;
+    /**
+     * 绑定销毁
+     * 当目标对象释放时销毁
+     * @param {object} targetObj
+     * @returns {HookBindCallback} 返回自身
+     */
+    bindDestroy(targetObj: object): HookBindCallback;
+}
+/**
+ * 钩子绑定到值类
+ */
+declare class HookBindValue {
+    /**
+     * @param {HookBindInfo} info
+     * @param {object} targetObj
+     * @param {string | symbol} targetKey
+     */
+    constructor(info: HookBindInfo, targetObj: object, targetKey: string | symbol);
+    /**
+     * 钩子信息
+     * @type {HookBindInfo}
+     */
+    info: HookBindInfo;
+    /**
+     * 目标对象
+     * @type {WeakRef<object>}
+     */
+    targetRef: WeakRef<any>;
+    /**
+     * 目标对象的键
+     * @type {string | symbol}
+     */
+    targetKey: string | symbol;
+    /**
+     * 触发此钩子
+     * 销毁后仍可通过此方法手动触发
+     */
+    emit(): void;
+    /**
+     * 销毁此钩子
+     * 销毁后钩子将不再自动触发
+     */
+    destroy(): void;
+}
+
+/**
  * 创建NStyle 省略new
  * @param {keyOfStyle} key
- * @param {string} value
+ * @param {string | HookBindInfo} value
  */
-declare function createNStyle(key: keyOfStyle, value: string): NStyle<keyOfStyle>;
+declare function createNStyle(key: keyOfStyle, value: string | HookBindInfo): NStyle<keyOfStyle>;
 /**
  * @typedef {(keyof CSSStyleDeclaration & string) | (string & {})} keyOfStyle
  */
@@ -19,17 +167,17 @@ declare function createNStyle(key: keyOfStyle, value: string): NStyle<keyOfStyle
 declare class NStyle<T extends keyOfStyle> {
     /**
      * @param {T} key
-     * @param {string} value
+     * @param {string | HookBindInfo} value
      */
-    constructor(key: T, value: string);
+    constructor(key: T, value: string | HookBindInfo);
     /**
      * @type {T}
      */
     key: T;
     /**
-     * @type {string}
+     * @type {string | HookBindInfo}
      */
-    value: string;
+    value: string | HookBindInfo;
     /**
      * 将此特征应用于元素
      * @param {NElement} e
@@ -40,7 +188,6 @@ type keyOfStyle = (keyof CSSStyleDeclaration & string) | (string & {});
 
 /**
  * 根据HTMLElement对象获取NElement对象
- * 如果没有则生成
  * @template {HTMLElement} ElementObjectType
  * @param {ElementObjectType} element
  * @returns {NElement<ElementObjectType>}
@@ -52,13 +199,29 @@ declare function getNElement<ElementObjectType extends HTMLElement>(element: Ele
  */
 declare class NElement<ElementObjectType extends HTMLElement> {
     /**
+     * 根据HTMLElement对象获取NElement对象
+     * @template {HTMLElement} ElementObjectType
+     * @param {ElementObjectType} element
+     * @returns {NElement<ElementObjectType>}
+     */
+    static byElement<ElementObjectType_1 extends HTMLElement>(element: ElementObjectType_1): NElement<ElementObjectType_1>;
+    /**
+     * @private
      * @param {ElementObjectType} elementObj
      */
-    constructor(elementObj: ElementObjectType);
+    private constructor();
     /**
+     * 元素对象
+     * @readonly
      * @type {ElementObjectType}
      */
-    element: ElementObjectType;
+    readonly element: ElementObjectType;
+    /**
+     * 样式名 到 钩子绑定 映射
+     * @private
+     * @type {Map<string, HookBindValue | HookBindCallback>}
+     */
+    private styleHooks;
     /**
      * 添加单个子节点
      * @param {NElement | HTMLElement} chi
@@ -109,9 +272,10 @@ declare class NElement<ElementObjectType extends HTMLElement> {
     /**
      * 修改样式
      * @param {import("../feature/NStyle").keyOfStyle} styleName
-     * @param {string | number} value
+     * @param {string | number | HookBindInfo} value
+     * @param {HookBindValue | HookBindCallback} [hookObj]
      */
-    setStyle(styleName: keyOfStyle, value: string | number): void;
+    setStyle(styleName: keyOfStyle, value: string | number | HookBindInfo, hookObj?: HookBindValue | HookBindCallback | undefined): void;
     /**
      * 获取样式
      * @param {import("../feature/NStyle").keyOfStyle} styleName
@@ -603,8 +767,9 @@ declare class NElement<ElementObjectType extends HTMLElement> {
     /**
      * 添加文本
      * @param {string} text
+     * @returns {Text}
      */
-    addText(text: string): void;
+    addText(text: string): Text;
     /**
      * 设置多个HTMLElement属性
      * @param {Object<string, string>} obj
@@ -1285,17 +1450,13 @@ declare class NAsse {
 }
 
 /**
- * @typedef {{
- *      [x in (keyof HTMLElement)]: any
- *  } | {
- *      [x: string]: any
- * }} keyObjectOfHtmlElementAttr
+ * @typedef {(keyof HTMLElement & string) | (string & {})} keyObjectOfHtmlElementAttr
  */
 /**
  * 属性
- * @template {keyof keyObjectOfHtmlElementAttr} T
+ * @template {keyObjectOfHtmlElementAttr} T
  */
-declare class NAttr<T extends "normalize" | "id" | "matches" | "remove" | "translate" | "contains" | "hidden" | "slot" | "style" | "title" | "dir" | "animate" | "blur" | "click" | "focus" | "scroll" | "addEventListener" | "removeEventListener" | "accessKey" | "accessKeyLabel" | "autocapitalize" | "draggable" | "inert" | "innerText" | "lang" | "offsetHeight" | "offsetLeft" | "offsetParent" | "offsetTop" | "offsetWidth" | "outerText" | "spellcheck" | "attachInternals" | "attributes" | "classList" | "className" | "clientHeight" | "clientLeft" | "clientTop" | "clientWidth" | "localName" | "namespaceURI" | "onfullscreenchange" | "onfullscreenerror" | "outerHTML" | "ownerDocument" | "part" | "prefix" | "scrollHeight" | "scrollLeft" | "scrollTop" | "scrollWidth" | "shadowRoot" | "tagName" | "attachShadow" | "closest" | "getAttribute" | "getAttributeNS" | "getAttributeNames" | "getAttributeNode" | "getAttributeNodeNS" | "getBoundingClientRect" | "getClientRects" | "getElementsByClassName" | "getElementsByTagName" | "getElementsByTagNameNS" | "hasAttribute" | "hasAttributeNS" | "hasAttributes" | "hasPointerCapture" | "insertAdjacentElement" | "insertAdjacentHTML" | "insertAdjacentText" | "releasePointerCapture" | "removeAttribute" | "removeAttributeNS" | "removeAttributeNode" | "requestFullscreen" | "requestPointerLock" | "scrollBy" | "scrollIntoView" | "scrollTo" | "setAttribute" | "setAttributeNS" | "setAttributeNode" | "setAttributeNodeNS" | "setPointerCapture" | "toggleAttribute" | "webkitMatchesSelector" | "baseURI" | "childNodes" | "firstChild" | "isConnected" | "lastChild" | "nextSibling" | "nodeName" | "nodeType" | "nodeValue" | "parentElement" | "parentNode" | "previousSibling" | "textContent" | "appendChild" | "cloneNode" | "compareDocumentPosition" | "getRootNode" | "hasChildNodes" | "insertBefore" | "isDefaultNamespace" | "isEqualNode" | "isSameNode" | "lookupNamespaceURI" | "lookupPrefix" | "removeChild" | "replaceChild" | "ATTRIBUTE_NODE" | "CDATA_SECTION_NODE" | "COMMENT_NODE" | "DOCUMENT_FRAGMENT_NODE" | "DOCUMENT_NODE" | "DOCUMENT_POSITION_CONTAINED_BY" | "DOCUMENT_POSITION_CONTAINS" | "DOCUMENT_POSITION_DISCONNECTED" | "DOCUMENT_POSITION_FOLLOWING" | "DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC" | "DOCUMENT_POSITION_PRECEDING" | "DOCUMENT_TYPE_NODE" | "ELEMENT_NODE" | "ENTITY_NODE" | "ENTITY_REFERENCE_NODE" | "NOTATION_NODE" | "PROCESSING_INSTRUCTION_NODE" | "TEXT_NODE" | "dispatchEvent" | "ariaAtomic" | "ariaAutoComplete" | "ariaBusy" | "ariaChecked" | "ariaColCount" | "ariaColIndex" | "ariaColIndexText" | "ariaColSpan" | "ariaCurrent" | "ariaDisabled" | "ariaExpanded" | "ariaHasPopup" | "ariaHidden" | "ariaInvalid" | "ariaKeyShortcuts" | "ariaLabel" | "ariaLevel" | "ariaLive" | "ariaModal" | "ariaMultiLine" | "ariaMultiSelectable" | "ariaOrientation" | "ariaPlaceholder" | "ariaPosInSet" | "ariaPressed" | "ariaReadOnly" | "ariaRequired" | "ariaRoleDescription" | "ariaRowCount" | "ariaRowIndex" | "ariaRowIndexText" | "ariaRowSpan" | "ariaSelected" | "ariaSetSize" | "ariaSort" | "ariaValueMax" | "ariaValueMin" | "ariaValueNow" | "ariaValueText" | "role" | "getAnimations" | "after" | "before" | "replaceWith" | "innerHTML" | "nextElementSibling" | "previousElementSibling" | "childElementCount" | "children" | "firstElementChild" | "lastElementChild" | "append" | "prepend" | "querySelector" | "querySelectorAll" | "replaceChildren" | "assignedSlot" | "oncopy" | "oncut" | "onpaste" | "contentEditable" | "enterKeyHint" | "inputMode" | "isContentEditable" | "onabort" | "onanimationcancel" | "onanimationend" | "onanimationiteration" | "onanimationstart" | "onauxclick" | "onbeforeinput" | "onblur" | "oncancel" | "oncanplay" | "oncanplaythrough" | "onchange" | "onclick" | "onclose" | "oncontextmenu" | "oncuechange" | "ondblclick" | "ondrag" | "ondragend" | "ondragenter" | "ondragleave" | "ondragover" | "ondragstart" | "ondrop" | "ondurationchange" | "onemptied" | "onended" | "onerror" | "onfocus" | "onformdata" | "ongotpointercapture" | "oninput" | "oninvalid" | "onkeydown" | "onkeypress" | "onkeyup" | "onload" | "onloadeddata" | "onloadedmetadata" | "onloadstart" | "onlostpointercapture" | "onmousedown" | "onmouseenter" | "onmouseleave" | "onmousemove" | "onmouseout" | "onmouseover" | "onmouseup" | "onpause" | "onplay" | "onplaying" | "onpointercancel" | "onpointerdown" | "onpointerenter" | "onpointerleave" | "onpointermove" | "onpointerout" | "onpointerover" | "onpointerup" | "onprogress" | "onratechange" | "onreset" | "onresize" | "onscroll" | "onsecuritypolicyviolation" | "onseeked" | "onseeking" | "onselect" | "onselectionchange" | "onselectstart" | "onslotchange" | "onstalled" | "onsubmit" | "onsuspend" | "ontimeupdate" | "ontoggle" | "ontouchcancel" | "ontouchend" | "ontouchmove" | "ontouchstart" | "ontransitioncancel" | "ontransitionend" | "ontransitionrun" | "ontransitionstart" | "onvolumechange" | "onwaiting" | "onwebkitanimationend" | "onwebkitanimationiteration" | "onwebkitanimationstart" | "onwebkittransitionend" | "onwheel" | "autofocus" | "dataset" | "nonce" | "tabIndex"> {
+declare class NAttr<T extends keyObjectOfHtmlElementAttr> {
     /**
      * @param {T} key
      * @param {string | number | boolean | Function} value
@@ -1317,6 +1478,7 @@ declare class NAttr<T extends "normalize" | "id" | "matches" | "remove" | "trans
      */
     apply(e: NElement<any>): void;
 }
+type keyObjectOfHtmlElementAttr = (keyof HTMLElement & string) | (string & {});
 
 /**
  * 事件
@@ -1363,7 +1525,7 @@ declare class NTagName<T extends keyof HTMLElementTagNameMap> {
 
 /**
  * 特征列表
- * @typedef {Array<string | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement>} NList_list
+ * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement>} NList_list
  */
 declare class NList {
     /**
@@ -1410,7 +1572,7 @@ declare class NList {
 /**
  * 特征列表
  */
-type NList_list = Array<string | NTagName<any> | NStyle<any> | NAttr<any> | NEvent<any> | NAsse | NList | (string | NElement<any> | NStyle<any> | NEvent<any> | NAsse | NTagName<any> | NAttr<any> | NList | NList_list)[] | NElement<any>>;
+type NList_list = Array<string | HookBindInfo | NTagName<any> | NStyle<any> | NAttr<any> | NEvent<any> | NAsse | NList | (string | HookBindInfo | NElement<any> | NStyle<any> | NEvent<any> | NAsse | NTagName<any> | NAttr<any> | NList | NList_list)[] | NElement<any>>;
 
 /**
  * 指针数据

@@ -86,17 +86,323 @@
 	}
 
 	/**
+	 * 代理对象 到 钩子映射和目标对象 映射
+	 * @type {WeakMap<object, {
+	 *  hookMap: Map<string | symbol, Set<HookBindValue | HookBindCallback>>,
+	 *  srcObj: object
+	 * }>}
+	 */
+	/**
+	 * 目标对象 到 引用集合 映射
+	 * 确保当目标对象存活时引用集合的引用存活
+	 * 目前仅在HookBindCallback中使用
+	 * @type {WeakMap<object, Set<any>>}
+	 */
+	const targetRefMap = new WeakMap();
+
+	/**
+	 * 记录器
+	 * 在目标对象销毁时销毁钩子
+	 * @type {FinalizationRegistry<HookBindValue | HookBindCallback>}
+	 */
+	const register = new FinalizationRegistry(heldValue =>
+	{
+	    heldValue.destroy();
+	});
+
+
+	/**
+	 * 钩子绑定信息
+	 */
+	class HookBindInfo
+	{
+	    /**
+	     * 代理对象
+	     * @type {object}
+	     */
+	    proxyObj = null;
+	    /**
+	     * 源对象
+	     * @type {object}
+	     */
+	    srcObj = null;
+	    /**
+	     * 需要监听代理对象上的值
+	     * @type {Array<string | symbol>}
+	     */
+	    keys = [];
+	    /**
+	     * 修改指定值时需要触发的钩子
+	     * @type {Map<string | symbol, Set<HookBindValue | HookBindCallback>>}
+	     */
+	    hookMap = null;
+	    /**
+	     * 值处理函数
+	     * 若存在此函数则需要调用
+	     * @type {function(...any): any} 
+	     */
+	    ctFunc = null;
+
+	    /**
+	     * @param {object} proxyObj
+	     * @param {object} srcObj
+	     * @param {Array<string | symbol>} keys
+	     * @param {Map<string | symbol, Set<HookBindValue | HookBindCallback>>} hookMap
+	     * @param {function(...any): any} ctFunc
+	     */
+	    constructor(proxyObj, srcObj, keys, hookMap, ctFunc)
+	    {
+	        this.proxyObj = proxyObj;
+	        this.srcObj = srcObj;
+	        this.keys = keys;
+	        this.hookMap = hookMap;
+	        this.ctFunc = ctFunc;
+	    }
+
+	    /**
+	     * 获取此钩子绑定的值
+	     */
+	    getValue()
+	    {
+	        return (this.ctFunc ? this.ctFunc(...this.keys.map(o => this.srcObj[o])) : this.srcObj[this.keys[0]]);
+	    }
+
+	    /**
+	     * 添加钩子
+	     * @package
+	     * @param {HookBindValue | HookBindCallback} hookObj
+	     */
+	    addHook(hookObj)
+	    {
+	        this.keys.forEach(o =>
+	        {
+	            let set = this.hookMap.get(o);
+	            if (set == undefined)
+	            {
+	                set = new Set();
+	                this.hookMap.set(o, set);
+	            }
+	            set.add(hookObj);
+	        });
+	    }
+
+	    /**
+	     * 移除钩子
+	     * @package
+	     * @param {HookBindValue | HookBindCallback} hookObj
+	     */
+	    removeHook(hookObj)
+	    {
+	        this.keys.forEach(o =>
+	        {
+	            let set = this.hookMap.get(o);
+	            if (set)
+	            {
+	                set.delete(hookObj);
+	                if (set.size == 0)
+	                    this.hookMap.delete(o);
+	            }
+	        });
+	    }
+
+	    /**
+	     * 绑定到值
+	     * @template {Object} T
+	     * @param {T} targetObj
+	     * @param {(keyof T) | (string & {}) | symbol} targetKey
+	     * @returns {HookBindValue}
+	     */
+	    bindToValue(targetObj, targetKey)
+	    {
+	        return new HookBindValue(this, targetObj, (/** @type {string | symbol} */(targetKey)));
+	    }
+
+	    /**
+	     * 绑定到回调函数
+	     * @param {function(any): void} callback
+	     * @returns {HookBindCallback}
+	     */
+	    bindToCallback(callback)
+	    {
+	        return new HookBindCallback(this, callback);
+	    }
+	}
+
+	/**
+	 * 钩子绑定到回调类
+	 */
+	class HookBindCallback
+	{
+	    /**
+	     * 钩子信息
+	     * @type {HookBindInfo}
+	     */
+	    info = null;
+
+	    /**
+	     * 回调函数的弱引用
+	     * @type {WeakRef<function(any): void>}
+	     */
+	    cbRef = null;
+	    /**
+	     * 回调函数
+	     * 当此钩子绑定自动释放时为null
+	     * @type {function(any): void}
+	     */
+	    callback = null;
+
+	    /**
+	     * @param {HookBindInfo} info
+	     * @param {function(any): void} callback
+	     */
+	    constructor(info, callback)
+	    {
+	        this.info = info;
+	        this.cbRef = new WeakRef(callback);
+	        this.callback = callback;
+	        info.addHook(this);
+	    }
+
+	    /**
+	     * 触发此钩子
+	     */
+	    emit()
+	    {
+	        let callback = this.cbRef.deref();
+	        if (callback)
+	        {
+	            try
+	            {
+	                callback(this.info.getValue());
+	            }
+	            catch (err)
+	            {
+	                console.error(err);
+	            }
+	        }
+	    }
+
+	    /**
+	     * 销毁此钩子
+	     * 销毁后钩子将不再自动触发
+	     */
+	    destroy()
+	    {
+	        this.info.removeHook(this);
+	        register.unregister(this);
+	    }
+
+	    /**
+	     * 绑定销毁
+	     * 当目标对象释放时销毁
+	     * @param {object} targetObj
+	     * @returns {HookBindCallback} 返回自身
+	     */
+	    bindDestroy(targetObj)
+	    {
+	        let targetRefSet = targetRefMap.get(targetObj);
+	        if (targetRefSet == undefined)
+	        {
+	            targetRefSet = new Set();
+	            targetRefMap.set(targetObj, targetRefSet);
+	        }
+	        targetRefSet.add(this.callback);
+	        this.callback = null;
+	        register.register(targetObj, this, this);
+	        return this;
+	    }
+	}
+
+	/**
+	 * 钩子绑定到值类
+	 */
+	class HookBindValue
+	{
+	    /**
+	     * 钩子信息
+	     * @type {HookBindInfo}
+	     */
+	    info = null;
+
+	    /**
+	     * 目标对象
+	     * @type {WeakRef<object>}
+	     */
+	    targetRef = null;
+	    /**
+	     * 目标对象的键
+	     * @type {string | symbol}
+	     */
+	    targetKey = "";
+
+	    /**
+	     * @param {HookBindInfo} info
+	     * @param {object} targetObj
+	     * @param {string | symbol} targetKey
+	     */
+	    constructor(info, targetObj, targetKey)
+	    {
+	        this.info = info;
+	        this.targetRef = new WeakRef(targetObj);
+	        this.targetKey = targetKey;
+	        info.addHook(this);
+	        register.register(targetObj, this, this);
+	    }
+
+	    /**
+	     * 触发此钩子
+	     * 销毁后仍可通过此方法手动触发
+	     */
+	    emit()
+	    {
+	        let target = this.targetRef.deref();
+	        if (target != undefined)
+	        {
+	            try
+	            {
+	                target[this.targetKey] = this.info.getValue();
+	            }
+	            catch (err)
+	            {
+	                console.error(err);
+	            }
+	        }
+	    }
+
+	    /**
+	     * 销毁此钩子
+	     * 销毁后钩子将不再自动触发
+	     */
+	    destroy()
+	    {
+	        this.info.removeHook(this);
+	        register.unregister(this);
+	    }
+	}
+
+	const symbolKey = Symbol("NElement");
+
+	/**
 	 * dom元素的封装
 	 * @template {HTMLElement} ElementObjectType
 	 */
 	class NElement
 	{
 	    /**
+	     * 元素对象
+	     * @readonly
 	     * @type {ElementObjectType}
 	     */
 	    element = null;
+	    /**
+	     * 样式名 到 钩子绑定 映射
+	     * @private
+	     * @type {Map<string, HookBindValue | HookBindCallback>}
+	     */
+	    styleHooks = new Map();
 
 	    /**
+	     * @private
 	     * @param {ElementObjectType} elementObj
 	     */
 	    constructor(elementObj)
@@ -225,14 +531,28 @@
 	    /**
 	     * 修改样式
 	     * @param {import("../feature/NStyle").keyOfStyle} styleName
-	     * @param {string | number} value
+	     * @param {string | number | HookBindInfo} value
+	     * @param {HookBindValue | HookBindCallback} [hookObj]
 	     */
-	    setStyle(styleName, value)
+	    setStyle(styleName, value, hookObj)
 	    {
-	        // @ts-expect-error
-	        this.element.style[styleName] = value;
+	        if (hookObj != this.styleHooks.get(styleName))
+	        {
+	            this.styleHooks.get(styleName)?.destroy();
+	            if (hookObj != undefined)
+	                this.styleHooks.set(styleName, hookObj);
+	            else
+	                this.styleHooks.delete(styleName);
+	        }
+	        if (value instanceof HookBindInfo)
+	            value.bindToCallback(o =>
+	            {
+	                this.setStyle(styleName, o, hookObj);
+	            }).bindDestroy(this).emit();
+	        else
+	            // @ts-expect-error
+	            this.element.style[styleName] = value;
 	    }
-
 	    /**
 	     * 获取样式
 	     * @param {import("../feature/NStyle").keyOfStyle} styleName
@@ -246,7 +566,7 @@
 
 	    /**
 	     * 修改多个样式
-	     * @param {{ [x in import("../feature/NStyle").keyOfStyle]?: string | number | undefined }} obj
+	     * @param {{ [x in (import("../feature/NStyle").keyOfStyle)]?: string | number }} obj
 	     */
 	    setStyles(obj)
 	    {
@@ -270,10 +590,11 @@
 	    /**
 	     * 添加文本
 	     * @param {string} text
+	     * @returns {Text}
 	     */
 	    addText(text)
 	    {
-	        this.element.appendChild(document.createTextNode(text));
+	        return this.element.appendChild(document.createTextNode(text));
 	    }
 
 	    /**
@@ -347,23 +668,32 @@
 	    {
 	        return (/** @type {keyof HTMLElementTagNameMap} */(this.element.tagName.toLowerCase()));
 	    }
+
+	    /**
+	     * 根据HTMLElement对象获取NElement对象
+	     * @template {HTMLElement} ElementObjectType
+	     * @param {ElementObjectType} element
+	     * @returns {NElement<ElementObjectType>}
+	     */
+	    static byElement(element)
+	    {
+	        if (element[symbolKey])
+	            return element[symbolKey];
+	        else
+	            return element[symbolKey] = new NElement(element);
+	    }
 	}
 
-	const symbolKey = Symbol("NElement");
 
 	/**
 	 * 根据HTMLElement对象获取NElement对象
-	 * 如果没有则生成
 	 * @template {HTMLElement} ElementObjectType
 	 * @param {ElementObjectType} element
 	 * @returns {NElement<ElementObjectType>}
 	 */
 	function getNElement(element)
 	{
-	    if (element[symbolKey])
-	        return element[symbolKey];
-	    else
-	        return element[symbolKey] = new NElement(element);
+	    return NElement.byElement(element);
 	}
 
 	/**
@@ -402,7 +732,7 @@
 	}
 
 	/**
-	 * @typedef {(keyof CSSStyleDeclaration) | (string & {})} keyOfStyle
+	 * @typedef {(keyof CSSStyleDeclaration & string) | (string & {})} keyOfStyle
 	 */
 	/**
 	 * 样式
@@ -415,13 +745,13 @@
 	     */
 	    key = null;
 	    /**
-	     * @type {string}
+	     * @type {string | HookBindInfo}
 	     */
 	    value = null;
 
 	    /**
 	     * @param {T} key
-	     * @param {string} value
+	     * @param {string | HookBindInfo} value
 	     */
 	    constructor(key, value)
 	    {
@@ -435,14 +765,14 @@
 	     */
 	    apply(e)
 	    {
-	        e.setStyle(this.key, /** @type {string | number} */(this.value));
+	        e.setStyle(this.key, this.value);
 	    }
 	}
 
 	/**
 	 * 创建NStyle 省略new
 	 * @param {keyOfStyle} key
-	 * @param {string} value
+	 * @param {string | HookBindInfo} value
 	 */
 	function createNStyle(key, value)
 	{
@@ -480,15 +810,11 @@
 	}
 
 	/**
-	 * @typedef {{
-	 *      [x in (keyof HTMLElement)]: any
-	 *  } | {
-	 *      [x: string]: any
-	 * }} keyObjectOfHtmlElementAttr
+	 * @typedef {(keyof HTMLElement & string) | (string & {})} keyObjectOfHtmlElementAttr
 	 */
 	/**
 	 * 属性
-	 * @template {keyof keyObjectOfHtmlElementAttr} T
+	 * @template {keyObjectOfHtmlElementAttr} T
 	 */
 	class NAttr
 	{
@@ -555,7 +881,7 @@
 
 	/**
 	 * 特征列表
-	 * @typedef {Array<string | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement>} NList_list
+	 * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement>} NList_list
 	 */
 	class NList
 	{
@@ -585,36 +911,53 @@
 	     */
 	    apply(element)
 	    {
-	        let tagName = element.getTagName();
+	        const tagName = element.getTagName();
 	        this.list.forEach(o =>
 	        {
 	            if (typeof (o) == "string") // 内部文本
 	                element.addText(o);
-	            else if (o instanceof NTagName) // 标签名
-	            {
-	                if (tagName != o.tagName)
-	                    throw "(NList) The feature tagName does not match the element";
-	            }
-	            else if (
-	                (o instanceof NStyle) || // 样式
-	                (o instanceof NAttr) || // 元素属性
-	                (o instanceof NEvent) || // 事件
-	                (o instanceof NAsse) // 流水线
-	            )
-	                o.apply(element);
-	            else if (o instanceof NElement) // 子元素
-	                element.addChild(o);
-	            else if (o instanceof NList) // 子列表
-	            {
-	                if (o.flatFlag) // 子特征(列表)
-	                    o.apply(element);
-	                else // 子元素(列表)
-	                    element.addChild(o.getElement());
-	            }
-	            else if (Array.isArray(o)) // 子元素(列表)
-	                element.addChild(NList.getElement(o));
 	            else
-	                throw "(NList) Untractable feature types were found";
+	            {
+	                switch (Object.getPrototypeOf(o)?.constructor)
+	                {
+	                    case HookBindInfo:{ // 内部文本
+	                        const hookInfo =  (/** @type {HookBindInfo} */(o));
+	                        const text = element.addText(hookInfo.getValue());
+	                        hookInfo.bindToValue(text, "data");
+	                        break;
+	                    }
+	                    case NTagName: { // 标签名
+	                        if (tagName != (/** @type {NTagName} */(o)).tagName)
+	                            throw "(NList) The feature tagName does not match the element";
+	                        break;
+	                    }
+	                    case NStyle: // 样式
+	                    case NAttr: // 元素属性
+	                    case NEvent: // 事件
+	                    case NAsse: { // 流水线
+	                        (/** @type {NStyle | NAttr | NEvent | NAsse} */(o)).apply(element);
+	                        break;
+	                    }
+	                    case NElement: { // 子元素
+	                        element.addChild(/** @type {NElement} */(o));
+	                        break;
+	                    }
+	                    case NList: { // 子列表
+	                        const childList = (/** @type {NList} */(o));
+	                        if (childList.flatFlag) // 子特征(列表)
+	                            childList.apply(element);
+	                        else // 子元素(列表)
+	                            element.addChild(childList.getElement());
+	                        break;
+	                    }
+	                    case Array: { // 子元素(列表)
+	                        element.addChild(NList.getElement((/** @type {Array} */(o))));
+	                        break;
+	                    }
+	                    default:
+	                        throw "(NList) Untractable feature types were found";
+	                }
+	            }
 	        });
 	    }
 
@@ -681,12 +1024,159 @@
 	/**
 	 * 主iframe的上下文
 	 */
-	let iframeCt = {
+	let iframeContext = {
 	    iframeWindow: null,
 	    iframeDocument: null,
-	    socket: null
+	    socket: null,
+	    /**
+	     * @type {import("../../lib/qwqframe").NElement<HTMLBodyElement>}
+	     */
+	    iframeBody: null
 	};
 
+	/**
+	 * document.body的NElement封装
+	 */
+	getNElement(document.body);
+
+	function getForgeMenu()
+	{
+	    let menu = NList.getElement([
+	        createNStyle("position", "fixed"),
+	        createNStyle("top", "0"),
+	        createNStyle("left", "0"),
+	        createNStyle("zIndex", "91000"),
+	        createNStyle("height", "100%"),
+	        createNStyle("width", "100%"),
+	        createNStyle("backgroundColor", "rgba(255,255,255,0.8)"),
+
+	        [
+	            createNStyle("opacity", "0.8"),
+	            createNStyle("backgroundColor", "#303030"),
+	            createNStyle("width", "100%"),
+	            createNStyle("boxShadow", "0 0 1px rgb(0, 0, 0, 0.12), 0 1px 1px rgb(0, 0, 0, 0.24)"),
+	            createNStyle("zIndex", "2"),
+	            createNStyle("fontFamily", "md"),
+	            createNStyle("height", "40px"),
+	            createNStyle("lineHeight", "40px"),
+	            createNStyle("fontSize", "26px !important"),
+	            createNStyle("padding", "0 64px 0 24px"),
+	            createNStyle("whiteSpace", "nowrap"),
+	            createNStyle("boxSizing", "border-box"),
+	            createNStyle("position", "relative"),
+	            createNStyle("color", "#fff"),
+	            [
+	                createNStyle("fontSize", "16px !important"),
+	                createNStyle("opacity", "0.7"),
+	                createNStyle("fontWeight", "bold"),
+	                createNStyle("marginLeft", "24px"),
+	                createNStyle("height", "100%"),
+	                createNStyle("lineHeight", "40px"),
+	                createNStyle("display", "inline"),
+	                createNStyle("verticalAlign", "top"),
+
+	                "欢迎使用Forge for iirose"
+	            ]
+	        ],
+
+	        [],
+
+	        [
+	            createNStyle("color", "#303030"),
+	            createNStyle("background", "#fff"),
+	            createNStyle("opacity", ".8"),
+	            createNStyle("display", "flex"),
+	            createNStyle("height", "40px"),
+	            createNStyle("position", "absolute"),
+	            createNStyle("bottom", "0"),
+	            createNStyle("width", "100%"),
+	            createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
+	            createNStyle("zIndex", "2"),
+
+	            ...([
+	                {
+	                    text: "返回",
+	                    onClick: () =>
+	                    {
+	                        menu.remove();
+	                    }
+	                }
+	            ].map(o => [
+	                createNStyle("width", "0"),
+	                createNStyle("flexGrow", "1"),
+	                createNStyle("justifyContent", "center"),
+	                createNStyle("padding", "0 24px"),
+	                createNStyle("boxSizing", "border-box"),
+
+	                new NEvent("click", o.onClick),
+
+	                [],
+
+	                [
+	                    createNStyle("display", "inline-block"),
+	                    createNStyle("verticalAlign", "top"),
+	                    createNStyle("height", "100%"),
+	                    createNStyle("fontWeight", "bold"),
+	                    createNStyle("marginLeft", "22px"),
+	                    createNStyle("fontSize", "14px !important"),
+	                    createNStyle("lineHeight", "40px"),
+	                    createNStyle("overflow", "hidden"),
+	                    createNStyle("whiteSpace", "pre"),
+	                    createNStyle("textOverflow", "ellipsis"),
+
+	                    o.text
+	                ]
+	            ]))
+	        ]
+	    ]);
+	    menu.element.id = "iiroseForgeMenu";
+
+	    return menu;
+	}
+
+	function getMenuButton()
+	{
+	    let button = NList.getElement([
+	        createNStyle("background", "#fff"),
+	        createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
+	        createNStyle("position", "relative"),
+	        createNStyle("zIndex", "1"),
+
+	        createNStyle("color", "#212121"),
+	        createNStyle("paddingLeft", "16px"),
+	        createNStyle("paddingRight", "56px"),
+	        createNStyle("transition", "background-color 0.1s ease 0s, color 0.1s ease 0s"),
+	        createNStyle("cursor", "url(images/cursor/2.cur), pointer"),
+	        createNStyle("width", "100%"),
+	        createNStyle("height", "56px"),
+	        createNStyle("boxSizing", "border-box"),
+	        createNStyle("lineHeight", "56px"),
+	        createNStyle("whiteSpace", "nowrap"),
+
+	        new NEvent("click", () =>
+	        {
+	            iframeContext.iframeBody.addChild(getForgeMenu());
+	        }),
+
+	        [
+	            new NTagName("span"),
+	            new NAsse(e => e.element.classList.add("functionBtnIcon", "mdi-anvil"))
+	        ],
+	        [
+	            new NTagName("span"),
+	            "Forge菜单",
+	            new NAsse(e => e.element.classList.add("functionBtnFont"))
+	        ],
+	        [
+	            new NTagName("span"),
+	            createNStyle("transform", "rotate(-90deg)"),
+	            new NAsse(e => e.element.classList.add("functionBtnGroupIcon"))
+	        ]
+	    ]);
+	    button.element.id = "iiroseForgeMenuButton";
+
+	    return button;
+	}
 
 	/**
 	 * 初始化注入iframe元素
@@ -711,55 +1201,20 @@
 	             * 左侧菜单栏
 	             */
 	            let functionHolder = getNElement(/** @type {HTMLElement} */(iframeDocument.getElementById("functionHolder").childNodes[0]));
-	            let button = NList.getElement([
-	                createNStyle("background", "#fff"),
-	                createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
-	                createNStyle("position", "relative"),
-	                createNStyle("zIndex", "1"),
-
-	                createNStyle("color", "#212121"),
-	                createNStyle("paddingLeft", "16px"),
-	                createNStyle("paddingRight", "56px"),
-	                createNStyle("transition", "background-color 0.1s ease 0s, color 0.1s ease 0s"),
-	                createNStyle("cursor", "url(images/cursor/2.cur), pointer"),
-	                createNStyle("width", "100%"),
-	                createNStyle("height", "56px"),
-	                createNStyle("boxSizing", "border-box"),
-	                createNStyle("lineHeight", "56px"),
-	                createNStyle("whiteSpace", "nowrap"),
-
-	                new NEvent("click", () =>
-	                {
-	                }),
-
-	                [
-	                    new NTagName("span"),
-	                    new NAsse(e => e.element.classList.add("functionBtnIcon", "mdi-anvil"))
-	                ],
-	                [
-	                    new NTagName("span"),
-	                    "Forge菜单",
-	                    new NAsse(e => e.element.classList.add("functionBtnFont"))
-	                ],
-	                [
-	                    new NTagName("span"),
-	                    createNStyle("transform", "rotate(-90deg)"),
-	                    new NAsse(e => e.element.classList.add("functionBtnGroupIcon"))
-	                ]
-	            ]);
-	            button.element.id = "iiroseForgeMenuButton";
+	            let button = getMenuButton();
 
 	            functionHolder.insChild(button, 1); // 添加菜单到左侧菜单栏第二个按钮前
 	        })();
 
-	        iframeCt.iframeDocument = iframeDocument;
-	        iframeCt.iframeWindow = iframeWindow;
+	        iframeContext.iframeDocument = iframeDocument;
+	        iframeContext.iframeWindow = iframeWindow;
+	        iframeContext.iframeBody = getNElement(/** @type {HTMLBodyElement} */(iframeDocument.body));
 
-	        iframeCt.socket = iframeWindow["socket"];
+	        iframeContext.socket = iframeWindow["socket"];
 
 	        (() => // 注入socket
 	        {
-	            iframeCt.socket._onmessage = proxyFunction(iframeCt.socket._onmessage.bind(iframeCt.socket), (data) =>
+	            iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (data) =>
 	            {
 	                return false;
 	            });
