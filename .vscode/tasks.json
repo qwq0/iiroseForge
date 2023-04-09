@@ -10,6 +10,16 @@
             "runOptions": {
                 "runOn": "folderOpen"
             }
+        },
+        {
+            "label": "terser",
+            "type": "shell",
+            "command": "terser --compress --mangle -o ./dist/iiroseForge.min.js -- ./dist/iiroseForge.js",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }
