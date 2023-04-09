@@ -4,7 +4,7 @@ import "./forgeApi/forgeApi.js";
 
 if (location.host == "iirose.com")
 {
-    if (localStorage.pathname == "/")
+    if (location.pathname == "/")
     {
         if (!window["iiroseForgeInjected"])
         {

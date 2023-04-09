@@ -1,7 +1,8 @@
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement } from "../../lib/qwqframe.js";
+import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
 import { loadPlugIn } from "../plug/plug.js";
 import { className } from "../ui/className.js";
-import { showInputBox } from "../ui/infobox.js";
+import { showInfoBox, showInputBox } from "../ui/infobox.js";
 
 /**
  * 获取forge菜单
@@ -66,6 +67,26 @@ export function getForgeMenu()
                             {
                                 loadPlugIn(pluginUrl, pluginUrl);
                             }
+                        }
+                    },
+                    {
+                        title: "安装iiroseForge",
+                        text: "下次使用无需注入",
+                        icon: "puzzle",
+                        onClick: async () =>
+                        {
+                            writeForgeToCache();
+                            showInfoBox("安装iiroseForge", "已完成");
+                        }
+                    },
+                    {
+                        title: "卸载iiroseForge",
+                        text: "下次启动清除iiroseForge",
+                        icon: "puzzle",
+                        onClick: async () =>
+                        {
+                            removeForgeFromCache();
+                            showInfoBox("卸载iiroseForge", "已完成");
                         }
                     }
                 ]).map(o => [
