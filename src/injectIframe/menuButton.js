@@ -1,8 +1,12 @@
-import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent } from "../../lib/qwqframe.js";
+import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement } from "../../lib/qwqframe.js";
 import { body } from "../ui/body.js";
 import { getForgeMenu } from "./forgeMenu.js";
 import { iframeContext } from "./iframeContext.js";
 
+/**
+ * 获取forge按钮
+ * @returns {NElement}
+ */
 export function getMenuButton()
 {
     let button = NList.getElement([

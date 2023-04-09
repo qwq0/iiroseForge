@@ -51,6 +51,29 @@
 	 * css生成
 	 * @namespace
 	 */
+	const cssG = {
+	    /**
+	     * 100%减去指定值
+	     * @param {string} value
+	     * @returns {string}
+	     */
+	    diFull: (value) =>
+	    {
+	        return ("calc(100% - " + value + ")");
+	    },
+
+	    /**
+	     * 构建rgb或rgba颜色颜色
+	     * @param {number | string} r 0~255
+	     * @param {number | string} g 0~255
+	     * @param {number | string} b 0~255
+	     * @param {number | string} [a] 0~1
+	     */
+	    rgb: (r, g, b, a = 1) =>
+	    {
+	        return "rgba(" + r + ", " + g + ", " + b + ", " + a + ")";
+	    }
+	};
 
 	/**
 	 * 正向遍历数组
@@ -697,6 +720,173 @@
 	}
 
 	/**
+	 * 遍历展开元素
+	 * @typedef {{
+	 *     id?:  string, // id
+	 *     left?: string, // 距左边(style)
+	 *     top?: string, // 距顶边(style)
+	 *     right?: string, // 距右边(style)
+	 *     bottom?: string, // 距底边(style)
+	 *     width?: string, // 宽度(style)
+	 *     height?: string, // 高度(style)
+	 *     position?: "static" | "absolute" | "relative" | "fixed" | string, // 定位方式(style)
+	 *     display?: "block" | "inline" | "none" | "inline-block" | string, // 显示方式(style)
+	 *     overflow?: "visible" | "hidden" | "scroll" | "auto" | string, // 超出部分(style)
+	 *     tagName?: string, // html标签名(标签类型)
+	 *     classList?: Array<string>, // html标签类名列表
+	 *     text?: string, // 文本
+	 *     style?: {[x in (keyof CSSStyleDeclaration)]?: string | number} | {[x: string]: string | number}, // 样式对象
+	 *     attr?: Object<string, string>, // 属性对象(HTMLElement的附加属性)
+	 *     event?: {[x in (keyof HTMLElementEventMap)]?: (function(Event) : void)} | {[x: string]: (function(Event) : void)}, // 事件绑定
+	 *     child?: Array<EDObj | NElement>, // 子节点
+	 *     assembly?: Array<function(NElement) : void | NElement>, // 流水线
+	 *     [x: string]: any
+	 * }} EDObj
+	 * @param {EDObj} obj
+	 * @returns {NElement}
+	*/
+	function expEle(obj)
+	{
+	    let now = getNElement(document.createElement(obj.tagName ? obj.tagName : "div"));
+
+	    ([
+	        "height",
+	        "width",
+	        "position",
+	        "top",
+	        "left",
+	        "right",
+	        "bottom",
+	        "display",
+	        "overflow"
+	    ]).forEach(key =>
+	    {
+	        if (obj[key])
+	        {
+	            now.setStyle(key, obj[key]);
+	        }
+	    });
+
+	    if (obj.style)
+	        now.setStyles(obj.style);
+	    if (obj.text)
+	        now.setText(obj.text);
+	    if (obj.attr)
+	        now.setAttrs(obj.attr);
+	    if (obj.classList)
+	        now.element.classList.add(...obj.classList);
+	    if (obj.event) // 如果有绑定事件
+	    {
+	        Object.keys(obj.event).forEach(key =>
+	        {
+	            if (obj.event[key])
+	                now.addEventListener(/** @type {keyof HTMLElementEventMap} */(key), obj.event[key]);
+	        });
+	    }
+	    if (obj.child) // 若有子元素
+	    {
+	        obj.child.forEach(o => // 遍历
+	        {
+	            if (o)
+	            {
+	                if (o instanceof NElement)
+	                    now.addChild(o);
+	                else
+	                    now.addChild(expEle(o));
+	            }
+	        });
+	    }
+	    if (obj.assembly)
+	    {
+	        obj.assembly.forEach(o =>
+	        {
+	            let e = o(now);
+	            if (e)
+	                now = e;
+	        });
+	    }
+	    return now;
+	}
+
+	/**
+	 * 遍历预处理
+	 * @param {EDObj} obj
+	 * @param {Object<string, any>} def
+	 * @returns {EDObj}
+	*/
+	function preC(obj, def)
+	{
+	    /**
+	     * 当前结果
+	     * @type {EDObj}
+	     */
+	    let now = {};
+	    /**
+	     * 缓存当前定义 之后回退
+	     * @type {EDObj}
+	     */
+	    let nowDef = {};
+	    Object.keys(def).forEach(key => now[key] = def[key]);
+	    Object.keys(obj).forEach(key =>
+	    {
+	        if (key != "child")
+	        {
+	            if (key[0] == "$")
+	            {
+	                let rKey = key.slice(1);
+	                nowDef[rKey] = def[rKey];
+	                now[rKey] = def[rKey] = obj[key];
+	            }
+	            else if (key.slice(-1) == "$")
+	            {
+	                let rKey = key.slice(0, -1);
+	                nowDef[rKey] = def[rKey];
+	                def[rKey] = obj[key];
+	            }
+	            else
+	                now[key] = obj[key];
+	        }
+	    });
+
+	    if (now.left && now.right && now.width)
+	        delete (now.width);
+	    if (now.top && now.bottom && now.height)
+	        delete (now.height);
+
+	    if (obj.child) // 若有子元素
+	    {
+	        /**
+	         * @type {Array<EDObj | NElement>}
+	        */
+	        now.child = [];
+	        obj.child.forEach(o => // 遍历
+	        {
+	            if (o)
+	            {
+	                if (o instanceof NElement)
+	                    now.child.push(o);
+	                else
+	                    now.child.push(preC(o, def));
+	            }
+	        });
+	    }
+	    Object.keys(nowDef).forEach(key => def[key] = nowDef[key]);
+	    return now;
+	}
+
+	/**
+	 * 展开元素
+	 * 将内容js对象转换为封装的HTML树
+	 * 请不要转换不受信任的json
+	 * @param {EDObj} obj EleData格式的对象
+	 * @returns {NElement}
+	*/
+	function expandElement(obj)
+	{
+	    return expEle(preC(obj, {}));
+	}
+
+	/**
 	 * 事件
 	 * @template {keyof HTMLElementEventMap} T
 	 */
@@ -778,8 +968,6 @@
 	{
 	    return new NStyle(key, value);
 	}
-
-	createNStyle("asd", "");
 
 	/**
 	 * 流水线
@@ -1025,20 +1213,693 @@
 	 * 主iframe的上下文
 	 */
 	let iframeContext = {
+	    /**
+	     * @type {Window | Object}
+	     */
 	    iframeWindow: null,
+	    /**
+	     * @type {Document}
+	     */
 	    iframeDocument: null,
+	    /**
+	     * @type {WebSocket | Object}
+	     */
 	    socket: null,
 	    /**
 	     * @type {import("../../lib/qwqframe").NElement<HTMLBodyElement>}
 	     */
-	    iframeBody: null
+	    iframeBody: null,
+
+	    socketApi: {
+	        send: (/** @type {string} */ data) =>
+	        {
+	            iframeContext.socket.send(data);
+	        }
+	    }
 	};
 
 	/**
 	 * document.body的NElement封装
 	 */
-	getNElement(document.body);
+	let body = getNElement(document.body);
+	body.setStyle("cursor", "default");
 
+	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
+
+	/**
+	 * 生成唯一字符串
+	 * 基于毫秒级时间和随机数
+	 * 不保证安全性
+	 * @param {number} [randomSection] 随机节数量
+	 * @returns {string}
+	 */
+	function uniqueIdentifierString(randomSection = 2)
+	{
+	    var ret = Math.floor(Date.now()).toString(36);
+	    for (let i = 0; i < randomSection; i++)
+	        ret += "-" + Math.floor(Math.random() * 1e12).toString(36);
+	    return ret;
+	}
+
+	/**
+	 * 提取对象中的函数
+	 * @param {Object} obj
+	 * @param {Map<string, Function>} callbackMap
+	 */
+	function extractFunction(obj, callbackMap)
+	{
+	    let functionMap = new Map();
+
+	    /**
+	     * 遍历对象过滤函数
+	     * @param {any} now 
+	     * @returns {any}
+	     */
+	    function traversal(now)
+	    {
+	        if (typeof (now) == "function")
+	        {
+	            let ret = {};
+	            let functionId = uniqueIdentifierString();
+	            callbackMap.set(functionId, now);
+	            functionMap.set(ret, functionId);
+	            return ret;
+	        }
+	        else if (typeof (now) == "object")
+	        {
+	            if (Array.isArray(now))
+	            {
+	                return now.map(traversal);
+	            }
+	            else
+	            {
+	                let ret = {};
+	                Object.keys(now).forEach(key =>
+	                {
+	                    ret[key] = traversal(now[key]);
+	                });
+	                return ret;
+	            }
+	        }
+	        else
+	            return now;
+	    }
+	    let result = traversal(obj);
+
+	    return ({
+	        result: result,
+	        fnMap: functionMap
+	    });
+	}
+
+
+	const functionFinalizationRegistry = new FinalizationRegistry((/** @type {{ id: string, port: MessagePort }} */{ id, port }) =>
+	{
+	    port.postMessage({
+	        type: "rF",
+	        id: id
+	    });
+	});
+
+	/**
+	 * 将函数注入回对象
+	 * @param {Object} obj 
+	 * @param {Map<Object, string>} fnMap 
+	 * @param {MessagePort} port
+	 * @param {Map<string, Function>} callbackMap
+	 * @param {Map<string, Function>} callbackRejectMap
+	 */
+	function injectFunction(obj, fnMap, port, callbackMap, callbackRejectMap)
+	{
+	    /**
+	     * @type {Map<string, Function>}
+	     */
+	    let generatedFunctionMap = new Map();
+	    fnMap.forEach((id, functionObj) =>
+	    {
+	        if (!generatedFunctionMap.has(id))
+	        {
+	            let generatedFunction = (...param) =>
+	            {
+	                return new Promise((resolve, reject) =>
+	                {
+	                    let result = extractFunction(param, callbackMap);
+	                    let callbackId = uniqueIdentifierString();
+	                    callbackMap.set(callbackId, resolve);
+	                    callbackRejectMap.set(callbackId, reject);
+	                    port.postMessage({
+	                        type: "fn",
+	                        id: id,
+	                        param: result.result,
+	                        fnMap: (result.fnMap.size > 0 ? result.fnMap : undefined),
+	                        cb: callbackId
+	                    });
+	                });
+	            };
+	            generatedFunctionMap.set(id, generatedFunction);
+	            functionFinalizationRegistry.register(generatedFunction, {
+	                id: id,
+	                port: port
+	            });
+	        }
+	    });
+
+	    /**
+	     * 遍历对象嵌入函数
+	     * @param {any} now 
+	     * @returns {any}
+	     */
+	    const traversal = (now) =>
+	    {
+	        if (typeof (now) == "object")
+	        {
+	            if (fnMap.has(now))
+	            {
+	                return generatedFunctionMap.get(fnMap.get(now));
+	            }
+	            else if (Array.isArray(now))
+	            {
+	                return now.map(traversal);
+	            }
+	            else
+	            {
+	                let ret = {};
+	                Object.keys(now).forEach(key =>
+	                {
+	                    ret[key] = traversal(now[key]);
+	                });
+	                return ret;
+	            }
+	        }
+	        else
+	            return now;
+	    };
+	    let result = traversal(obj);
+
+	    return ({
+	        result: result
+	    });
+	}
+
+	/**
+	 * 事件处理器
+	 * 可以定多个事件响应函数
+	 * @template {*} T
+	 */
+	let EventHandler$1 = class EventHandler
+	{
+	    /**
+	     * 回调列表
+	     * @type {Array<function(T): void>}
+	     */
+	    cbList = [];
+	    /**
+	     * 单次回调列表
+	     * @type {Array<function(T): void>}
+	     */
+	    onceCbList = [];
+
+	    /**
+	     * 添加响应函数
+	     * @param {function(T): void} cb
+	     */
+	    add(cb)
+	    {
+	        this.cbList.push(cb);
+	    }
+
+	    /**
+	     * 添加单次响应函数
+	     * 触发一次事件后将不再响应
+	     * @param {function(T): void} cb
+	     */
+	    addOnce(cb)
+	    {
+	        this.onceCbList.push(cb);
+	    }
+
+	    /**
+	     * 移除响应函数
+	     * @param {function(T): void} cb
+	     */
+	    remove(cb)
+	    {
+	        let ind = this.cbList.indexOf(cb);
+	        if (ind > -1)
+	        {
+	            this.cbList.splice(ind, 1);
+	        }
+	        else
+	        {
+	            ind = this.onceCbList.indexOf(cb);
+	            if (ind > -1)
+	            {
+	                this.onceCbList.splice(ind, 1);
+	            }
+	        }
+	    }
+
+	    /**
+	     * 移除所有响应函数
+	     */
+	    removeAll()
+	    {
+	        this.cbList = [];
+	        this.onceCbList = [];
+	    }
+
+	    /**
+	     * 触发事件
+	     * @param {T} e
+	     */
+	    trigger(e)
+	    {
+	        this.cbList.forEach(o => { o(e); });
+	        this.onceCbList.forEach(o => { o(e); });
+	        this.onceCbList = [];
+	    }
+	};
+
+	/**
+	 * 沙箱上下文
+	 */
+	class SandboxContext
+	{
+	    /**
+	     * 沙箱iframe元素
+	     * @type {HTMLIFrameElement}
+	     */
+	    #iframe = null;
+
+	    /**
+	     * 与沙箱的通信端口
+	     * @type {MessagePort}
+	     */
+	    #port = null;
+
+	    /**
+	     * 沙箱可用
+	     * @type {boolean}
+	     */
+	    #available = false;
+
+	    /**
+	     * 沙箱可用事件
+	     * @type {EventHandler}
+	     */
+	    #availableEvent = new EventHandler$1();
+
+	    /**
+	     * 传递给沙箱的接口
+	     * @type {Object}
+	     */
+	    apiObj = {};
+
+	    /**
+	     * 回调映射
+	     * @type {Map<string, Function>}
+	     */
+	    #callbackMap = new Map();
+
+	    /**
+	     * 拒绝回调映射
+	     * @type {Map<string, Function>}
+	     */
+	    #callbackRejectMap = new Map();
+
+	    constructor()
+	    {
+	        if (!(("sandbox" in HTMLIFrameElement.prototype) && Object.hasOwn(HTMLIFrameElement.prototype, "contentDocument")))
+	            throw "sandbox property are not supported";
+	        let iframe = document.createElement("iframe");
+	        iframe.sandbox.add("allow-scripts");
+	        iframe.style.display = "none";
+	        iframe.srcdoc = ([
+	            "<!DOCTYPE html>",
+	            "<html>",
+
+	            "<head>",
+	            '<meta charset="utf-8" />',
+	            '<title>iframe sandbox</title>',
+	            '<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no" />',
+	            "</head>",
+
+	            "<body>",
+	            "<script>",
+	            sandboxScript,
+	            "</script>",
+	            "</body>",
+
+	            "</html>"
+	        ]).join("");
+
+
+	        let channel = new MessageChannel();
+	        let port = channel.port1;
+	        port.addEventListener("message", async (e) =>
+	        {
+	            let data = e.data;
+	            switch (data.type)
+	            {
+	                case "ready": {
+	                    this.#available = true;
+	                    this.#availableEvent.trigger();
+	                    break;
+	                }
+	                case "fn": {
+	                    if (this.#callbackMap.has(data.id))
+	                    {
+	                        let param = (data.fnMap ? injectFunction(data.param, data.fnMap, port, this.#callbackMap, this.#callbackRejectMap).result : data.param);
+	                        try
+	                        {
+	                            let retValue = await this.#callbackMap.get(data.id)(...param);
+	                            if (data.cb)
+	                            {
+	                                let result = extractFunction(retValue, this.#callbackMap);
+	                                port.postMessage({
+	                                    type: "sol",
+	                                    id: data.cb,
+	                                    param: [result.result],
+	                                    fnMap: (result.fnMap.size > 0 ? result.fnMap : undefined)
+	                                });
+	                            }
+	                        }
+	                        catch (err)
+	                        {
+	                            if (data.cb)
+	                                port.postMessage({
+	                                    type: "rej",
+	                                    id: data.cb,
+	                                    param: [err]
+	                                });
+	                        }
+	                    }
+	                    break;
+	                }
+	                case "rF": {
+	                    this.#callbackMap.delete(data.id);
+	                    break;
+	                }
+	                case "sol": {
+	                    let param = (data.fnMap ? injectFunction(data.param, data.fnMap, port, this.#callbackMap, this.#callbackRejectMap).result : data.param);
+	                    if (this.#callbackMap.has(data.id))
+	                        this.#callbackMap.get(data.id)(...param);
+	                    this.#callbackMap.delete(data.id);
+	                    this.#callbackRejectMap.delete(data.id);
+	                    break;
+	                }
+	                case "rej": {
+	                    if (this.#callbackRejectMap.has(data.id))
+	                        this.#callbackRejectMap.get(data.id)(...data.param);
+	                    this.#callbackMap.delete(data.id);
+	                    this.#callbackRejectMap.delete(data.id);
+	                    break;
+	                }
+	            }
+	        });
+	        iframe.addEventListener("load", () =>
+	        {
+	            if (!this.#available)
+	            {
+	                if (iframe.contentDocument)
+	                    throw "sandbox isolation failed";
+	                port.start();
+	                iframe.contentWindow.postMessage("setMessagePort", "*", [channel.port2]); // 初始化通信管道
+	            }
+	        });
+
+
+	        document.body.appendChild(iframe);
+	        this.#iframe = iframe;
+	        this.#port = port;
+	    }
+
+	    /**
+	     * 等待沙箱可用
+	     * @returns {Promise<void>}
+	     */
+	    async waitAvailable()
+	    {
+	        return new Promise((resolve, reject) =>
+	        {
+	            if (this.#available)
+	                resolve();
+	            else
+	                this.#availableEvent.addOnce(resolve);
+	        });
+	    }
+
+	    /**
+	     * 执行js代码
+	     * @param {string} jsCodeStr
+	     * @returns {Promise<void>}
+	     */
+	    async execJs(jsCodeStr)
+	    {
+	        if (!this.#available)
+	            await this.waitAvailable();
+	        let result = extractFunction(this.apiObj, this.#callbackMap);
+	        this.#port.postMessage({
+	            type: "execJs",
+	            js: jsCodeStr,
+	            param: result.result,
+	            fnMap: (result.fnMap.size > 0 ? result.fnMap : undefined),
+	            paramList: ["api"]
+	        });
+	    }
+
+	    get iframe()
+	    {
+	        return this.#iframe;
+	    }
+	}
+
+	/**
+	 * 加载插件
+	 * @param {string} name
+	 * @param {string} scriptUrl
+	 */
+	async function loadPlugIn(name, scriptUrl)
+	{
+	    let sandbox = new SandboxContext();
+	    await sandbox.waitAvailable();
+	    let apiBindObj = {};
+	    sandbox.apiObj = {
+	        iiroseForge: apiBindObj
+	    };
+	    let scriptCode = await (await fetch(scriptUrl)).text();
+	    sandbox.execJs(scriptCode);
+	}
+
+	/**
+	 * 生成添加类名的流水线
+	 * @param {string} classNameStr
+	 */
+	function className(classNameStr)
+	{
+	    let classList = classNameStr.split(" ");
+	    return new NAsse((/** @type {NElement} */e) =>
+	    {
+	        classList.forEach(o =>
+	        {
+	            (/** @type {HTMLElement} */(e.element)).classList.add(o);
+	        });
+	    });
+	}
+
+	/**
+	 * 按钮流水线
+	 * @param {NElement} e
+	 */
+	function buttonAsse(e)
+	{
+	    e.setStyle("transition", "transform 50ms linear, text-shadow 150ms linear");
+
+	    e.addEventListener("mousedown", () =>
+	    {
+	        e.setStyle("transform", "scale(0.95) translateY(2px)");
+	    });
+	    e.addEventListener("mouseup", () =>
+	    {
+	        e.setStyle("transform", "");
+	    });
+
+	    e.addEventListener("mouseenter", () =>
+	    {
+	        e.setStyle("textShadow", `0 0 0.3em ${cssG.rgb(255, 255, 255, 0.5)}`);
+	        e.setStyle("transform", "translateY(-1px)");
+	    });
+	    e.addEventListener("mouseleave", () =>
+	    {
+	        e.setStyle("textShadow", "");
+	        e.setStyle("transform", "");
+	    });
+	}
+
+	/**
+	 * 显示信息框
+	 * @async
+	 * @param {string} title
+	 * @param {string} text
+	 * @param {boolean} [allowCancel]
+	 * @param {Array<NElement>} [extraEle]
+	 * @returns {Promise<boolean>}
+	 */
+	function showInfoBox(title, text, allowCancel = false, ...extraEle)
+	{
+	    return new Promise(resolve =>
+	    {
+	        /**
+	         * @type {NElement}
+	         */
+	        var infoBox = undefined;
+	        var infoBoxHolder = expandElement({ // 背景
+	            width: "100%", height: "100%",
+	            $position: "absolute",
+	            style: {
+	                userSelect: "none",
+	                backgroundColor: cssG.rgb(0, 0, 0, 0.7),
+	                alignItems: "center",
+	                justifyContent: "center",
+	                zIndex: "30001"
+	            },
+	            assembly: [e =>
+	            {
+	                e.animate([
+	                    {
+	                        opacity: 0.1
+	                    },
+	                    {
+	                        opacity: 1
+	                    }
+	                ], {
+	                    duration: 120
+	                });
+	            }],
+	            display: "flex",
+	            child: [{ // 信息框
+	                style: {
+	                    border: "1px white solid",
+	                    backgroundColor: cssG.rgb(255, 255, 255, 0.95),
+	                    color: cssG.rgb(0, 0, 0),
+	                    alignItems: "center",
+	                    justifyContent: "center",
+	                    flexFlow: "column",
+	                    lineHeight: "35px",
+	                    minHeight: "190px",
+	                    minWidth: "280px",
+	                    maxWidth: "95%",
+	                    boxSizing: "border-box",
+	                    padding: "20px",
+	                    borderRadius: "7px",
+	                    pointerEvents: "none"
+	                },
+	                assembly: [e =>
+	                {
+	                    e.animate([
+	                        {
+	                            transform: "scale(0.9) translateY(-100px)"
+	                        },
+	                        {
+	                        }
+	                    ], {
+	                        duration: 120
+	                    });
+	                    setTimeout(() => { e.setStyle("pointerEvents", "auto"); }, 120);
+	                }, e => { infoBox = e; }],
+	                position$: "static",
+	                display: "flex",
+	                child: [{
+	                    text: title
+	                }, {
+	                    text: text
+	                }, ...extraEle, {
+	                    text: "确定",
+	                    assembly: [buttonAsse],
+	                    event: {
+	                        click: () =>
+	                        {
+	                            closeInfoBox();
+	                            resolve(true);
+	                        }
+	                    }
+	                },
+	                (allowCancel ? {
+	                    text: "取消",
+	                    assembly: [buttonAsse],
+	                    event: {
+	                        click: () =>
+	                        {
+	                            closeInfoBox();
+	                            resolve(false);
+	                        }
+	                    }
+	                } : null)]
+	            }]
+	        });
+	        function closeInfoBox()
+	        {
+	            infoBox.setStyle("pointerEvents", "none");
+	            infoBox.animate([
+	                {
+	                },
+	                {
+	                    transform: "scale(0.9) translateY(-100px)"
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            infoBoxHolder.animate([
+	                {
+	                    opacity: 1
+	                },
+	                {
+	                    opacity: 0.1
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            setTimeout(() =>
+	            {
+	                infoBoxHolder.remove();
+	            }, 120);
+	        }
+	        body.addChild(infoBoxHolder);
+	    });
+	}
+
+	/**
+	 * 显示输入框
+	 * @async
+	 * @param {string} title
+	 * @param {string} text
+	 * @param {boolean} [allowCancel]
+	 * @param {string} [initValue]
+	 * @returns {Promise<string>}
+	 */
+	async function showInputBox(title, text, allowCancel = false, initValue = "")
+	{
+	    var input = expandElement({
+	        tagName: "input",
+	        assembly: [buttonAsse],
+	        style: {
+	            textAlign: "center",
+	            margin: "15px"
+	        },
+	        attr: {
+	            value: initValue
+	        }
+	    });
+	    var confirm = await showInfoBox(title, text, allowCancel, input);
+	    return (confirm ? input.element.value : undefined);
+	}
+
+	/**
+	 * 获取forge菜单
+	 * @returns {NElement}
+	 */
 	function getForgeMenu()
 	{
 	    let menu = NList.getElement([
@@ -1059,14 +1920,14 @@
 	            createNStyle("fontFamily", "md"),
 	            createNStyle("height", "40px"),
 	            createNStyle("lineHeight", "40px"),
-	            createNStyle("fontSize", "26px !important"),
+	            createNStyle("fontSize", "26px"),
 	            createNStyle("padding", "0 64px 0 24px"),
 	            createNStyle("whiteSpace", "nowrap"),
 	            createNStyle("boxSizing", "border-box"),
 	            createNStyle("position", "relative"),
 	            createNStyle("color", "#fff"),
 	            [
-	                createNStyle("fontSize", "16px !important"),
+	                createNStyle("fontSize", "16px"),
 	                createNStyle("opacity", "0.7"),
 	                createNStyle("fontWeight", "bold"),
 	                createNStyle("marginLeft", "24px"),
@@ -1075,11 +1936,101 @@
 	                createNStyle("display", "inline"),
 	                createNStyle("verticalAlign", "top"),
 
-	                "欢迎使用Forge for iirose"
+	                "欢迎使用 iirose-Forge"
 	            ]
 	        ],
 
-	        [],
+	        [
+	            createNStyle("position", "absolute"),
+	            createNStyle("width", "100%"),
+	            createNStyle("top", "40px"),
+	            createNStyle("bottom", "40px"),
+
+	            [
+	                ...([
+	                    {
+	                        title: "加载插件",
+	                        text: "加载插件",
+	                        icon: "puzzle",
+	                        onClick: async () =>
+	                        {
+	                            let pluginUrl = await showInputBox("添加插件", "请输入插件地址", true);
+	                            if (pluginUrl != undefined)
+	                            {
+	                                loadPlugIn(pluginUrl, pluginUrl);
+	                            }
+	                        }
+	                    }
+	                ]).map(o => [
+	                    className("commonBox"),
+	                    createNStyle("maxWidth", "calc(100% - 24px)"),
+	                    createNStyle("minWidth", "355.2px"),
+	                    createNStyle("minHeight", "200px"),
+	                    createNStyle("float", "left"),
+	                    createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
+	                    createNStyle("margin", "24px 12px 0px 12px"),
+	                    createNStyle("position", "relative"),
+	                    [
+	                        className("commonBoxHead"),
+	                        createNStyle("backgroundColor", "rgba(255,255,255,0.2)"),
+	                        createNStyle("color", "rgba(0,0,0,0.4)"),
+	                        createNStyle("height", "100px"),
+	                        createNStyle("width", "100%"),
+	                        createNStyle("display", "flex"),
+	                        createNStyle("justifyContent", "center"),
+	                        createNStyle("padding", "0 24px"),
+	                        createNStyle("boxSizing", "border-box"),
+	                        [
+	                            className("mdi-" + o.icon),
+	                            createNStyle("lineHeight", "100px"),
+	                            createNStyle("fontSize", "30px"),
+	                            createNStyle("fontFamily", "md"),
+	                            createNStyle("display", "inline-block"),
+	                            createNStyle("verticalAlign", "top"),
+	                            createNStyle("height", "100%"),
+	                            createNStyle("opacity", "0.7"),
+	                        ],
+	                        [
+	                            createNStyle("lineHeight", "100px"),
+	                            createNStyle("fontSize", "20px"),
+	                            createNStyle("display", "inline-block"),
+	                            createNStyle("verticalAlign", "top"),
+	                            createNStyle("height", "100%"),
+	                            createNStyle("fontWeight", "bold"),
+	                            createNStyle("marginLeft", "22px"),
+	                            createNStyle("overflow", "hidden"),
+	                            createNStyle("whiteSpace", "pre"),
+	                            createNStyle("textOverflow", "ellipsis"),
+
+	                            o.title
+	                        ]
+	                    ],
+	                    [
+	                        className("textColor"),
+	                        createNStyle("width", "100%"),
+	                        createNStyle("minHeight", "100px"),
+	                        createNStyle("backgroundColor", "rgba(255,255,255,0.5)"),
+	                        createNStyle("color", "rgba(0,0,0,0.75)"),
+	                        [
+	                            createNStyle("fontWeight", "bold"),
+	                            createNStyle("width", "100%"),
+	                            createNStyle("height", "100%"),
+	                            createNStyle("lineHeight", "1.8em"),
+	                            createNStyle("textAlign", "center"),
+	                            createNStyle("padding", "2.2em"),
+	                            createNStyle("boxSizing", "border-box"),
+	                            createNStyle("whiteSpace", "pre-wrap"),
+	                            createNStyle("fontSize", "16px"),
+	                            createNStyle("color", "rgba(0,0,0,0.7)"),
+
+	                            o.text
+	                        ]
+	                    ],
+
+	                    new NEvent("click", o.onClick)
+	                ])
+	            ]
+	        ],
 
 	        [
 	            createNStyle("color", "#303030"),
@@ -1095,7 +2046,7 @@
 
 	            ...([
 	                {
-	                    text: "返回",
+	                    text: "< 返回",
 	                    onClick: () =>
 	                    {
 	                        menu.remove();
@@ -1118,7 +2069,7 @@
 	                    createNStyle("height", "100%"),
 	                    createNStyle("fontWeight", "bold"),
 	                    createNStyle("marginLeft", "22px"),
-	                    createNStyle("fontSize", "14px !important"),
+	                    createNStyle("fontSize", "14px"),
 	                    createNStyle("lineHeight", "40px"),
 	                    createNStyle("overflow", "hidden"),
 	                    createNStyle("whiteSpace", "pre"),
@@ -1134,6 +2085,10 @@
 	    return menu;
 	}
 
+	/**
+	 * 获取forge按钮
+	 * @returns {NElement}
+	 */
 	function getMenuButton()
 	{
 	    let button = NList.getElement([
@@ -1214,28 +2169,286 @@
 
 	        (() => // 注入socket
 	        {
-	            iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (data) =>
+	            iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (param) =>
 	            {
+	                let data = param[0];
+	                console.log("get data", data);
 	                return false;
 	            });
-	        });
+	            iframeContext.socket.send = proxyFunction(iframeContext.socket.send.bind(iframeContext.socket), (param) =>
+	            {
+	                let data = param[0];
+	                console.log("send data", data);
+	                return false;
+	            });
+	        })();
 
 	        iframeWindow["iiroseForgeInjected"] = true; // iframe上下文已注入标记
+	        console.log("[iiroseForge] 成功将iiroseForge注入iframe");
 	    }, 1000);
 	}
+
+	/**
+	 * 事件处理器
+	 * 可以定多个事件响应函数
+	 * @template {*} T
+	 */
+	class EventHandler
+	{
+	    /**
+	     * 回调列表
+	     * @type {Array<function(T): void>}
+	     */
+	    cbList = [];
+	    /**
+	     * 单次回调列表
+	     * @type {Array<function(T): void>}
+	     */
+	    onceCbList = [];
+
+	    /**
+	     * 添加响应函数
+	     * @param {function(T): void} cb
+	     */
+	    add(cb)
+	    {
+	        this.cbList.push(cb);
+	    }
+
+	    /**
+	     * 添加单次响应函数
+	     * 触发一次事件后将不再响应
+	     * @param {function(T): void} cb
+	     */
+	    addOnce(cb)
+	    {
+	        this.onceCbList.push(cb);
+	    }
+
+	    /**
+	     * 移除响应函数
+	     * @param {function(T): void} cb
+	     */
+	    remove(cb)
+	    {
+	        let ind = this.cbList.indexOf(cb);
+	        if (ind > -1)
+	        {
+	            this.cbList.splice(ind, 1);
+	        }
+	        else
+	        {
+	            ind = this.onceCbList.indexOf(cb);
+	            if (ind > -1)
+	            {
+	                this.onceCbList.splice(ind, 1);
+	            }
+	        }
+	    }
+
+	    /**
+	     * 移除所有响应函数
+	     */
+	    removeAll()
+	    {
+	        this.cbList = [];
+	        this.onceCbList = [];
+	    }
+
+	    /**
+	     * 触发事件
+	     * @param {T} e
+	     */
+	    trigger(e)
+	    {
+	        this.cbList.forEach(o => { o(e); });
+	        this.onceCbList.forEach(o => { o(e); });
+	        this.onceCbList = [];
+	    }
+	}
+
+	/**
+	 * 暴露的forge接口
+	 */
+	const forgeApi = {
+	    /**
+	     * 操作列表
+	     */
+	    operation:
+	    {
+	        /**
+	         * 获取用户蔷薇昵称
+	         * @returns {string}
+	         */
+	        getUserName: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["myself2"])
+	                return iframeContext.iframeWindow["myself2"];
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇uid
+	         * @returns {string}
+	         */
+	        getUserUid: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["uid"])
+	                return iframeContext.iframeWindow["uid"];
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇所在房间id
+	         * @returns {string}
+	         */
+	        getUserRoomId: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["roomn"])
+	                return iframeContext.iframeWindow["roomn"];
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇头像url
+	         * @returns {string}
+	         */
+	        getUserProfilePictureUrl: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["avatar2"] && iframeContext.iframeWindow?.["avatarconv"])
+	                return iframeContext.iframeWindow["avatarconv"](iframeContext.iframeWindow["avatar2"]);
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇输入颜色
+	         * @returns {string}
+	         */
+	        getUserInputColor: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["inputcolorhex"])
+	                return iframeContext.iframeWindow["inputcolorhex"];
+	            return null;
+	        },
+
+	        /**
+	         * 在用户所在房间发送消息
+	         * @param {string} content
+	         */
+	        sendRoomMessage: (content) =>
+	        {
+	            content = String(content);
+	            if (!content)
+	                return;
+	            iframeContext.socketApi.send(JSON.stringify({
+	                "m": content,
+	                "mc": forgeApi.operation.getUserInputColor(),
+	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+	            }));
+	        },
+
+	        /**
+	         * 静默发送私聊
+	         * @param {string} targetUid
+	         * @param {string} context
+	         */
+	        sendPrivateMessageSilence: (targetUid, context) =>
+	        {
+	            targetUid = String(targetUid);
+	            context = String(context);
+	            if (!context || !targetUid)
+	                return;
+	            iframeContext.socketApi.send(JSON.stringify({
+	                "g": targetUid,
+	                "m": context,
+	                "mc": forgeApi.operation.getUserInputColor(),
+	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+	            }));
+	        },
+
+	        /**
+	         * 发送私聊
+	         * @param {string} targetUid
+	         * @param {string} content
+	         */
+	        sendPrivateMessage: (targetUid, content) =>
+	        {
+	            targetUid = String(targetUid);
+	            content = String(content);
+	            if (!content || !targetUid || !iframeContext.iframeWindow?.["msgfetch"] || !iframeContext.iframeWindow?.["Variable"]?.pmObjJson || !iframeContext.iframeWindow?.["Utils"]?.service?.buildPmHelper)
+	                return;
+	            let inputBox = /** @type {HTMLInputElement} */(iframeContext.iframeDocument.getElementById("moveinput"));
+	            let oldValue = inputBox.value;
+	            let old_pmFull = iframeContext.iframeWindow["pmFull"];
+	            inputBox.value = content;
+	            iframeContext.iframeWindow["pmFull"] = true;
+	            if (!iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid])
+	                iframeContext.iframeWindow["Utils"].service.buildPmHelper(1, targetUid, targetUid);
+	            iframeContext.iframeWindow["msgfetch"](0, iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid], targetUid, "");
+	            iframeContext.iframeWindow["pmFull"] = old_pmFull;
+	            inputBox.value = oldValue;
+	        },
+
+	        /**
+	         * 静默给自己发送私聊
+	         * @param {string} content
+	         */
+	        sendSelfPrivateMessageSilence: (content) =>
+	        {
+	            forgeApi.operation.sendPrivateMessage(forgeApi.operation.getUserUid(), content);
+	        },
+
+	        /**
+	         * 点赞
+	         * @param {string} targetUid
+	         * @param {string} [content]
+	         */
+	        giveALike: (targetUid, content = "") =>
+	        {
+	            targetUid = String(targetUid);
+	            content = String(content);
+	            if (!targetUid)
+	                return;
+	            iframeContext.socketApi.send(`+*${targetUid}${content ? " " + content : ""}`);
+	        },
+	    },
+
+	    /**
+	     * 事件列表
+	     */
+	    event: {
+	        /**
+	         * 接收到房间消息
+	         */
+	        roomMessage: new EventHandler(),
+
+	        /**
+	         * 接受到私聊消息
+	         */
+	        privateMessage: new EventHandler(),
+	        
+	        /**
+	         * 接受到自己发送给自己的私聊消息
+	         */
+	        selfPrivateMessage: new EventHandler()
+	    }
+	};
+
+	window["iiroseForgeApi"] = forgeApi;
 
 	if (!window["iiroseForgeInjected"])
 	{
 	    (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame"))).addEventListener("load", () => // 主iframe加载事件
 	    {
+	        console.log("[iiroseForge] 正在将iiroseForge注入iframe");
 	        initInjectIframe();
 	    });
 
 
-	    console.log("[iiroseForge] 已注入iiroseForge");
+	    console.log("[iiroseForge] iiroseForge已启用");
 	    window["iiroseForgeInjected"] = true; // 最外层页面已被注入标记
 	}
-	else    
+	else
 	    console.log("[iiroseForge] 已阻止重复注入");
 
 })();

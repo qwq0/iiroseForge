@@ -41,12 +41,21 @@ export function initInjectIframe()
 
         (() => // 注入socket
         {
-            iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (data) =>
+            iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (param) =>
             {
+                let data = param[0];
+                console.log("get data", data);
                 return false;
             });
-        });
+            iframeContext.socket.send = proxyFunction(iframeContext.socket.send.bind(iframeContext.socket), (param) =>
+            {
+                let data = param[0];
+                console.log("send data", data);
+                return false;
+            });
+        })();
 
         iframeWindow["iiroseForgeInjected"] = true; // iframe上下文已注入标记
+        console.log("[iiroseForge] 成功将iiroseForge注入iframe");
     }, 1000);
 }
