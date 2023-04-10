@@ -48,6 +48,298 @@
 	}
 
 	/**
+	 * 主iframe的上下文
+	 */
+	let iframeContext = {
+	    /**
+	     * @type {Window | Object}
+	     */
+	    iframeWindow: null,
+	    /**
+	     * @type {Document}
+	     */
+	    iframeDocument: null,
+	    /**
+	     * @type {WebSocket | Object}
+	     */
+	    socket: null,
+	    /**
+	     * @type {import("../../lib/qwqframe").NElement<HTMLBodyElement>}
+	     */
+	    iframeBody: null,
+
+	    socketApi: {
+	        send: (/** @type {string} */ data) =>
+	        {
+	            iframeContext.socket.send(data);
+	        }
+	    }
+	};
+
+	/**
+	 * 事件处理器
+	 * 可以定多个事件响应函数
+	 * @template {*} T
+	 */
+	let EventHandler$1 = class EventHandler
+	{
+	    /**
+	     * 回调列表
+	     * @type {Array<function(T): void>}
+	     */
+	    cbList = [];
+	    /**
+	     * 单次回调列表
+	     * @type {Array<function(T): void>}
+	     */
+	    onceCbList = [];
+
+	    /**
+	     * 添加响应函数
+	     * @param {function(T): void} cb
+	     */
+	    add(cb)
+	    {
+	        this.cbList.push(cb);
+	    }
+
+	    /**
+	     * 添加单次响应函数
+	     * 触发一次事件后将不再响应
+	     * @param {function(T): void} cb
+	     */
+	    addOnce(cb)
+	    {
+	        this.onceCbList.push(cb);
+	    }
+
+	    /**
+	     * 移除响应函数
+	     * @param {function(T): void} cb
+	     */
+	    remove(cb)
+	    {
+	        let ind = this.cbList.indexOf(cb);
+	        if (ind > -1)
+	        {
+	            this.cbList.splice(ind, 1);
+	        }
+	        else
+	        {
+	            ind = this.onceCbList.indexOf(cb);
+	            if (ind > -1)
+	            {
+	                this.onceCbList.splice(ind, 1);
+	            }
+	        }
+	    }
+
+	    /**
+	     * 移除所有响应函数
+	     */
+	    removeAll()
+	    {
+	        this.cbList = [];
+	        this.onceCbList = [];
+	    }
+
+	    /**
+	     * 触发事件
+	     * @param {T} e
+	     */
+	    trigger(e)
+	    {
+	        this.cbList.forEach(async (o) => { o(e); });
+	        this.onceCbList.forEach(async (o) => { o(e); });
+	        this.onceCbList = [];
+	    }
+	};
+
+	/**
+	 * 暴露的forge接口
+	 */
+	const forgeApi = {
+	    /**
+	     * 操作列表
+	     */
+	    operation:
+	    {
+	        /**
+	         * 获取用户蔷薇昵称
+	         * @returns {string}
+	         */
+	        getUserName: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["myself2"])
+	                return iframeContext.iframeWindow["myself2"];
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇uid
+	         * @returns {string}
+	         */
+	        getUserUid: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["uid"])
+	                return iframeContext.iframeWindow["uid"];
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇所在房间id
+	         * @returns {string}
+	         */
+	        getUserRoomId: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["roomn"])
+	                return iframeContext.iframeWindow["roomn"];
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇头像url
+	         * @returns {string}
+	         */
+	        getUserProfilePictureUrl: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["avatar2"] && iframeContext.iframeWindow?.["avatarconv"])
+	                return iframeContext.iframeWindow["avatarconv"](iframeContext.iframeWindow["avatar2"]);
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇输入颜色
+	         * @returns {string}
+	         */
+	        getUserInputColor: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["inputcolorhex"])
+	                return iframeContext.iframeWindow["inputcolorhex"];
+	            return null;
+	        },
+
+	        /**
+	         * 在用户所在房间发送消息
+	         * @param {string} content
+	         */
+	        sendRoomMessage: (content) =>
+	        {
+	            content = String(content);
+	            if (!content)
+	                return;
+	            iframeContext.socketApi.send(JSON.stringify({
+	                "m": content,
+	                "mc": forgeApi.operation.getUserInputColor(),
+	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+	            }));
+	        },
+
+	        /**
+	         * 静默发送私聊
+	         * @param {string} targetUid
+	         * @param {string} context
+	         */
+	        sendPrivateMessageSilence: (targetUid, context) =>
+	        {
+	            targetUid = String(targetUid);
+	            context = String(context);
+	            if (!context || !targetUid)
+	                return;
+	            iframeContext.socketApi.send(JSON.stringify({
+	                "g": targetUid,
+	                "m": context,
+	                "mc": forgeApi.operation.getUserInputColor(),
+	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+	            }));
+	        },
+
+	        /**
+	         * 发送私聊
+	         * @param {string} targetUid
+	         * @param {string} content
+	         */
+	        sendPrivateMessage: (targetUid, content) =>
+	        {
+	            targetUid = String(targetUid);
+	            content = String(content);
+	            if (!content || !targetUid || !iframeContext.iframeWindow?.["msgfetch"] || !iframeContext.iframeWindow?.["Variable"]?.pmObjJson || !iframeContext.iframeWindow?.["Utils"]?.service?.buildPmHelper)
+	                return;
+	            let inputBox = /** @type {HTMLInputElement} */(iframeContext.iframeDocument.getElementById("moveinput"));
+	            let oldValue = inputBox.value;
+	            let old_pmFull = iframeContext.iframeWindow["pmFull"];
+	            inputBox.value = content;
+	            iframeContext.iframeWindow["pmFull"] = true;
+	            if (!iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid])
+	                iframeContext.iframeWindow["Utils"].service.buildPmHelper(1, targetUid, targetUid);
+	            iframeContext.iframeWindow["msgfetch"](0, iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid], targetUid, "");
+	            iframeContext.iframeWindow["pmFull"] = old_pmFull;
+	            inputBox.value = oldValue;
+	        },
+
+	        /**
+	         * 静默给自己发送私聊
+	         * @param {string} content
+	         */
+	        sendSelfPrivateMessageSilence: (content) =>
+	        {
+	            forgeApi.operation.sendPrivateMessageSilence(forgeApi.operation.getUserUid(), content);
+	        },
+
+	        /**
+	         * 点赞
+	         * @param {string} targetUid
+	         * @param {string} [content]
+	         */
+	        giveALike: (targetUid, content = "") =>
+	        {
+	            targetUid = String(targetUid);
+	            content = String(content);
+	            if (!targetUid)
+	                return;
+	            iframeContext.socketApi.send(`+*${targetUid}${content ? " " + content : ""}`);
+	        },
+
+	        /**
+	         * 切换房间
+	         * @param {string} roomId
+	         */
+	        switchRoom: (roomId) =>
+	        {
+	            roomId = String(roomId);
+	            if (iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger)
+	                iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger(roomId);
+	        }
+	    },
+
+	    /**
+	     * 事件列表
+	     */
+	    event: {
+	        /**
+	         * 接收到房间消息
+	         */
+	        roomMessage: new EventHandler$1(),
+
+	        /**
+	         * 接受到私聊消息
+	         */
+	        privateMessage: new EventHandler$1(),
+
+	        /**
+	         * 接受到自己发送给自己的私聊消息
+	         */
+	        selfPrivateMessage: new EventHandler$1()
+	    }
+	};
+
+	window["iiroseForgeApi"] = forgeApi;
+
+	/**
+	 * @typedef {typeof forgeApi} forgeApiType
+	 */
+
+	/**
 	 * css生成
 	 * @namespace
 	 */
@@ -1210,33 +1502,27 @@
 	}
 
 	/**
-	 * 主iframe的上下文
+	 * 包装为仅能执行一次的函数
+	 * @template P
+	 * @template R
+	 * @template {function(...P) : R} T
+	 * @param {T} func
+	 * @returns {T}
 	 */
-	let iframeContext = {
-	    /**
-	     * @type {Window | Object}
-	     */
-	    iframeWindow: null,
-	    /**
-	     * @type {Document}
-	     */
-	    iframeDocument: null,
-	    /**
-	     * @type {WebSocket | Object}
-	     */
-	    socket: null,
-	    /**
-	     * @type {import("../../lib/qwqframe").NElement<HTMLBodyElement>}
-	     */
-	    iframeBody: null,
-
-	    socketApi: {
-	        send: (/** @type {string} */ data) =>
+	function runOnce(func)
+	{
+	    let runned = false;
+	    return /** @type {T} */ ((...para) =>
+	    {
+	        if (runned)
+	            return null;
+	        else
 	        {
-	            iframeContext.socket.send(data);
+	            runned = true;
+	            return func(...para);
 	        }
-	    }
-	};
+	    });
+	}
 
 	/**
 	 * document.body的NElement封装
@@ -1244,8 +1530,8 @@
 	let body = getNElement(document.body);
 	body.setStyle("cursor", "default");
 
-	let iiroseForgeScriptUrl = "https://qwq0.github.io/iiroseForge/l.js";
-	let iiroseForgeScriptElementHtml = `<script type="text/javascript" src="${iiroseForgeScriptUrl}"></script>`;
+	let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
+	let iiroseForgeLoaderElementHtml = `<script type="text/javascript" src="${iiroseForgeLoaderUrl}"></script>`;
 
 	/**
 	 * 向缓存中注入iiroseForge
@@ -1255,12 +1541,12 @@
 	{
 	    let cache = await caches.open("v");
 	    let cacheMainPage = await (await caches.match("/")).text();
-	    if (cacheMainPage.indexOf(iiroseForgeScriptElementHtml) > -1)
+	    if (cacheMainPage.indexOf(iiroseForgeLoaderElementHtml) > -1)
 	        return;
 	    let insertIndex = cacheMainPage.indexOf("</body></html>");
 	    if (insertIndex == -1)
 	        return;
-	    let newCacheMainPage = cacheMainPage.slice(0, insertIndex) + iiroseForgeScriptElementHtml + cacheMainPage.slice(insertIndex);
+	    let newCacheMainPage = cacheMainPage.slice(0, insertIndex) + iiroseForgeLoaderElementHtml + cacheMainPage.slice(insertIndex);
 	    await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
 	}
 	/**
@@ -1271,10 +1557,10 @@
 	{
 	    let cache = await caches.open("v");
 	    let cacheMainPage = await (await caches.match("/")).text();
-	    let removeIndex = cacheMainPage.indexOf(iiroseForgeScriptElementHtml);
+	    let removeIndex = cacheMainPage.indexOf(iiroseForgeLoaderElementHtml);
 	    if (removeIndex == -1)
 	        return;
-	    let newCacheMainPage = cacheMainPage.slice(0, removeIndex) + cacheMainPage.slice(removeIndex + iiroseForgeScriptElementHtml.length);
+	    let newCacheMainPage = cacheMainPage.slice(0, removeIndex) + cacheMainPage.slice(removeIndex + iiroseForgeLoaderElementHtml.length);
 	    await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
 	}
 
@@ -1440,7 +1726,7 @@
 	 * 可以定多个事件响应函数
 	 * @template {*} T
 	 */
-	let EventHandler$1 = class EventHandler
+	class EventHandler
 	{
 	    /**
 	     * 回调列表
@@ -1512,7 +1798,7 @@
 	        this.onceCbList.forEach(o => { o(e); });
 	        this.onceCbList = [];
 	    }
-	};
+	}
 
 	/**
 	 * 沙箱上下文
@@ -1538,10 +1824,23 @@
 	    #available = false;
 
 	    /**
+	     * 沙箱已销毁
+	     * @type {boolean}
+	     */
+	    #destroyed = false;
+
+	    /**
+	     * 中止控制器
+	     * 用于销毁沙箱时中止
+	     * @type {AbortController}
+	     */
+	    #abortController = new AbortController();
+
+	    /**
 	     * 沙箱可用事件
 	     * @type {EventHandler}
 	     */
-	    #availableEvent = new EventHandler$1();
+	    #availableEvent = new EventHandler();
 
 	    /**
 	     * 传递给沙箱的接口
@@ -1561,7 +1860,10 @@
 	     */
 	    #callbackRejectMap = new Map();
 
-	    constructor()
+	    /**
+	     * @param {HTMLElement} [iframeElementParent]
+	     */
+	    constructor(iframeElementParent = document.body)
 	    {
 	        if (!(("sandbox" in HTMLIFrameElement.prototype) && Object.hasOwn(HTMLIFrameElement.prototype, "contentDocument")))
 	            throw "sandbox property are not supported";
@@ -1650,20 +1952,20 @@
 	                    break;
 	                }
 	            }
-	        });
+	        }, { signal: this.#abortController.signal });
 	        iframe.addEventListener("load", () =>
 	        {
-	            if (!this.#available)
+	            if (!this.#available && !this.#destroyed)
 	            {
 	                if (iframe.contentDocument)
 	                    throw "sandbox isolation failed";
 	                port.start();
 	                iframe.contentWindow.postMessage("setMessagePort", "*", [channel.port2]); // 初始化通信管道
 	            }
-	        });
+	        }, { signal: this.#abortController.signal });
 
 
-	        document.body.appendChild(iframe);
+	        iframeElementParent.appendChild(iframe);
 	        this.#iframe = iframe;
 	        this.#port = port;
 	    }
@@ -1702,44 +2004,61 @@
 	        });
 	    }
 
+	    /**
+	     * 获取iframe元素
+	     * 注意 移动沙箱在dom树中的位置将导致沙箱失效
+	     */
 	    get iframe()
 	    {
 	        return this.#iframe;
 	    }
-	}
 
-	/**
-	 * 加载插件
-	 * @param {string} name
-	 * @param {string} scriptUrl
-	 */
-	async function loadPlugIn(name, scriptUrl)
-	{
-	    let sandbox = new SandboxContext();
-	    await sandbox.waitAvailable();
-	    let apiBindObj = {};
-	    sandbox.apiObj = {
-	        iiroseForge: apiBindObj
-	    };
-	    let scriptCode = await (await fetch(scriptUrl)).text();
-	    sandbox.execJs(scriptCode);
-	}
-
-	/**
-	 * 生成添加类名的流水线
-	 * @param {string} classNameStr
-	 */
-	function className(classNameStr)
-	{
-	    let classList = classNameStr.split(" ");
-	    return new NAsse((/** @type {NElement} */e) =>
+	    /**
+	     * 销毁沙箱
+	     * 销毁后无法对此沙箱执行操作
+	     */
+	    destroy()
 	    {
-	        classList.forEach(o =>
-	        {
-	            (/** @type {HTMLElement} */(e.element)).classList.add(o);
-	        });
-	    });
+	        if (this.#destroyed)
+	            return;
+	        this.#destroyed = true;
+	        this.#iframe.remove();
+	        this.#iframe = null;
+	        this.#abortController.abort();
+	        this.#abortController = null;
+	        this.#port.close();
+	        this.#port = null;
+	        this.#callbackMap = null;
+	        this.#callbackRejectMap = null;
+	        this.#availableEvent.removeAll();
+	        this.#availableEvent = null;
+	        this.#available = false;
+	    }
 	}
+
+	/**
+	 * 插件请求的权限列表
+	 */
+	const apiPermission = {
+	    operation: {
+	        getUserName: "获取你的昵称",
+	        getUserUid: "获取你的uid",
+	        getUserRoomId: "获取所在房间id",
+	        getUserProfilePictureUrl: "获取你的头像",
+	        getUserInputColor: "获取你的主题色",
+	        sendRoomMessage: "在房间中发送信息",
+	        sendPrivateMessageSilence: "[危险]静默发送私聊消息",
+	        sendPrivateMessage: "[危险]发送私聊消息",
+	        sendSelfPrivateMessageSilence: "向自己静默发送私聊消息(同账号多设备间通信)",
+	        giveALike: "进行点赞",
+	        switchRoom: "切换所在房间"
+	    },
+	    event: {
+	        roomMessage: "接收房间消息",
+	        privateMessage: "[危险]接收私聊消息",
+	        selfPrivateMessage: "接收自己(其他设备)发送给自己的私聊消息"
+	    }
+	};
 
 	/**
 	 * 按钮流水线
@@ -1926,8 +2245,446 @@
 	            value: initValue
 	        }
 	    });
+	    input.addEventListener("keydown", e => { e.stopPropagation(); }, true);
 	    var confirm = await showInfoBox(title, text, allowCancel, input);
 	    return (confirm ? input.element.value : undefined);
+	}
+
+	/**
+	 * 加载插件
+	 * @param {string} pluginName
+	 * @param {string} scriptUrl
+	 * @returns {Promise<SandboxContext>}
+	 */
+	async function loadPlugIn(pluginName, scriptUrl)
+	{
+	    let sandbox = new SandboxContext();
+	    await sandbox.waitAvailable();
+	    let operationPermissionSet = new Set();
+	    let eventPermissionSet = new Set();
+	    let apiBindObj = {};
+	    apiBindObj.applyPermission = async (operationList, eventList) =>
+	    {
+	        let permit = await showInfoBox("权限申请", ([
+	            `是否允许 ${pluginName} 获取以下权限?`,
+	            ...operationList.map(o => "+ " + apiPermission.operation[o]),
+	            ...eventList.map(o => "+ " + apiPermission.event[o])
+	        ]).join("\n"), true);
+	        if (permit)
+	        {
+	            operationList.forEach(o =>
+	            {
+	                if (apiPermission.operation[o])
+	                    operationPermissionSet.add(o);
+	            });
+	            eventList.forEach(o =>
+	            {
+	                if (apiPermission.eventList[o])
+	                    eventPermissionSet.add(o);
+	            });
+	        }
+	        return (permit ? true : false);
+	    };
+	    Object.keys(forgeApi.operation).forEach(key =>
+	    {
+	        if (apiPermission.operation[key])
+	            apiBindObj[key] = (...param) =>
+	            {
+	                if (operationPermissionSet.has(key))
+	                    forgeApi.operation[key](...param);
+	            };
+	    });
+	    apiBindObj.addEventListener = (eventName, callback) =>
+	    {
+	        if (apiPermission.event[eventName] && forgeApi.event[eventName] && eventPermissionSet.has(eventName))
+	            forgeApi.event[eventName].add(callback);
+	    };
+	    sandbox.apiObj = {
+	        iiroseForge: apiBindObj
+	    };
+	    let scriptCode = await (await fetch(scriptUrl)).text();
+	    sandbox.execJs(scriptCode);
+
+	    return sandbox;
+	}
+
+	var noticeContainer = expandElement({
+	    position: "absolute",
+	    right: "0px",
+	    style: {
+	        userSelect: "none",
+	        pointerEvents: "none",
+	        zIndex: "30000"
+	    }
+	});
+	body.addChild(noticeContainer);
+
+	/**
+	 * 推送通知
+	 * @param {string} title 
+	 * @param {string} text 
+	 * @param {string} [additional]
+	 */
+	function showNotice(title, text, additional = "iiroseForge")
+	{
+	    var notice = expandElement({
+	        style: {
+	            backgroundColor: cssG.rgb(255, 255, 255, 0.95),
+	            marginRight: "1em",
+	            marginTop: "1em",
+	            marginLeft: "1em",
+	            float: "right",
+	            clear: "both",
+	            overflow: "hidden hidden",
+	            padding: "1em",
+	            boxSizing: "border-box",
+	            minWidth: "180px",
+	            borderRadius: "0.2em",
+	            boxShadow: `${cssG.rgb(0, 0, 0, 0.5)} 5px 5px 10px`
+	        },
+	        position: "relative",
+	        child: [{ // 通知图标
+	            tagName: "i",
+	            classList: ["fa", "fa-info-circle"]
+	        }, { // 通知标题
+	            text: title,
+	            style: {
+	                fontSize: "1.2em",
+	                lineHeight: "1.5em",
+	                fontWeight: "bolder"
+	            }
+	        }, { // 通知正文
+	            text: text
+	        }, { // 通知附加内容
+	            text: additional,
+	            style: {
+	                fontSize: "0.9em",
+	                float: "right"
+	            }
+	        }, { // 通知右上角关闭按钮
+	            text: "×",
+	            position: "absolute",
+	            right: "4px",
+	            top: "1px",
+	            assembly: [buttonAsse],
+	            style: {
+	                fontSize: "25px",
+	                lineHeight: "1em"
+	            },
+	            event: {
+	                click: runOnce(() =>
+	                {
+	                    closeThisNotice();
+	                })
+	            }
+	        }]
+	    });
+	    noticeContainer.addChild(notice);
+	    notice.animate([
+	        {
+	            transform: "translateX(180%) translateY(10%) scale(0.6)"
+	        },
+	        {
+	        }
+	    ], {
+	        duration: 180
+	    });
+	    setTimeout(() => { notice.setStyle("pointerEvents", "auto"); }, 180);
+
+	    function closeThisNotice()
+	    {
+	        notice.setStyle("pointerEvents", "none");
+	        notice.animate([
+	            {
+	            },
+	            {
+	                transform: "translateX(180%)"
+	            }
+	        ], {
+	            duration: 270,
+	            fill: "forwards"
+	        });
+	        setTimeout(() =>
+	        {
+	            notice.setStyle("visibility", "hidden");
+	            notice.animate([
+	                {
+	                    height: (/** @type {HTMLDivElement} */(notice.element)).clientHeight + "px"
+	                },
+	                {
+	                    marginTop: 0,
+	                    height: 0,
+	                    padding: 0
+	                }
+	            ], {
+	                duration: 150,
+	                fill: "forwards"
+	            });
+	            setTimeout(() =>
+	            {
+	                notice.remove();
+	            }, 150);
+	        }, 270);
+	    }
+
+	    setTimeout(() =>
+	    {
+	        closeThisNotice();
+	    }, 3900 + Math.min(10000, text.length * 115));
+	}
+
+	/**
+	 * 储存上下文
+	 * 将使用json进行序列化
+	 */
+	const storageContext = {
+	    iiroseForge: {
+	        /**
+	         * 插件信息
+	         * @type {Array<[string, string]>}
+	         */
+	        plugInfo: []
+	    }
+	};
+
+	storageRead();
+
+	function storageRead()
+	{
+	    try
+	    {
+	        let storageJson = localStorage.getItem("iiroseForge");
+	        if (!storageJson)
+	            return;
+	        let storageObj = JSON.parse(storageJson);
+	        Object.keys(storageObj).forEach(key =>
+	        {
+	            storageContext.iiroseForge[key] = storageObj[key];
+	        });
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法读入储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
+	function storageSave()
+	{
+	    try
+	    {
+	        let storageJson = JSON.stringify(storageContext.iiroseForge);
+	        localStorage.setItem("iiroseForge", storageJson);
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法写入储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
+	/**
+	 * 插件列表
+	 */
+	class PlugList
+	{
+	    /**
+	     * @type {Map<string, { url: string, sandbox: SandboxContext }>}
+	     */
+	    map = new Map();
+
+	    /**
+	     * 添加插件
+	     * @param {string} name 
+	     * @param {string} url 
+	     */
+	    async addPlug(name, url)
+	    {
+	        if (!this.map.has(name))
+	            this.map.set(name, { url: url, sandbox: await loadPlugIn(name, url) });
+	    }
+
+	    /**
+	     * 移除插件
+	     * @param {string} name
+	     */
+	    removePlug(name)
+	    {
+	        if (this.map.has(name))
+	        {
+	            this.map.get(name).sandbox.destroy();
+	            this.map.delete(name);
+	        }
+	    }
+
+	    /**
+	     * 保存插件列表
+	     */
+	    savePlugList()
+	    {
+	        /**
+	         * @type {Array<[string, string]>}
+	         */
+	        let plugInfo = [];
+	        this.map.forEach((o, name) =>
+	        {
+	            plugInfo.push([name, o.url]);
+	        });
+	        storageContext.iiroseForge.plugInfo = plugInfo;
+	        storageSave();
+	    }
+
+	    /**
+	     * 读取插件列表
+	     */
+	    readPlugList()
+	    {
+	        try
+	        {
+	            storageContext.iiroseForge.plugInfo.forEach(([name, url]) =>
+	            {
+	                this.addPlug(name, url);
+	            });
+	        }
+	        catch (err)
+	        {
+	        }
+	    }
+	}
+
+	const plugList = new PlugList();
+	plugList.readPlugList();
+
+	/**
+	 * 生成添加类名的流水线
+	 * @param {string} classNameStr
+	 */
+	function className(classNameStr)
+	{
+	    let classList = classNameStr.split(" ");
+	    return new NAsse((/** @type {NElement} */e) =>
+	    {
+	        classList.forEach(o =>
+	        {
+	            (/** @type {HTMLElement} */(e.element)).classList.add(o);
+	        });
+	    });
+	}
+
+	/**
+	 * 显示菜单
+	 * @async
+	 * @param {Array<NElement>} menuItems
+	 * @returns {Promise<boolean>}
+	 */
+	function showMenu(menuItems)
+	{
+	    return new Promise(resolve =>
+	    {
+	        /**
+	         * @type {NElement}
+	         */
+	        var menu = null;
+	        var menuHolder = expandElement({ // 背景
+	            width: "100%", height: "100%",
+	            $position: "absolute",
+	            style: {
+	                userSelect: "none",
+	                backgroundColor: cssG.rgb(0, 0, 0, 0.7),
+	                alignItems: "center",
+	                justifyContent: "center",
+	                zIndex: "30001"
+	            },
+	            assembly: [e =>
+	            {
+	                e.animate([
+	                    {
+	                        opacity: 0.1
+	                    },
+	                    {
+	                        opacity: 1
+	                    }
+	                ], {
+	                    duration: 120
+	                });
+	            }],
+	            display: "flex",
+	            child: [{ // 菜单
+	                style: {
+	                    border: "1px white solid",
+	                    backgroundColor: cssG.rgb(255, 255, 255, 0.95),
+	                    color: cssG.rgb(0, 0, 0),
+	                    alignItems: "stretch",
+	                    justifyContent: "center",
+	                    flexFlow: "column",
+	                    lineHeight: "45px",
+	                    minHeight: "10px",
+	                    minWidth: "280px",
+	                    maxHeight: "100%",
+	                    maxWidth: "95%",
+	                    boxSizing: "border-box",
+	                    padding: "10px",
+	                    borderRadius: "7px",
+	                    pointerEvents: "none"
+	                },
+	                assembly: [e =>
+	                {
+	                    e.animate([
+	                        {
+	                            transform: "scale(0.9) translateY(-100px)"
+	                        },
+	                        {
+	                        }
+	                    ], {
+	                        duration: 120
+	                    });
+	                    setTimeout(() => { e.setStyle("pointerEvents", "auto"); }, 120);
+	                    e.getChilds().forEach(o =>
+	                    {
+	                        o.addEventListener("click", closeMenuBox);
+	                        buttonAsse(o);
+	                    });
+	                }, e => { menu = e; }],
+	                position$: "static",
+	                overflow: "auto",
+	                child: menuItems,
+	                event: {
+	                    click: e => { e.stopPropagation(); }
+	                }
+	            }],
+	            event: {
+	                click: closeMenuBox
+	            }
+	        });
+	        function closeMenuBox()
+	        {
+	            menu.setStyle("pointerEvents", "none");
+	            menu.animate([
+	                {
+	                },
+	                {
+	                    transform: "scale(0.9) translateY(-100px)"
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            menuHolder.animate([
+	                {
+	                    opacity: 1
+	                },
+	                {
+	                    opacity: 0.1
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            setTimeout(() =>
+	            {
+	                menuHolder.remove();
+	            }, 120);
+	        }
+	        body.addChild(menuHolder);
+	    });
 	}
 
 	/**
@@ -1983,16 +2740,42 @@
 	            [
 	                ...([
 	                    {
-	                        title: "加载插件",
-	                        text: "加载插件",
+	                        title: "管理插件",
+	                        text: "管理插件",
 	                        icon: "puzzle",
 	                        onClick: async () =>
 	                        {
-	                            let pluginUrl = await showInputBox("添加插件", "请输入插件地址", true);
-	                            if (pluginUrl != undefined)
-	                            {
-	                                loadPlugIn(pluginUrl, pluginUrl);
-	                            }
+	                            showMenu([
+	                                NList.getElement([
+	                                    "[ 添加插件 ]",
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        let pluginUrl = await showInputBox("添加插件", "请输入插件地址", true);
+	                                        if (pluginUrl != undefined)
+	                                        {
+	                                            await plugList.addPlug(pluginUrl, pluginUrl);
+	                                            plugList.savePlugList();
+	                                        }
+	                                    }),
+	                                ]),
+	                                ...(Array.from(plugList.map.keys())).map(name => NList.getElement([
+	                                    `${name}`,
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        showMenu([
+	                                            NList.getElement([
+	                                                "移除插件",
+	                                                new NEvent("click", () =>
+	                                                {
+	                                                    plugList.removePlug(name);
+	                                                    plugList.savePlugList();
+	                                                })
+	                                            ])
+	                                        ]);
+	                                    }),
+	                                ]))
+	                            ]);
+
 	                        }
 	                    },
 	                    {
@@ -2164,6 +2947,7 @@
 
 	        new NEvent("click", () =>
 	        {
+	            iframeContext.iframeWindow?.["functionHolderDarker"]?.click();
 	            iframeContext.iframeBody.addChild(getForgeMenu());
 	        }),
 
@@ -2202,7 +2986,7 @@
 	        let iframeDocument = mainIframe.contentDocument;
 	        if (iframeWindow["iiroseForgeInjected"]) // 已经注入iframe
 	            return;
-	        if (iframeWindow["socket"].__onmessage != undefined) // 目前无法注入
+	        if (iframeWindow["socket"].__onmessage != undefined || iframeWindow["socket"]._onmessage == undefined || iframeWindow["socket"]._send == undefined) // 目前无法注入
 	            throw "main iframe is not ready";
 	        (() => // 添加菜单按钮
 	        {
@@ -2226,13 +3010,13 @@
 	            iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (param) =>
 	            {
 	                let data = param[0];
-	                console.log("get data", data);
+	                // console.log("get data", data);
 	                return false;
 	            });
 	            iframeContext.socket.send = proxyFunction(iframeContext.socket.send.bind(iframeContext.socket), (param) =>
 	            {
 	                let data = param[0];
-	                console.log("send data", data);
+	                // console.log("send data", data);
 	                return false;
 	            });
 	        })();
@@ -2242,272 +3026,39 @@
 	    }, 1000);
 	}
 
-	/**
-	 * 事件处理器
-	 * 可以定多个事件响应函数
-	 * @template {*} T
-	 */
-	class EventHandler
-	{
-	    /**
-	     * 回调列表
-	     * @type {Array<function(T): void>}
-	     */
-	    cbList = [];
-	    /**
-	     * 单次回调列表
-	     * @type {Array<function(T): void>}
-	     */
-	    onceCbList = [];
-
-	    /**
-	     * 添加响应函数
-	     * @param {function(T): void} cb
-	     */
-	    add(cb)
-	    {
-	        this.cbList.push(cb);
-	    }
-
-	    /**
-	     * 添加单次响应函数
-	     * 触发一次事件后将不再响应
-	     * @param {function(T): void} cb
-	     */
-	    addOnce(cb)
-	    {
-	        this.onceCbList.push(cb);
-	    }
-
-	    /**
-	     * 移除响应函数
-	     * @param {function(T): void} cb
-	     */
-	    remove(cb)
-	    {
-	        let ind = this.cbList.indexOf(cb);
-	        if (ind > -1)
-	        {
-	            this.cbList.splice(ind, 1);
-	        }
-	        else
-	        {
-	            ind = this.onceCbList.indexOf(cb);
-	            if (ind > -1)
-	            {
-	                this.onceCbList.splice(ind, 1);
-	            }
-	        }
-	    }
-
-	    /**
-	     * 移除所有响应函数
-	     */
-	    removeAll()
-	    {
-	        this.cbList = [];
-	        this.onceCbList = [];
-	    }
-
-	    /**
-	     * 触发事件
-	     * @param {T} e
-	     */
-	    trigger(e)
-	    {
-	        this.cbList.forEach(o => { o(e); });
-	        this.onceCbList.forEach(o => { o(e); });
-	        this.onceCbList = [];
-	    }
-	}
-
-	/**
-	 * 暴露的forge接口
-	 */
-	const forgeApi = {
-	    /**
-	     * 操作列表
-	     */
-	    operation:
-	    {
-	        /**
-	         * 获取用户蔷薇昵称
-	         * @returns {string}
-	         */
-	        getUserName: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["myself2"])
-	                return iframeContext.iframeWindow["myself2"];
-	            return null;
-	        },
-
-	        /**
-	         * 获取用户蔷薇uid
-	         * @returns {string}
-	         */
-	        getUserUid: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["uid"])
-	                return iframeContext.iframeWindow["uid"];
-	            return null;
-	        },
-
-	        /**
-	         * 获取用户蔷薇所在房间id
-	         * @returns {string}
-	         */
-	        getUserRoomId: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["roomn"])
-	                return iframeContext.iframeWindow["roomn"];
-	            return null;
-	        },
-
-	        /**
-	         * 获取用户蔷薇头像url
-	         * @returns {string}
-	         */
-	        getUserProfilePictureUrl: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["avatar2"] && iframeContext.iframeWindow?.["avatarconv"])
-	                return iframeContext.iframeWindow["avatarconv"](iframeContext.iframeWindow["avatar2"]);
-	            return null;
-	        },
-
-	        /**
-	         * 获取用户蔷薇输入颜色
-	         * @returns {string}
-	         */
-	        getUserInputColor: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["inputcolorhex"])
-	                return iframeContext.iframeWindow["inputcolorhex"];
-	            return null;
-	        },
-
-	        /**
-	         * 在用户所在房间发送消息
-	         * @param {string} content
-	         */
-	        sendRoomMessage: (content) =>
-	        {
-	            content = String(content);
-	            if (!content)
-	                return;
-	            iframeContext.socketApi.send(JSON.stringify({
-	                "m": content,
-	                "mc": forgeApi.operation.getUserInputColor(),
-	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
-	            }));
-	        },
-
-	        /**
-	         * 静默发送私聊
-	         * @param {string} targetUid
-	         * @param {string} context
-	         */
-	        sendPrivateMessageSilence: (targetUid, context) =>
-	        {
-	            targetUid = String(targetUid);
-	            context = String(context);
-	            if (!context || !targetUid)
-	                return;
-	            iframeContext.socketApi.send(JSON.stringify({
-	                "g": targetUid,
-	                "m": context,
-	                "mc": forgeApi.operation.getUserInputColor(),
-	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
-	            }));
-	        },
-
-	        /**
-	         * 发送私聊
-	         * @param {string} targetUid
-	         * @param {string} content
-	         */
-	        sendPrivateMessage: (targetUid, content) =>
-	        {
-	            targetUid = String(targetUid);
-	            content = String(content);
-	            if (!content || !targetUid || !iframeContext.iframeWindow?.["msgfetch"] || !iframeContext.iframeWindow?.["Variable"]?.pmObjJson || !iframeContext.iframeWindow?.["Utils"]?.service?.buildPmHelper)
-	                return;
-	            let inputBox = /** @type {HTMLInputElement} */(iframeContext.iframeDocument.getElementById("moveinput"));
-	            let oldValue = inputBox.value;
-	            let old_pmFull = iframeContext.iframeWindow["pmFull"];
-	            inputBox.value = content;
-	            iframeContext.iframeWindow["pmFull"] = true;
-	            if (!iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid])
-	                iframeContext.iframeWindow["Utils"].service.buildPmHelper(1, targetUid, targetUid);
-	            iframeContext.iframeWindow["msgfetch"](0, iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid], targetUid, "");
-	            iframeContext.iframeWindow["pmFull"] = old_pmFull;
-	            inputBox.value = oldValue;
-	        },
-
-	        /**
-	         * 静默给自己发送私聊
-	         * @param {string} content
-	         */
-	        sendSelfPrivateMessageSilence: (content) =>
-	        {
-	            forgeApi.operation.sendPrivateMessage(forgeApi.operation.getUserUid(), content);
-	        },
-
-	        /**
-	         * 点赞
-	         * @param {string} targetUid
-	         * @param {string} [content]
-	         */
-	        giveALike: (targetUid, content = "") =>
-	        {
-	            targetUid = String(targetUid);
-	            content = String(content);
-	            if (!targetUid)
-	                return;
-	            iframeContext.socketApi.send(`+*${targetUid}${content ? " " + content : ""}`);
-	        },
-	    },
-
-	    /**
-	     * 事件列表
-	     */
-	    event: {
-	        /**
-	         * 接收到房间消息
-	         */
-	        roomMessage: new EventHandler(),
-
-	        /**
-	         * 接受到私聊消息
-	         */
-	        privateMessage: new EventHandler(),
-	        
-	        /**
-	         * 接受到自己发送给自己的私聊消息
-	         */
-	        selfPrivateMessage: new EventHandler()
-	    }
-	};
-
-	window["iiroseForgeApi"] = forgeApi;
-
 	if (location.host == "iirose.com")
 	{
 	    if (location.pathname == "/")
 	    {
 	        if (!window["iiroseForgeInjected"])
 	        {
-	            (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame"))).addEventListener("load", () => // 主iframe加载事件
+	            console.log("[iiroseForge] iiroseForge已启用");
+
+	            let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
+	            mainIframe.addEventListener("load", () => // 主iframe加载事件
 	            {
-	                console.log("[iiroseForge] 正在将iiroseForge注入iframe");
+	                console.log("[iiroseForge] 已重载 正在将iiroseForge注入iframe");
 	                initInjectIframe();
 	            });
+	            console.log("[iiroseForge] 正在将iiroseForge注入iframe");
+	            initInjectIframe();
 
-
-	            console.log("[iiroseForge] iiroseForge已启用");
 	            window["iiroseForgeInjected"] = true; // 最外层页面已被注入标记
 	        }
 	        else
 	            console.log("[iiroseForge] 已阻止重复注入");
+	    }
+	    else if (location.pathname == "/messages.html")
+	    {
+	        console.log("[iiroseForge] iiroseForge需要注入至主上下文中");
+	        if (parent?.location?.host == "iirose.com" && parent?.location?.pathname == "/")
+	        {
+	            let doc = parent.document;
+	            let script = doc.createElement("script");
+	            script.src = iiroseForgeLoaderUrl;
+	            doc.body.appendChild(script);
+	            console.log("[iiroseForge] 修正注入");
+	        }
 	    }
 	    else
 	    {

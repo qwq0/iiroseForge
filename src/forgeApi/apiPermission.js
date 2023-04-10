@@ -14,10 +14,11 @@ export const apiPermission = {
         sendPrivateMessage: "[危险]发送私聊消息",
         sendSelfPrivateMessageSilence: "向自己静默发送私聊消息(同账号多设备间通信)",
         giveALike: "进行点赞",
+        switchRoom: "切换所在房间"
     },
     event: {
         roomMessage: "接收房间消息",
-        privateMessage: "[危险]接受私聊消息",
-        selfPrivateMessage: "接受自己(其他设备)发送给自己的私聊消息"
+        privateMessage: "[危险]接收私聊消息",
+        selfPrivateMessage: "接收自己(其他设备)发送给自己的私聊消息"
     }
 };

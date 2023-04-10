@@ -158,6 +158,7 @@ export async function showInputBox(title, text, allowCancel = false, initValue =
             value: initValue
         }
     });
+    input.addEventListener("keydown", e => { e.stopPropagation(); }, true);
     var confirm = await showInfoBox(title, text, allowCancel, input);
     return (confirm ? input.element.value : undefined);
 }

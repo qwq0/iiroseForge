@@ -71,8 +71,8 @@ export class EventHandler
      */
     trigger(e)
     {
-        this.cbList.forEach(o => { o(e); });
-        this.onceCbList.forEach(o => { o(e); });
+        this.cbList.forEach(async (o) => { o(e); });
+        this.onceCbList.forEach(async (o) => { o(e); });
         this.onceCbList = [];
     }
 }

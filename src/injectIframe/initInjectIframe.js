@@ -20,7 +20,7 @@ export function initInjectIframe()
         let iframeDocument = mainIframe.contentDocument;
         if (iframeWindow["iiroseForgeInjected"]) // 已经注入iframe
             return;
-        if (iframeWindow["socket"].__onmessage != undefined) // 目前无法注入
+        if (iframeWindow["socket"].__onmessage != undefined || iframeWindow["socket"]._onmessage == undefined || iframeWindow["socket"]._send == undefined) // 目前无法注入
             throw "main iframe is not ready";
         (() => // 添加菜单按钮
         {
@@ -44,13 +44,13 @@ export function initInjectIframe()
             iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (param) =>
             {
                 let data = param[0];
-                console.log("get data", data);
+                // console.log("get data", data);
                 return false;
             });
             iframeContext.socket.send = proxyFunction(iframeContext.socket.send.bind(iframeContext.socket), (param) =>
             {
                 let data = param[0];
-                console.log("send data", data);
+                // console.log("send data", data);
                 return false;
             });
         })();

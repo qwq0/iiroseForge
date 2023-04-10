@@ -130,7 +130,7 @@ export const forgeApi = {
          */
         sendSelfPrivateMessageSilence: (content) =>
         {
-            forgeApi.operation.sendPrivateMessage(forgeApi.operation.getUserUid(), content);
+            forgeApi.operation.sendPrivateMessageSilence(forgeApi.operation.getUserUid(), content);
         },
 
         /**
@@ -146,6 +146,17 @@ export const forgeApi = {
                 return;
             iframeContext.socketApi.send(`+*${targetUid}${content ? " " + content : ""}`);
         },
+
+        /**
+         * 切换房间
+         * @param {string} roomId
+         */
+        switchRoom: (roomId) =>
+        {
+            roomId = String(roomId);
+            if (iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger)
+                iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger(roomId);
+        }
     },
 
     /**
@@ -161,7 +172,7 @@ export const forgeApi = {
          * 接受到私聊消息
          */
         privateMessage: new EventHandler(),
-        
+
         /**
          * 接受到自己发送给自己的私聊消息
          */
@@ -170,3 +181,7 @@ export const forgeApi = {
 };
 
 window["iiroseForgeApi"] = forgeApi;
+
+/**
+ * @typedef {typeof forgeApi} forgeApiType
+ */

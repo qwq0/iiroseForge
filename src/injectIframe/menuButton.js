@@ -28,6 +28,7 @@ export function getMenuButton()
 
         new NEvent("click", () =>
         {
+            iframeContext.iframeWindow?.["functionHolderDarker"]?.click();
             iframeContext.iframeBody.addChild(getForgeMenu());
         }),
 

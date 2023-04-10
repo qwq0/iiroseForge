@@ -1,5 +1,5 @@
-let iiroseForgeScriptUrl = "https://qwq0.github.io/iiroseForge/l.js";
-let iiroseForgeScriptElementHtml = `<script type="text/javascript" src="${iiroseForgeScriptUrl}"></script>`;
+export let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
+let iiroseForgeLoaderElementHtml = `<script type="text/javascript" src="${iiroseForgeLoaderUrl}"></script>`;
 
 /**
  * 向缓存中注入iiroseForge
@@ -9,12 +9,12 @@ export async function writeForgeToCache()
 {
     let cache = await caches.open("v");
     let cacheMainPage = await (await caches.match("/")).text();
-    if (cacheMainPage.indexOf(iiroseForgeScriptElementHtml) > -1)
+    if (cacheMainPage.indexOf(iiroseForgeLoaderElementHtml) > -1)
         return;
     let insertIndex = cacheMainPage.indexOf("</body></html>");
     if (insertIndex == -1)
         return;
-    let newCacheMainPage = cacheMainPage.slice(0, insertIndex) + iiroseForgeScriptElementHtml + cacheMainPage.slice(insertIndex);
+    let newCacheMainPage = cacheMainPage.slice(0, insertIndex) + iiroseForgeLoaderElementHtml + cacheMainPage.slice(insertIndex);
     await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
 }
 /**
@@ -25,9 +25,9 @@ export async function removeForgeFromCache()
 {
     let cache = await caches.open("v");
     let cacheMainPage = await (await caches.match("/")).text();
-    let removeIndex = cacheMainPage.indexOf(iiroseForgeScriptElementHtml);
+    let removeIndex = cacheMainPage.indexOf(iiroseForgeLoaderElementHtml);
     if (removeIndex == -1)
         return;
-    let newCacheMainPage = cacheMainPage.slice(0, removeIndex) + cacheMainPage.slice(removeIndex + iiroseForgeScriptElementHtml.length);
+    let newCacheMainPage = cacheMainPage.slice(0, removeIndex) + cacheMainPage.slice(removeIndex + iiroseForgeLoaderElementHtml.length);
     await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
 }

@@ -1,8 +1,10 @@
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement } from "../../lib/qwqframe.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
 import { loadPlugIn } from "../plug/plug.js";
+import { plugList } from "../plug/plugList.js";
 import { className } from "../ui/className.js";
 import { showInfoBox, showInputBox } from "../ui/infobox.js";
+import { showMenu } from "../ui/menu.js";
 
 /**
  * 获取forge菜单
@@ -57,16 +59,42 @@ export function getForgeMenu()
             [
                 ...([
                     {
-                        title: "加载插件",
-                        text: "加载插件",
+                        title: "管理插件",
+                        text: "管理插件",
                         icon: "puzzle",
                         onClick: async () =>
                         {
-                            let pluginUrl = await showInputBox("添加插件", "请输入插件地址", true);
-                            if (pluginUrl != undefined)
-                            {
-                                loadPlugIn(pluginUrl, pluginUrl);
-                            }
+                            showMenu([
+                                NList.getElement([
+                                    "[ 添加插件 ]",
+                                    new NEvent("click", async () =>
+                                    {
+                                        let pluginUrl = await showInputBox("添加插件", "请输入插件地址", true);
+                                        if (pluginUrl != undefined)
+                                        {
+                                            await plugList.addPlug(pluginUrl, pluginUrl);
+                                            plugList.savePlugList();
+                                        }
+                                    }),
+                                ]),
+                                ...(Array.from(plugList.map.keys())).map(name => NList.getElement([
+                                    `${name}`,
+                                    new NEvent("click", async () =>
+                                    {
+                                        showMenu([
+                                            NList.getElement([
+                                                "移除插件",
+                                                new NEvent("click", () =>
+                                                {
+                                                    plugList.removePlug(name);
+                                                    plugList.savePlugList();
+                                                })
+                                            ])
+                                        ]);
+                                    }),
+                                ]))
+                            ]);
+
                         }
                     },
                     {
