@@ -23,8 +23,9 @@
 ```
 ((d,s)=>{s=d.createElement("script");s.src="//qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
 ```
-3. 关闭console(点击悬浮按钮)
-4. 再次在蔷薇终端键入console以关闭console
+3. 点击Execute按钮
+4. 关闭console(点击悬浮按钮)
+5. 再次在蔷薇终端键入console以关闭console
 
 
 ## 在自己的iirose客户端中集成iirose-Forge   
