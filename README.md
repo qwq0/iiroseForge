@@ -9,17 +9,28 @@
 ## 关于源码
 请查看本仓库的dev分支
 
+
 ## 浏览器用户 (PC)
 打开浏览器console并键入   
 ```
-(function(d,s){s=d.createElement("script");s.src="//qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
+((d,s)=>{s=d.createElement("script");s.src="//qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
 ```
 
-## 在自己的iirose客户端中集成iirose-Forge
-(这不会包括iiroseForge注入器)   
+
+## 手机用户 (未经过测试)
+1. 打开蔷薇终端并键入console   
+2. 在console标签页的输入框中输入   
+```
+((d,s)=>{s=d.createElement("script");s.src="//qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
+```
+3. 关闭console(点击悬浮按钮)
+4. 再次在蔷薇终端键入console以关闭console
+
+
+## 在自己的iirose客户端中集成iirose-Forge   
 当每次完成加载后执行以下js代码段   
 ```
-(function(d,s){s=d.createElement("script");s.src="//qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
+((d,s)=>{s=d.createElement("script");s.src="//qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
 ```
 请仅仅在url为 https://iirose.com 时注入脚本   
 
