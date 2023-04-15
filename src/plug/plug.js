@@ -1,25 +1,36 @@
-import { SandboxContext } from "../../lib/iframeSandbox.js";
 import { apiPermission } from "../forgeApi/apiPermission.js";
 import { forgeApi } from "../forgeApi/forgeApi.js";
 import { showInfoBox } from "../ui/infobox.js";
+import { plugList } from "./plugList.js";
+import { createPlugSandboxWithWindow } from "./plugWindow.js";
 
 /**
  * 加载插件
- * @param {string} pluginName
+ * @param {string} plugName
  * @param {string} scriptUrl
- * @returns {Promise<SandboxContext>}
+ * @param {{operationPermissionSet: Set, eventPermissionSet: Set }} [permission]
  */
-export async function loadPlugIn(pluginName, scriptUrl)
+export async function loadPlugIn(plugName, scriptUrl, permission)
 {
-    let sandbox = new SandboxContext();
+    let { sandbox, windowElement } = createPlugSandboxWithWindow();
     await sandbox.waitAvailable();
-    let operationPermissionSet = new Set();
-    let eventPermissionSet = new Set();
+    let operationPermissionSet = (permission?.operationPermissionSet ? permission?.operationPermissionSet : new Set());
+    let eventPermissionSet = (permission?.eventPermissionSet ? permission?.eventPermissionSet : new Set());
     let apiBindObj = {};
+    /**
+     * 申请权限
+     * @param {Array<string>} operationList 
+     * @param {Array<string>} eventList 
+     * @returns {Promise<boolean>}
+     */
     apiBindObj.applyPermission = async (operationList, eventList) =>
     {
+        operationList = operationList.filter(o => Boolean(apiPermission.operation[o]));
+        eventList = eventList.filter(o => Boolean(apiPermission.event[o]));
+        if (operationList.every(o => operationPermissionSet.has(o)) && eventList.every(o => eventPermissionSet.has(o)))
+            return true;
         let permit = await showInfoBox("权限申请", ([
-            `是否允许 ${pluginName} 获取以下权限?`,
+            `是否允许 ${plugName} 获取以下权限?`,
             ...operationList.map(o => "+ " + apiPermission.operation[o]),
             ...eventList.map(o => "+ " + apiPermission.event[o])
         ]).join("\n"), true);
@@ -32,9 +43,10 @@ export async function loadPlugIn(pluginName, scriptUrl)
             });
             eventList.forEach(o =>
             {
-                if (apiPermission.eventList[o])
+                if (apiPermission.event[o])
                     eventPermissionSet.add(o);
             });
+            plugList.savePlugList();
         }
         return (permit ? true : false);
     };
@@ -44,7 +56,20 @@ export async function loadPlugIn(pluginName, scriptUrl)
             apiBindObj[key] = (...param) =>
             {
                 if (operationPermissionSet.has(key))
-                    forgeApi.operation[key](...param);
+                {
+                    try
+                    {
+                        forgeApi.state.plug = { name: plugName };
+                        let ret = forgeApi.operation[key](...param);
+                        forgeApi.state.plug = null;
+                        return ret;
+                    }
+                    catch (err)
+                    {
+                        forgeApi.state.plug = null;
+                        return undefined;
+                    }
+                }
             };
     });
     apiBindObj.addEventListener = (eventName, callback) =>
@@ -58,5 +83,10 @@ export async function loadPlugIn(pluginName, scriptUrl)
     let scriptCode = await (await fetch(scriptUrl)).text();
     sandbox.execJs(scriptCode);
 
-    return sandbox;
+    return {
+        sandbox: sandbox,
+        windowElement: windowElement,
+        operationPermissionSet: operationPermissionSet,
+        eventPermissionSet: eventPermissionSet
+    };
 }

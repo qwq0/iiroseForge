@@ -1,5 +1,7 @@
 import { domPath } from "../../lib/plugToolsLib.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
+import { writeForgePacket } from "../protocol/forgePacket.js";
+import { showNotice } from "../ui/notice.js";
 import { EventHandler } from "../util/EventHandler.js";
 
 /**
@@ -7,10 +9,32 @@ import { EventHandler } from "../util/EventHandler.js";
  */
 export const forgeApi = {
     /**
+     * 接口状态
+     */
+    state: {
+        /**
+         * 当前执行操作的插件
+         * @type {{ name: string }}
+         */
+        plug: null
+    },
+
+    /**
      * 操作列表
      */
-    operation:
-    {
+    operation: {
+        /**
+         * 显示forge通知
+         * @param {string} content
+         * @param {Function} callback
+         */
+        showForgeNotice: (content, callback) =>
+        {
+            content = String(content);
+            showNotice("插件提示", content, `插件 ${forgeApi.state.plug?.name}`, callback);
+        },
+
+
         /**
          * 获取用户蔷薇昵称
          * @returns {string}
@@ -80,6 +104,15 @@ export const forgeApi = {
                 "mc": forgeApi.operation.getUserInputColor(),
                 "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
             }));
+        },
+
+        /**
+         * 在用户所在房间发送消息
+         * @param {Object} obj
+         */
+        sendRoomForgePacket: (obj) =>
+        {
+            forgeApi.operation.sendRoomMessage(writeForgePacket(obj));
         },
 
         /**
@@ -165,23 +198,30 @@ export const forgeApi = {
     event: {
         /**
          * 接收到房间消息
+         * @type {EventHandler<{ senderId: string, senderName: string, content: string }>}
          */
         roomMessage: new EventHandler(),
 
         /**
          * 接受到私聊消息
+         * 不包括自己发出的
+         * 不包括自己发送给自己的
+         * @type {EventHandler<{ senderId: string, senderName: string, content: string }>}
          */
         privateMessage: new EventHandler(),
 
         /**
          * 接受到自己发送给自己的私聊消息
+         * @type {EventHandler<{ content: string }>}
          */
-        selfPrivateMessage: new EventHandler()
+        selfPrivateMessage: new EventHandler(),
+
+        /**
+         * 接收到房间的forge数据包
+         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
+         */
+        roomForgePacket: new EventHandler()
     }
 };
 
 window["iiroseForgeApi"] = forgeApi;
-
-/**
- * @typedef {typeof forgeApi} forgeApiType
- */

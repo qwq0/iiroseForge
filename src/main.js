@@ -1,6 +1,7 @@
 import "./forgeApi/forgeApi.js";
 import { initInjectIframe } from "./injectIframe/initInjectIframe.js";
 import { iiroseForgeLoaderUrl } from "./injectCache/injectCache.js";
+import { showNotice } from "./ui/notice.js";
 
 
 if (location.host == "iirose.com")

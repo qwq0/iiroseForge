@@ -1,5 +1,6 @@
 import { intervalTry, proxyFunction } from "../../lib/plugToolsLib.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent } from "../../lib/qwqframe.js";
+import { toClient, toServer } from "../protocol/protocol.js";
 import { iframeContext } from "./iframeContext.js";
 import { getMenuButton } from "./menuButton.js";
 
@@ -43,14 +44,32 @@ export function initInjectIframe()
         {
             iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (param) =>
             {
-                let data = param[0];
                 // console.log("get data", data);
+                try
+                {
+                    if(toClient(/** @type {[string]} */(param)))
+                        return true;
+                }
+                catch (err)
+                {
+                    console.error("[iiroseForge]", err);
+                    return false;
+                }
                 return false;
             });
             iframeContext.socket.send = proxyFunction(iframeContext.socket.send.bind(iframeContext.socket), (param) =>
             {
-                let data = param[0];
                 // console.log("send data", data);
+                try
+                {
+                    if(toServer(/** @type {[string]} */(param)))
+                        return true;
+                }
+                catch (err)
+                {
+                    console.error("[iiroseForge]", err);
+                    return false;
+                }
                 return false;
             });
         })();

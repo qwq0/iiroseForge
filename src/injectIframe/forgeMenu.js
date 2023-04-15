@@ -1,6 +1,6 @@
-import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement } from "../../lib/qwqframe.js";
+import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList } from "../../lib/qwqframe.js";
+import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
-import { loadPlugIn } from "../plug/plug.js";
 import { plugList } from "../plug/plugList.js";
 import { className } from "../ui/className.js";
 import { showInfoBox, showInputBox } from "../ui/infobox.js";
@@ -19,7 +19,8 @@ export function getForgeMenu()
         style("zIndex", "91000"),
         style("height", "100%"),
         style("width", "100%"),
-        style("backgroundColor", "rgba(255,255,255,0.8)"),
+        style("backgroundColor", "rgba(255, 255, 255, 0.75)"),
+        style("backdropFilter", "blur(3px)"),
 
         [
             style("opacity", "0.8"),
@@ -31,22 +32,43 @@ export function getForgeMenu()
             style("height", "40px"),
             style("lineHeight", "40px"),
             style("fontSize", "26px"),
-            style("padding", "0 64px 0 24px"),
+            style("padding", "0 16px 0 16px"),
             style("whiteSpace", "nowrap"),
             style("boxSizing", "border-box"),
             style("position", "relative"),
             style("color", "#fff"),
+
             [
+                className("mdi-anvil"),
+                createNStyleList({
+                    display: "inline",
+                    opacity: "0.8",
+                    backgroundColor: "#303030",
+                    boxShadow: "0 0 1px rgb(0,0,0,0.12), 0 1px 1px rgb(0,0,0,0.24)",
+                    zIndex: "2",
+                    fontFamily: "md",
+                    height: "40px",
+                    lineHeight: "40px",
+                    fontSize: "26px",
+                    padding: "0 0 0 0",
+                    whiteSpace: "nowrap",
+                    boxSizing: "border-box",
+                    position: "relative",
+                    color: "#fff",
+                })
+            ],
+            [
+                style("display", "inline"),
                 style("fontSize", "16px"),
                 style("opacity", "0.7"),
                 style("fontWeight", "bold"),
-                style("marginLeft", "24px"),
+                style("marginLeft", "16px"),
                 style("height", "100%"),
                 style("lineHeight", "40px"),
                 style("display", "inline"),
                 style("verticalAlign", "top"),
 
-                "欢迎使用 iirose-Forge"
+                `欢迎使用 iirose-Forge   version ${versionInfo.version}`
             ]
         ],
 
@@ -69,7 +91,7 @@ export function getForgeMenu()
                                     "[ 添加插件 ]",
                                     new NEvent("click", async () =>
                                     {
-                                        let pluginUrl = await showInputBox("添加插件", "请输入插件地址", true);
+                                        let pluginUrl = await showInputBox("添加插件", "请输入插件地址\n插件会自动进行更新", true);
                                         if (pluginUrl != undefined)
                                         {
                                             await plugList.addPlug(pluginUrl, pluginUrl);
@@ -82,6 +104,13 @@ export function getForgeMenu()
                                     new NEvent("click", async () =>
                                     {
                                         showMenu([
+                                            NList.getElement([
+                                                "显示插件窗口",
+                                                new NEvent("click", () =>
+                                                {
+                                                    plugList.showPlugWindow(name);
+                                                })
+                                            ]),
                                             NList.getElement([
                                                 "移除插件",
                                                 new NEvent("click", () =>
@@ -191,7 +220,7 @@ export function getForgeMenu()
         [
             style("color", "#303030"),
             style("background", "#fff"),
-            style("opacity", ".8"),
+            style("opacity", "0.8"),
             style("display", "flex"),
             style("height", "40px"),
             style("position", "absolute"),

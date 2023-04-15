@@ -4,6 +4,21 @@ declare namespace cssG {
 }
 
 /**
+ * 创建对象的代理
+ * @template {object} T
+ * @param {T} srcObj
+ * @returns {T}
+ */
+declare function createHookObj<T extends unknown>(srcObj: T): T;
+/**
+ * 获取代理对象中指定值的绑定信息
+ * @template {Object} T
+ * @param {T} proxyObj
+ * @param {[(keyof T) | (string & {}) | symbol] | [...Array<(keyof T) | (string & {}) | symbol>, function(...any): any]} keys
+ * @returns {HookBindInfo}
+ */
+declare function bindValue<T extends unknown>(proxyObj: T, ...keys: [symbol | (string & {}) | keyof T] | [...(symbol | (string & {}) | keyof T)[], (...arg0: any[]) => any]): HookBindInfo;
+/**
  * 钩子绑定信息
  */
 declare class HookBindInfo {
@@ -152,11 +167,632 @@ declare class HookBindValue {
 }
 
 /**
+ * 标签名
+ * 标签名使用小写字母
+ * 不包含此类的特征列表默认为div
+ * 一层特征列表只能有唯一tagName
+ * @template {keyof HTMLElementTagNameMap} T
+ */
+declare class NTagName<T extends keyof HTMLElementTagNameMap> {
+    /**
+     * @param {T} tagName
+     */
+    constructor(tagName: T);
+    /**
+     * @type {T}
+     */
+    tagName: T;
+}
+
+/**
+ * @typedef {(keyof HTMLElement & string) | (string & {})} keyObjectOfHtmlElementAttr
+ */
+/**
+ * 属性
+ * @template {keyObjectOfHtmlElementAttr} T
+ */
+declare class NAttr<T extends keyObjectOfHtmlElementAttr> {
+    /**
+     * @param {T} key
+     * @param {string | number | boolean | Function} value
+     */
+    constructor(key: T, value: string | number | boolean | Function);
+    /**
+     * @type {T}
+     */
+    key: T;
+    /**
+     * 若为函数则应用时调用
+     * 若有返回值则赋值到属性
+     * @type {string | number | boolean | Function}
+     */
+    value: string | number | boolean | Function;
+    /**
+     * 将此特征应用于元素
+     * @param {NElement} e
+     */
+    apply(e: NElement<any>): void;
+}
+type keyObjectOfHtmlElementAttr = (keyof HTMLElement & string) | (string & {});
+
+/**
+ * 事件
+ * @template {keyof HTMLElementEventMap} T
+ */
+declare class NEvent<T extends keyof HTMLElementEventMap> {
+    /**
+     * @param {T} key
+     * @param {function(HTMLElementEventMap[T]): any} callback
+     */
+    constructor(key: T, callback: (arg0: HTMLElementEventMap[T]) => any);
+    /**
+     * @type {T}
+     */
+    eventName: T;
+    /**
+     * @type {function(HTMLElementEventMap[T]): any}
+     */
+    callback: (arg0: HTMLElementEventMap[T]) => any;
+    /**
+     * 将此特征应用于元素
+     * @param {NElement} e
+     */
+    apply(e: NElement<any>): void;
+}
+
+/**
+ * 流水线
+ */
+declare class NAsse {
+    /**
+     * @param {function(NElement): void} callback
+     */
+    constructor(callback: (arg0: NElement<any>) => void);
+    /**
+     * @type {function(NElement): void}
+     */
+    callback: (arg0: NElement<any>) => void;
+    /**
+     * 将此特征应用于元素
+     * @param {NElement} e
+     */
+    apply(e: NElement<any>): void;
+}
+
+/**
+ * 特征列表
+ * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement>} NList_list
+ */
+declare class NList {
+    /**
+     * 生成拉平列表
+     * @param {NList_list} list
+     */
+    static flat(list: NList_list): NList;
+    /**
+     * 获取(生成)元素
+     * @param {NList_list} list
+     */
+    static getElement(list: NList_list): NElement<any>;
+    /**
+     * @param {NList_list} list
+     */
+    constructor(list: NList_list);
+    /**
+     * @type {NList_list}
+     */
+    list: NList_list;
+    /**
+     * 拉平特征
+     * (默认)标记为false将作为子元素节点
+     * 标记为true将作为上层节点的特征列表
+     * @type {boolean}
+     */
+    flatFlag: boolean;
+    /**
+     * 为元素应用特征列表
+     * @param {NElement<HTMLElement>} element
+     */
+    apply(element: NElement<HTMLElement>): void;
+    /**
+     * 获取列表的标签名
+     * @returns {string}
+     */
+    getTagName(): string;
+    /**
+     * 获取(生成)元素
+     * @returns {NElement}
+     */
+    getElement(): NElement<any>;
+}
+/**
+ * 特征列表
+ */
+type NList_list = Array<string | HookBindInfo | NTagName<any> | NStyle<any> | NAttr<any> | NEvent<any> | NAsse | NList | (string | HookBindInfo | NAsse | NElement<any> | NTagName<any> | NStyle<any> | NAttr<any> | NEvent<any> | NList | NList_list)[] | NElement<any>>;
+
+/**
  * 创建NStyle 省略new
  * @param {keyOfStyle} key
  * @param {string | HookBindInfo} value
  */
 declare function createNStyle(key: keyOfStyle, value: string | HookBindInfo): NStyle<keyOfStyle>;
+/**
+ * 创建一组NStyle的flat NList
+ * @param {{ [x in keyOfStyle]?: string | HookBindInfo }} obj
+ */
+declare function createNStyleList(obj: {
+    [x: string & {}]: string | HookBindInfo | undefined;
+    length?: string | HookBindInfo;
+    filter?: string | HookBindInfo;
+    fill?: string | HookBindInfo;
+    animationName?: string | HookBindInfo;
+    all?: string | HookBindInfo;
+    offset?: string | HookBindInfo;
+    height?: string | HookBindInfo;
+    width?: string | HookBindInfo;
+    left?: string | HookBindInfo;
+    top?: string | HookBindInfo;
+    item?: string | HookBindInfo;
+    accentColor?: string | HookBindInfo;
+    alignContent?: string | HookBindInfo;
+    alignItems?: string | HookBindInfo;
+    alignSelf?: string | HookBindInfo;
+    alignmentBaseline?: string | HookBindInfo;
+    animation?: string | HookBindInfo;
+    animationDelay?: string | HookBindInfo;
+    animationDirection?: string | HookBindInfo;
+    animationDuration?: string | HookBindInfo;
+    animationFillMode?: string | HookBindInfo;
+    animationIterationCount?: string | HookBindInfo;
+    animationPlayState?: string | HookBindInfo;
+    animationTimingFunction?: string | HookBindInfo;
+    appearance?: string | HookBindInfo;
+    aspectRatio?: string | HookBindInfo;
+    backdropFilter?: string | HookBindInfo;
+    backfaceVisibility?: string | HookBindInfo;
+    background?: string | HookBindInfo;
+    backgroundAttachment?: string | HookBindInfo;
+    backgroundBlendMode?: string | HookBindInfo;
+    backgroundClip?: string | HookBindInfo;
+    backgroundColor?: string | HookBindInfo;
+    backgroundImage?: string | HookBindInfo;
+    backgroundOrigin?: string | HookBindInfo;
+    backgroundPosition?: string | HookBindInfo;
+    backgroundPositionX?: string | HookBindInfo;
+    backgroundPositionY?: string | HookBindInfo;
+    backgroundRepeat?: string | HookBindInfo;
+    backgroundSize?: string | HookBindInfo;
+    baselineShift?: string | HookBindInfo;
+    blockSize?: string | HookBindInfo;
+    border?: string | HookBindInfo;
+    borderBlock?: string | HookBindInfo;
+    borderBlockColor?: string | HookBindInfo;
+    borderBlockEnd?: string | HookBindInfo;
+    borderBlockEndColor?: string | HookBindInfo;
+    borderBlockEndStyle?: string | HookBindInfo;
+    borderBlockEndWidth?: string | HookBindInfo;
+    borderBlockStart?: string | HookBindInfo;
+    borderBlockStartColor?: string | HookBindInfo;
+    borderBlockStartStyle?: string | HookBindInfo;
+    borderBlockStartWidth?: string | HookBindInfo;
+    borderBlockStyle?: string | HookBindInfo;
+    borderBlockWidth?: string | HookBindInfo;
+    borderBottom?: string | HookBindInfo;
+    borderBottomColor?: string | HookBindInfo;
+    borderBottomLeftRadius?: string | HookBindInfo;
+    borderBottomRightRadius?: string | HookBindInfo;
+    borderBottomStyle?: string | HookBindInfo;
+    borderBottomWidth?: string | HookBindInfo;
+    borderCollapse?: string | HookBindInfo;
+    borderColor?: string | HookBindInfo;
+    borderEndEndRadius?: string | HookBindInfo;
+    borderEndStartRadius?: string | HookBindInfo;
+    borderImage?: string | HookBindInfo;
+    borderImageOutset?: string | HookBindInfo;
+    borderImageRepeat?: string | HookBindInfo;
+    borderImageSlice?: string | HookBindInfo;
+    borderImageSource?: string | HookBindInfo;
+    borderImageWidth?: string | HookBindInfo;
+    borderInline?: string | HookBindInfo;
+    borderInlineColor?: string | HookBindInfo;
+    borderInlineEnd?: string | HookBindInfo;
+    borderInlineEndColor?: string | HookBindInfo;
+    borderInlineEndStyle?: string | HookBindInfo;
+    borderInlineEndWidth?: string | HookBindInfo;
+    borderInlineStart?: string | HookBindInfo;
+    borderInlineStartColor?: string | HookBindInfo;
+    borderInlineStartStyle?: string | HookBindInfo;
+    borderInlineStartWidth?: string | HookBindInfo;
+    borderInlineStyle?: string | HookBindInfo;
+    borderInlineWidth?: string | HookBindInfo;
+    borderLeft?: string | HookBindInfo;
+    borderLeftColor?: string | HookBindInfo;
+    borderLeftStyle?: string | HookBindInfo;
+    borderLeftWidth?: string | HookBindInfo;
+    borderRadius?: string | HookBindInfo;
+    borderRight?: string | HookBindInfo;
+    borderRightColor?: string | HookBindInfo;
+    borderRightStyle?: string | HookBindInfo;
+    borderRightWidth?: string | HookBindInfo;
+    borderSpacing?: string | HookBindInfo;
+    borderStartEndRadius?: string | HookBindInfo;
+    borderStartStartRadius?: string | HookBindInfo;
+    borderStyle?: string | HookBindInfo;
+    borderTop?: string | HookBindInfo;
+    borderTopColor?: string | HookBindInfo;
+    borderTopLeftRadius?: string | HookBindInfo;
+    borderTopRightRadius?: string | HookBindInfo;
+    borderTopStyle?: string | HookBindInfo;
+    borderTopWidth?: string | HookBindInfo;
+    borderWidth?: string | HookBindInfo;
+    bottom?: string | HookBindInfo;
+    boxShadow?: string | HookBindInfo;
+    boxSizing?: string | HookBindInfo;
+    breakAfter?: string | HookBindInfo;
+    breakBefore?: string | HookBindInfo;
+    breakInside?: string | HookBindInfo;
+    captionSide?: string | HookBindInfo;
+    caretColor?: string | HookBindInfo;
+    clear?: string | HookBindInfo;
+    clip?: string | HookBindInfo;
+    clipPath?: string | HookBindInfo;
+    clipRule?: string | HookBindInfo;
+    color?: string | HookBindInfo;
+    colorInterpolation?: string | HookBindInfo;
+    colorInterpolationFilters?: string | HookBindInfo;
+    colorScheme?: string | HookBindInfo;
+    columnCount?: string | HookBindInfo;
+    columnFill?: string | HookBindInfo;
+    columnGap?: string | HookBindInfo;
+    columnRule?: string | HookBindInfo;
+    columnRuleColor?: string | HookBindInfo;
+    columnRuleStyle?: string | HookBindInfo;
+    columnRuleWidth?: string | HookBindInfo;
+    columnSpan?: string | HookBindInfo;
+    columnWidth?: string | HookBindInfo;
+    columns?: string | HookBindInfo;
+    contain?: string | HookBindInfo;
+    container?: string | HookBindInfo;
+    containerName?: string | HookBindInfo;
+    containerType?: string | HookBindInfo;
+    content?: string | HookBindInfo;
+    counterIncrement?: string | HookBindInfo;
+    counterReset?: string | HookBindInfo;
+    counterSet?: string | HookBindInfo;
+    cssFloat?: string | HookBindInfo;
+    cssText?: string | HookBindInfo;
+    cursor?: string | HookBindInfo;
+    direction?: string | HookBindInfo;
+    display?: string | HookBindInfo;
+    dominantBaseline?: string | HookBindInfo;
+    emptyCells?: string | HookBindInfo;
+    fillOpacity?: string | HookBindInfo;
+    fillRule?: string | HookBindInfo;
+    flex?: string | HookBindInfo;
+    flexBasis?: string | HookBindInfo;
+    flexDirection?: string | HookBindInfo;
+    flexFlow?: string | HookBindInfo;
+    flexGrow?: string | HookBindInfo;
+    flexShrink?: string | HookBindInfo;
+    flexWrap?: string | HookBindInfo;
+    float?: string | HookBindInfo;
+    floodColor?: string | HookBindInfo;
+    floodOpacity?: string | HookBindInfo;
+    font?: string | HookBindInfo;
+    fontFamily?: string | HookBindInfo;
+    fontFeatureSettings?: string | HookBindInfo;
+    fontKerning?: string | HookBindInfo;
+    fontOpticalSizing?: string | HookBindInfo;
+    fontPalette?: string | HookBindInfo;
+    fontSize?: string | HookBindInfo;
+    fontSizeAdjust?: string | HookBindInfo;
+    fontStretch?: string | HookBindInfo;
+    fontStyle?: string | HookBindInfo;
+    fontSynthesis?: string | HookBindInfo;
+    fontVariant?: string | HookBindInfo;
+    fontVariantAlternates?: string | HookBindInfo;
+    fontVariantCaps?: string | HookBindInfo;
+    fontVariantEastAsian?: string | HookBindInfo;
+    fontVariantLigatures?: string | HookBindInfo;
+    fontVariantNumeric?: string | HookBindInfo;
+    fontVariantPosition?: string | HookBindInfo;
+    fontVariationSettings?: string | HookBindInfo;
+    fontWeight?: string | HookBindInfo;
+    gap?: string | HookBindInfo;
+    grid?: string | HookBindInfo;
+    gridArea?: string | HookBindInfo;
+    gridAutoColumns?: string | HookBindInfo;
+    gridAutoFlow?: string | HookBindInfo;
+    gridAutoRows?: string | HookBindInfo;
+    gridColumn?: string | HookBindInfo;
+    gridColumnEnd?: string | HookBindInfo;
+    gridColumnGap?: string | HookBindInfo;
+    gridColumnStart?: string | HookBindInfo;
+    gridGap?: string | HookBindInfo;
+    gridRow?: string | HookBindInfo;
+    gridRowEnd?: string | HookBindInfo;
+    gridRowGap?: string | HookBindInfo;
+    gridRowStart?: string | HookBindInfo;
+    gridTemplate?: string | HookBindInfo;
+    gridTemplateAreas?: string | HookBindInfo;
+    gridTemplateColumns?: string | HookBindInfo;
+    gridTemplateRows?: string | HookBindInfo;
+    hyphenateCharacter?: string | HookBindInfo;
+    hyphens?: string | HookBindInfo;
+    imageOrientation?: string | HookBindInfo;
+    imageRendering?: string | HookBindInfo;
+    inlineSize?: string | HookBindInfo;
+    inset?: string | HookBindInfo;
+    insetBlock?: string | HookBindInfo;
+    insetBlockEnd?: string | HookBindInfo;
+    insetBlockStart?: string | HookBindInfo;
+    insetInline?: string | HookBindInfo;
+    insetInlineEnd?: string | HookBindInfo;
+    insetInlineStart?: string | HookBindInfo;
+    isolation?: string | HookBindInfo;
+    justifyContent?: string | HookBindInfo;
+    justifyItems?: string | HookBindInfo;
+    justifySelf?: string | HookBindInfo;
+    letterSpacing?: string | HookBindInfo;
+    lightingColor?: string | HookBindInfo;
+    lineBreak?: string | HookBindInfo;
+    lineHeight?: string | HookBindInfo;
+    listStyle?: string | HookBindInfo;
+    listStyleImage?: string | HookBindInfo;
+    listStylePosition?: string | HookBindInfo;
+    listStyleType?: string | HookBindInfo;
+    margin?: string | HookBindInfo;
+    marginBlock?: string | HookBindInfo;
+    marginBlockEnd?: string | HookBindInfo;
+    marginBlockStart?: string | HookBindInfo;
+    marginBottom?: string | HookBindInfo;
+    marginInline?: string | HookBindInfo;
+    marginInlineEnd?: string | HookBindInfo;
+    marginInlineStart?: string | HookBindInfo;
+    marginLeft?: string | HookBindInfo;
+    marginRight?: string | HookBindInfo;
+    marginTop?: string | HookBindInfo;
+    marker?: string | HookBindInfo;
+    markerEnd?: string | HookBindInfo;
+    markerMid?: string | HookBindInfo;
+    markerStart?: string | HookBindInfo;
+    mask?: string | HookBindInfo;
+    maskClip?: string | HookBindInfo;
+    maskComposite?: string | HookBindInfo;
+    maskImage?: string | HookBindInfo;
+    maskMode?: string | HookBindInfo;
+    maskOrigin?: string | HookBindInfo;
+    maskPosition?: string | HookBindInfo;
+    maskRepeat?: string | HookBindInfo;
+    maskSize?: string | HookBindInfo;
+    maskType?: string | HookBindInfo;
+    maxBlockSize?: string | HookBindInfo;
+    maxHeight?: string | HookBindInfo;
+    maxInlineSize?: string | HookBindInfo;
+    maxWidth?: string | HookBindInfo;
+    minBlockSize?: string | HookBindInfo;
+    minHeight?: string | HookBindInfo;
+    minInlineSize?: string | HookBindInfo;
+    minWidth?: string | HookBindInfo;
+    mixBlendMode?: string | HookBindInfo;
+    objectFit?: string | HookBindInfo;
+    objectPosition?: string | HookBindInfo;
+    offsetDistance?: string | HookBindInfo;
+    offsetPath?: string | HookBindInfo;
+    offsetRotate?: string | HookBindInfo;
+    opacity?: string | HookBindInfo;
+    order?: string | HookBindInfo;
+    orphans?: string | HookBindInfo;
+    outline?: string | HookBindInfo;
+    outlineColor?: string | HookBindInfo;
+    outlineOffset?: string | HookBindInfo;
+    outlineStyle?: string | HookBindInfo;
+    outlineWidth?: string | HookBindInfo;
+    overflow?: string | HookBindInfo;
+    overflowAnchor?: string | HookBindInfo;
+    overflowClipMargin?: string | HookBindInfo;
+    overflowWrap?: string | HookBindInfo;
+    overflowX?: string | HookBindInfo;
+    overflowY?: string | HookBindInfo;
+    overscrollBehavior?: string | HookBindInfo;
+    overscrollBehaviorBlock?: string | HookBindInfo;
+    overscrollBehaviorInline?: string | HookBindInfo;
+    overscrollBehaviorX?: string | HookBindInfo;
+    overscrollBehaviorY?: string | HookBindInfo;
+    padding?: string | HookBindInfo;
+    paddingBlock?: string | HookBindInfo;
+    paddingBlockEnd?: string | HookBindInfo;
+    paddingBlockStart?: string | HookBindInfo;
+    paddingBottom?: string | HookBindInfo;
+    paddingInline?: string | HookBindInfo;
+    paddingInlineEnd?: string | HookBindInfo;
+    paddingInlineStart?: string | HookBindInfo;
+    paddingLeft?: string | HookBindInfo;
+    paddingRight?: string | HookBindInfo;
+    paddingTop?: string | HookBindInfo;
+    pageBreakAfter?: string | HookBindInfo;
+    pageBreakBefore?: string | HookBindInfo;
+    pageBreakInside?: string | HookBindInfo;
+    paintOrder?: string | HookBindInfo;
+    parentRule?: string | HookBindInfo;
+    perspective?: string | HookBindInfo;
+    perspectiveOrigin?: string | HookBindInfo;
+    placeContent?: string | HookBindInfo;
+    placeItems?: string | HookBindInfo;
+    placeSelf?: string | HookBindInfo;
+    pointerEvents?: string | HookBindInfo;
+    position?: string | HookBindInfo;
+    printColorAdjust?: string | HookBindInfo;
+    quotes?: string | HookBindInfo;
+    resize?: string | HookBindInfo;
+    right?: string | HookBindInfo;
+    rotate?: string | HookBindInfo;
+    rowGap?: string | HookBindInfo;
+    rubyPosition?: string | HookBindInfo;
+    scale?: string | HookBindInfo;
+    scrollBehavior?: string | HookBindInfo;
+    scrollMargin?: string | HookBindInfo;
+    scrollMarginBlock?: string | HookBindInfo;
+    scrollMarginBlockEnd?: string | HookBindInfo;
+    scrollMarginBlockStart?: string | HookBindInfo;
+    scrollMarginBottom?: string | HookBindInfo;
+    scrollMarginInline?: string | HookBindInfo;
+    scrollMarginInlineEnd?: string | HookBindInfo;
+    scrollMarginInlineStart?: string | HookBindInfo;
+    scrollMarginLeft?: string | HookBindInfo;
+    scrollMarginRight?: string | HookBindInfo;
+    scrollMarginTop?: string | HookBindInfo;
+    scrollPadding?: string | HookBindInfo;
+    scrollPaddingBlock?: string | HookBindInfo;
+    scrollPaddingBlockEnd?: string | HookBindInfo;
+    scrollPaddingBlockStart?: string | HookBindInfo;
+    scrollPaddingBottom?: string | HookBindInfo;
+    scrollPaddingInline?: string | HookBindInfo;
+    scrollPaddingInlineEnd?: string | HookBindInfo;
+    scrollPaddingInlineStart?: string | HookBindInfo;
+    scrollPaddingLeft?: string | HookBindInfo;
+    scrollPaddingRight?: string | HookBindInfo;
+    scrollPaddingTop?: string | HookBindInfo;
+    scrollSnapAlign?: string | HookBindInfo;
+    scrollSnapStop?: string | HookBindInfo;
+    scrollSnapType?: string | HookBindInfo;
+    scrollbarGutter?: string | HookBindInfo;
+    shapeImageThreshold?: string | HookBindInfo;
+    shapeMargin?: string | HookBindInfo;
+    shapeOutside?: string | HookBindInfo;
+    shapeRendering?: string | HookBindInfo;
+    stopColor?: string | HookBindInfo;
+    stopOpacity?: string | HookBindInfo;
+    stroke?: string | HookBindInfo;
+    strokeDasharray?: string | HookBindInfo;
+    strokeDashoffset?: string | HookBindInfo;
+    strokeLinecap?: string | HookBindInfo;
+    strokeLinejoin?: string | HookBindInfo;
+    strokeMiterlimit?: string | HookBindInfo;
+    strokeOpacity?: string | HookBindInfo;
+    strokeWidth?: string | HookBindInfo;
+    tabSize?: string | HookBindInfo;
+    tableLayout?: string | HookBindInfo;
+    textAlign?: string | HookBindInfo;
+    textAlignLast?: string | HookBindInfo;
+    textAnchor?: string | HookBindInfo;
+    textCombineUpright?: string | HookBindInfo;
+    textDecoration?: string | HookBindInfo;
+    textDecorationColor?: string | HookBindInfo;
+    textDecorationLine?: string | HookBindInfo;
+    textDecorationSkipInk?: string | HookBindInfo;
+    textDecorationStyle?: string | HookBindInfo;
+    textDecorationThickness?: string | HookBindInfo;
+    textEmphasis?: string | HookBindInfo;
+    textEmphasisColor?: string | HookBindInfo;
+    textEmphasisPosition?: string | HookBindInfo;
+    textEmphasisStyle?: string | HookBindInfo;
+    textIndent?: string | HookBindInfo;
+    textOrientation?: string | HookBindInfo;
+    textOverflow?: string | HookBindInfo;
+    textRendering?: string | HookBindInfo;
+    textShadow?: string | HookBindInfo;
+    textTransform?: string | HookBindInfo;
+    textUnderlineOffset?: string | HookBindInfo;
+    textUnderlinePosition?: string | HookBindInfo;
+    touchAction?: string | HookBindInfo;
+    transform?: string | HookBindInfo;
+    transformBox?: string | HookBindInfo;
+    transformOrigin?: string | HookBindInfo;
+    transformStyle?: string | HookBindInfo;
+    transition?: string | HookBindInfo;
+    transitionDelay?: string | HookBindInfo;
+    transitionDuration?: string | HookBindInfo;
+    transitionProperty?: string | HookBindInfo;
+    transitionTimingFunction?: string | HookBindInfo;
+    translate?: string | HookBindInfo;
+    unicodeBidi?: string | HookBindInfo;
+    userSelect?: string | HookBindInfo;
+    verticalAlign?: string | HookBindInfo;
+    visibility?: string | HookBindInfo;
+    webkitAlignContent?: string | HookBindInfo;
+    webkitAlignItems?: string | HookBindInfo;
+    webkitAlignSelf?: string | HookBindInfo;
+    webkitAnimation?: string | HookBindInfo;
+    webkitAnimationDelay?: string | HookBindInfo;
+    webkitAnimationDirection?: string | HookBindInfo;
+    webkitAnimationDuration?: string | HookBindInfo;
+    webkitAnimationFillMode?: string | HookBindInfo;
+    webkitAnimationIterationCount?: string | HookBindInfo;
+    webkitAnimationName?: string | HookBindInfo;
+    webkitAnimationPlayState?: string | HookBindInfo;
+    webkitAnimationTimingFunction?: string | HookBindInfo;
+    webkitAppearance?: string | HookBindInfo;
+    webkitBackfaceVisibility?: string | HookBindInfo;
+    webkitBackgroundClip?: string | HookBindInfo;
+    webkitBackgroundOrigin?: string | HookBindInfo;
+    webkitBackgroundSize?: string | HookBindInfo;
+    webkitBorderBottomLeftRadius?: string | HookBindInfo;
+    webkitBorderBottomRightRadius?: string | HookBindInfo;
+    webkitBorderRadius?: string | HookBindInfo;
+    webkitBorderTopLeftRadius?: string | HookBindInfo;
+    webkitBorderTopRightRadius?: string | HookBindInfo;
+    webkitBoxAlign?: string | HookBindInfo;
+    webkitBoxFlex?: string | HookBindInfo;
+    webkitBoxOrdinalGroup?: string | HookBindInfo;
+    webkitBoxOrient?: string | HookBindInfo;
+    webkitBoxPack?: string | HookBindInfo;
+    webkitBoxShadow?: string | HookBindInfo;
+    webkitBoxSizing?: string | HookBindInfo;
+    webkitFilter?: string | HookBindInfo;
+    webkitFlex?: string | HookBindInfo;
+    webkitFlexBasis?: string | HookBindInfo;
+    webkitFlexDirection?: string | HookBindInfo;
+    webkitFlexFlow?: string | HookBindInfo;
+    webkitFlexGrow?: string | HookBindInfo;
+    webkitFlexShrink?: string | HookBindInfo;
+    webkitFlexWrap?: string | HookBindInfo;
+    webkitJustifyContent?: string | HookBindInfo;
+    webkitLineClamp?: string | HookBindInfo;
+    webkitMask?: string | HookBindInfo;
+    webkitMaskBoxImage?: string | HookBindInfo;
+    webkitMaskBoxImageOutset?: string | HookBindInfo;
+    webkitMaskBoxImageRepeat?: string | HookBindInfo;
+    webkitMaskBoxImageSlice?: string | HookBindInfo;
+    webkitMaskBoxImageSource?: string | HookBindInfo;
+    webkitMaskBoxImageWidth?: string | HookBindInfo;
+    webkitMaskClip?: string | HookBindInfo;
+    webkitMaskComposite?: string | HookBindInfo;
+    webkitMaskImage?: string | HookBindInfo;
+    webkitMaskOrigin?: string | HookBindInfo;
+    webkitMaskPosition?: string | HookBindInfo;
+    webkitMaskRepeat?: string | HookBindInfo;
+    webkitMaskSize?: string | HookBindInfo;
+    webkitOrder?: string | HookBindInfo;
+    webkitPerspective?: string | HookBindInfo;
+    webkitPerspectiveOrigin?: string | HookBindInfo;
+    webkitTextFillColor?: string | HookBindInfo;
+    webkitTextSizeAdjust?: string | HookBindInfo;
+    webkitTextStroke?: string | HookBindInfo;
+    webkitTextStrokeColor?: string | HookBindInfo;
+    webkitTextStrokeWidth?: string | HookBindInfo;
+    webkitTransform?: string | HookBindInfo;
+    webkitTransformOrigin?: string | HookBindInfo;
+    webkitTransformStyle?: string | HookBindInfo;
+    webkitTransition?: string | HookBindInfo;
+    webkitTransitionDelay?: string | HookBindInfo;
+    webkitTransitionDuration?: string | HookBindInfo;
+    webkitTransitionProperty?: string | HookBindInfo;
+    webkitTransitionTimingFunction?: string | HookBindInfo;
+    webkitUserSelect?: string | HookBindInfo;
+    whiteSpace?: string | HookBindInfo;
+    widows?: string | HookBindInfo;
+    willChange?: string | HookBindInfo;
+    wordBreak?: string | HookBindInfo;
+    wordSpacing?: string | HookBindInfo;
+    wordWrap?: string | HookBindInfo;
+    writingMode?: string | HookBindInfo;
+    zIndex?: string | HookBindInfo;
+    getPropertyPriority?: string | HookBindInfo;
+    getPropertyValue?: string | HookBindInfo;
+    removeProperty?: string | HookBindInfo;
+    setProperty?: string | HookBindInfo;
+}): NList;
 /**
  * @typedef {(keyof CSSStyleDeclaration & string) | (string & {})} keyOfStyle
  */
@@ -1431,150 +2067,6 @@ type EDObj = {
 };
 
 /**
- * 流水线
- */
-declare class NAsse {
-    /**
-     * @param {function(NElement): void} callback
-     */
-    constructor(callback: (arg0: NElement<any>) => void);
-    /**
-     * @type {function(NElement): void}
-     */
-    callback: (arg0: NElement<any>) => void;
-    /**
-     * 将此特征应用于元素
-     * @param {NElement} e
-     */
-    apply(e: NElement<any>): void;
-}
-
-/**
- * @typedef {(keyof HTMLElement & string) | (string & {})} keyObjectOfHtmlElementAttr
- */
-/**
- * 属性
- * @template {keyObjectOfHtmlElementAttr} T
- */
-declare class NAttr<T extends keyObjectOfHtmlElementAttr> {
-    /**
-     * @param {T} key
-     * @param {string | number | boolean | Function} value
-     */
-    constructor(key: T, value: string | number | boolean | Function);
-    /**
-     * @type {T}
-     */
-    key: T;
-    /**
-     * 若为函数则应用时调用
-     * 若有返回值则赋值到属性
-     * @type {string | number | boolean | Function}
-     */
-    value: string | number | boolean | Function;
-    /**
-     * 将此特征应用于元素
-     * @param {NElement} e
-     */
-    apply(e: NElement<any>): void;
-}
-type keyObjectOfHtmlElementAttr = (keyof HTMLElement & string) | (string & {});
-
-/**
- * 事件
- * @template {keyof HTMLElementEventMap} T
- */
-declare class NEvent<T extends keyof HTMLElementEventMap> {
-    /**
-     * @param {T} key
-     * @param {function(HTMLElementEventMap[T]): any} callback
-     */
-    constructor(key: T, callback: (arg0: HTMLElementEventMap[T]) => any);
-    /**
-     * @type {T}
-     */
-    eventName: T;
-    /**
-     * @type {function(HTMLElementEventMap[T]): any}
-     */
-    callback: (arg0: HTMLElementEventMap[T]) => any;
-    /**
-     * 将此特征应用于元素
-     * @param {NElement} e
-     */
-    apply(e: NElement<any>): void;
-}
-
-/**
- * 标签名
- * 标签名使用小写字母
- * 不包含此类的特征列表默认为div
- * 一层特征列表只能有唯一tagName
- * @template {keyof HTMLElementTagNameMap} T
- */
-declare class NTagName<T extends keyof HTMLElementTagNameMap> {
-    /**
-     * @param {T} tagName
-     */
-    constructor(tagName: T);
-    /**
-     * @type {T}
-     */
-    tagName: T;
-}
-
-/**
- * 特征列表
- * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement>} NList_list
- */
-declare class NList {
-    /**
-     * 生成拉平列表
-     * @param {NList_list} list
-     */
-    static flat(list: NList_list): NList;
-    /**
-     * 获取(生成)元素
-     * @param {NList_list} list
-     */
-    static getElement(list: NList_list): NElement<any>;
-    /**
-     * @param {NList_list} list
-     */
-    constructor(list: NList_list);
-    /**
-     * @type {NList_list}
-     */
-    list: NList_list;
-    /**
-     * 拉平特征
-     * (默认)标记为false将作为子元素节点
-     * 标记为true将作为上层节点的特征列表
-     * @type {boolean}
-     */
-    flatFlag: boolean;
-    /**
-     * 为元素应用特征列表
-     * @param {NElement<HTMLElement>} element
-     */
-    apply(element: NElement<HTMLElement>): void;
-    /**
-     * 获取列表的标签名
-     * @returns {string}
-     */
-    getTagName(): string;
-    /**
-     * 获取(生成)元素
-     * @returns {NElement}
-     */
-    getElement(): NElement<any>;
-}
-/**
- * 特征列表
- */
-type NList_list = Array<string | HookBindInfo | NTagName<any> | NStyle<any> | NAttr<any> | NEvent<any> | NAsse | NList | (string | HookBindInfo | NElement<any> | NStyle<any> | NEvent<any> | NAsse | NTagName<any> | NAttr<any> | NList | NList_list)[] | NElement<any>>;
-
-/**
  * 指针数据
  * 当发生鼠标或触摸事件时传递
  * 包含指针坐标和按下状态等数据
@@ -1710,4 +2202,4 @@ declare function tagName(name: string): (arg0: TemplateStringsArray, ...args: pa
  */
 type parsingElementKeysType = NElement<any> | NStyle<any> | NEvent<any>;
 
-export { NAsse, NAttr, NElement, NEvent, NList, NStyle, NTagName, createNStyle, cssG, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, mouseBind, runOnce, tag, tagName, touchBind };
+export { NAsse, NAttr, NElement, NEvent, NList, NStyle, NTagName, bindValue, createHookObj, createNStyle, createNStyleList, cssG, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, mouseBind, runOnce, tag, tagName, touchBind };

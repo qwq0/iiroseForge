@@ -1,5 +1,7 @@
 import { SandboxContext } from "../../lib/iframeSandbox.js";
+import { NElement } from "../../lib/qwqframe.js";
 import { storageContext, storageSave } from "../storage/storage.js";
+import { showNotice } from "../ui/notice.js";
 import { loadPlugIn } from "./plug.js";
 
 /**
@@ -8,19 +10,34 @@ import { loadPlugIn } from "./plug.js";
 class PlugList
 {
     /**
-     * @type {Map<string, { url: string, sandbox: SandboxContext }>}
+     * @type {Map<string, { url: string, sandbox: SandboxContext, windowElement: NElement, operationPermissionSet: Set, eventPermissionSet: Set }>}
      */
     map = new Map();
 
     /**
      * 添加插件
-     * @param {string} name 
-     * @param {string} url 
+     * @param {string} name
+     * @param {string} url
+     * @param {{operationPermissionSet: Set, eventPermissionSet: Set }} [permission]
      */
-    async addPlug(name, url)
+    async addPlug(name, url, permission)
     {
         if (!this.map.has(name))
-            this.map.set(name, { url: url, sandbox: await loadPlugIn(name, url) });
+            this.map.set(name, { url: url, ...(await loadPlugIn(name, url, permission)) });
+    }
+
+    /**
+     * 显示插件窗口
+     * @param {string} name 
+     */
+    showPlugWindow(name)
+    {
+        if (this.map.has(name))
+        {
+            let windowElement = this.map.get(name).windowElement;
+            windowElement.setDisplay("block");
+            windowElement.setStyle("pointerEvents", "auto");;
+        }
     }
 
     /**
@@ -42,12 +59,17 @@ class PlugList
     savePlugList()
     {
         /**
-         * @type {Array<[string, string]>}
+         * @type {Array<[string, string, Array<string>, Array<string>]>}
          */
         let plugInfo = [];
         this.map.forEach((o, name) =>
         {
-            plugInfo.push([name, o.url]);
+            plugInfo.push([
+                name,
+                o.url,
+                Array.from(o.operationPermissionSet.values()),
+                Array.from(o.eventPermissionSet.values())
+            ]);
         });
         storageContext.iiroseForge.plugInfo = plugInfo;
         storageSave();
@@ -60,10 +82,18 @@ class PlugList
     {
         try
         {
-            storageContext.iiroseForge.plugInfo.forEach(([name, url]) =>
+            let plugInfo = storageContext.iiroseForge.plugInfo;
+            if (plugInfo.length > 0)
             {
-                this.addPlug(name, url);
-            });
+                plugInfo.forEach(([name, url, operationPermissionList, eventPermissionList]) =>
+                {
+                    this.addPlug(name, url, {
+                        operationPermissionSet: new Set(operationPermissionList),
+                        eventPermissionSet: new Set(eventPermissionList)
+                    });
+                });
+                showNotice("iiroseForge plug-in", `已加载 ${plugInfo.length} 个插件`);
+            }
         }
         catch (err)
         {

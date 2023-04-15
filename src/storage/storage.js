@@ -8,7 +8,7 @@ export const storageContext = {
     iiroseForge: {
         /**
          * 插件信息
-         * @type {Array<[string, string]>}
+         * @type {Array<[string, string, Array<string>, Array<string>]>}
          */
         plugInfo: []
     }

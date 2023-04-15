@@ -18,10 +18,11 @@ body.addChild(noticeContainer);
  * @param {string} title 
  * @param {string} text 
  * @param {string} [additional]
+ * @param {Function} [callback]
  */
-export function showNotice(title, text, additional = "iiroseForge")
+export function showNotice(title, text, additional = "iiroseForge", callback = null)
 {
-    var notice = expandElement({
+    let notice = expandElement({
         style: {
             backgroundColor: cssG.rgb(255, 255, 255, 0.95),
             marginRight: "1em",
@@ -66,10 +67,11 @@ export function showNotice(title, text, additional = "iiroseForge")
                 lineHeight: "1em"
             },
             event: {
-                click: runOnce(() =>
+                click: (/** @type {Event} */e) =>
                 {
+                    e.stopPropagation();
                     closeThisNotice();
-                })
+                }
             }
         }]
     });
@@ -85,8 +87,12 @@ export function showNotice(title, text, additional = "iiroseForge")
     });
     setTimeout(() => { notice.setStyle("pointerEvents", "auto"); }, 180);
 
+    let startClosing = false;
     function closeThisNotice()
     {
+        if (startClosing)
+            return;
+        startClosing = true;
         notice.setStyle("pointerEvents", "none");
         notice.animate([
             {
@@ -125,4 +131,14 @@ export function showNotice(title, text, additional = "iiroseForge")
     {
         closeThisNotice();
     }, 3900 + Math.min(10000, text.length * 115));
+
+    if (callback)
+    {
+        notice.asse(buttonAsse);
+        notice.addEventListener("click", () =>
+        {
+            closeThisNotice();
+            callback();
+        });
+    }
 }
