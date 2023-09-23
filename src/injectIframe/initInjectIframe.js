@@ -109,29 +109,32 @@ export function initInjectIframe()
              * @type {HTMLIFrameElement}
              */
             let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
+
             let iframeWindow = mainIframe.contentWindow;
-            let iframeDocument = mainIframe.contentDocument;
+            if(iframeWindow["iiroseForgeClearCacheInjected"])
+                return;
+
             if (!(iframeWindow["Utils"]?.service?.clearCache))
                 throw "Incomplete load";
             let old_Utils_service_clearCache = iframeWindow["Utils"].service.clearCache.bind(iframeWindow["Utils"].service);
             iframeWindow["Utils"].service.clearCache = (...param) =>
             {
                 let old_parent_location__reload = iframeWindow.parent.location["_reload"].bind(iframeWindow.parent.location);
-                iframeWindow.parent.location["_reload"] = (...param) =>
+                iframeWindow.location["_reload"] = iframeWindow.parent.location["_reload"] = (...param) =>
                 {
-                    setTimeout(() =>
+                    setTimeout(async () =>
                     {
-                        writeForgeToCache();
+                        await writeForgeToCache();
                         setTimeout(() =>
                         {
                             old_parent_location__reload(...param);
-                        }, 100);
+                        }, 5);
                     }, 100);
                 };
                 old_Utils_service_clearCache(...param);
-                iframeWindow.parent.location["_reload"] = old_parent_location__reload;
-                iframeWindow.location["_reload"] = old_parent_location__reload;
             };
+            
+            iframeWindow["iiroseForgeClearCacheInjected"] = true;
         }, 5);
     }
 }
