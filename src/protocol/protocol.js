@@ -16,7 +16,7 @@ toClientTrie.addPath(`"`, (data) =>
     packageData[0] = `"` + data.split("<").reverse().map(data =>
     {
         let part = data.split(">");
-        console.log(part);
+        // console.log(part);
         if (part[4] != "s" && part[3][0] != `'`)
         {
             let senderId = part[8];

@@ -2856,7 +2856,7 @@
 	    packageData[0] = `"` + data.split("<").reverse().map(data =>
 	    {
 	        let part = data.split(">");
-	        console.log(part);
+	        // console.log(part);
 	        if (part[4] != "s" && part[3][0] != `'`)
 	        {
 	            let senderId = part[8];
@@ -3007,7 +3007,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.1.3"
+	    version: "alpha v1.1.4"
 	};
 
 	let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
