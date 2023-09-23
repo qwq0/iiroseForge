@@ -130,6 +130,7 @@ export function initInjectIframe()
                 };
                 old_Utils_service_clearCache(...param);
                 iframeWindow.parent.location["_reload"] = old_parent_location__reload;
+                iframeWindow.location["_reload"] = old_parent_location__reload;
             };
         }, 5);
     }
