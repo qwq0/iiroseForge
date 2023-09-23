@@ -2,6 +2,8 @@ import "./forgeApi/forgeApi.js";
 import { initInjectIframe } from "./injectIframe/initInjectIframe.js";
 import { iiroseForgeLoaderUrl } from "./injectCache/injectCache.js";
 import { showNotice } from "./ui/notice.js";
+import { plugList } from "./plug/plugList.js";
+import { storageContext, storageRead } from "./storage/storage.js";
 
 
 if (location.host == "iirose.com")
@@ -11,6 +13,10 @@ if (location.host == "iirose.com")
         if (!window["iiroseForgeInjected"])
         {
             console.log("[iiroseForge] iiroseForge已启用");
+
+            storageRead();
+            plugList.readPlugList();
+
 
             let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
             mainIframe.addEventListener("load", () => // 主iframe加载事件
@@ -22,6 +28,23 @@ if (location.host == "iirose.com")
             initInjectIframe();
 
             window["iiroseForgeInjected"] = true; // 最外层页面已被注入标记
+
+            (async () =>
+            { // 侧载在外侧执行的脚本
+                let scriptCount = 0;
+                storageContext.iiroseForge.sideLoadedScript.forEach(([name, url, insideIframe]) =>
+                {
+                    if (!insideIframe)
+                    {
+                        let script = document.createElement("script");
+                        script.src = url;
+                        window.document.body.appendChild(script);
+                        scriptCount++;
+                    }
+                });
+                if (scriptCount > 0)
+                    showNotice("iiroseForge plug-in", `已在iframe外部侧载 ${scriptCount} 个js脚本`);
+            })();
         }
         else
             console.log("[iiroseForge] 已阻止重复注入");

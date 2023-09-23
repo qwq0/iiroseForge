@@ -137,8 +137,11 @@ export function showNotice(title, text, additional = "iiroseForge", callback = n
         notice.asse(buttonAsse);
         notice.addEventListener("click", () =>
         {
-            closeThisNotice();
-            callback();
+            if (!startClosing)
+            {
+                callback();
+                closeThisNotice();
+            }
         });
     }
 }

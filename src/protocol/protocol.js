@@ -16,6 +16,7 @@ toClientTrie.addPath(`"`, (data) =>
     packageData[0] = `"` + data.split("<").reverse().map(data =>
     {
         let part = data.split(">");
+        console.log(part);
         if (part[4] != "s" && part[3][0] != `'`)
         {
             let senderId = part[8];
@@ -71,10 +72,26 @@ toClientTrie.addPath(`""`, (data) =>
                 });
             }
         }
-        return part;
+        return data;
     }).filter(o => o != undefined).join("<");
 });
 
+
+
+toServerTrie.addPath(`{`, (_, data) =>
+{
+    try
+    {
+        let obj = JSON.parse(data);
+        // console.log("send message", obj);
+        let objJsob = JSON.stringify(obj);
+        if (objJsob[0] == "{")
+            packageData[0] = objJsob;
+    }
+    catch (err)
+    {
+    }
+});
 
 
 

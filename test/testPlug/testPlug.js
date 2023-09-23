@@ -1,7 +1,5 @@
 (async () =>
 {
-    document.body.style.color = "white";
-    document.body.style.whiteSpace = "pre-wrap";
     /**
      * @type {import("../../doc/plugContext").iiroseForgeApi}
      */
@@ -11,6 +9,6 @@
         "roomMessage",
         "privateMessage"
     ]);
-    forgeApi.addEventListener("roomMessage", e => { document.body.appendChild(document.createTextNode(`房间 ${e.senderName}: ${e.content}\n`)); });
-    forgeApi.addEventListener("privateMessage", e => { document.body.appendChild(document.createTextNode(`私聊 ${e.senderName}: ${e.content}\n`)); });
+    forgeApi.addEventListener("roomMessage", e => { console.log(`房间 ${e.senderId} ${e.senderName}: ${e.content}`); });
+    forgeApi.addEventListener("privateMessage", e => { console.log(`私聊 ${e.senderId} ${e.senderName}: ${e.content}`); });
 })();

@@ -91,10 +91,10 @@
                         qf.createNStyleList({
                             width: "80%",
                             height: "80%",
-                            margin: "10.5%",
+                            margin: "10%",
                             borderRadius: "100%",
                             border: "0.3px black solid",
-                            backgroundColor: (state == 1 ? "red" : "yellow")
+                            backgroundColor: (state == 1 ? "#d898a0" : "#f2d7be")
                         })
                     ]));
 
@@ -256,6 +256,13 @@
                             state: 1
                         });
                         break;
+                    case 2:
+                    case 3:
+                        forgeApi.showForgeNotice("确定要离开对局嘛?\n点击离开对局", function ()
+                        {
+                            clearChessBoard();
+                        });
+                        break;
                     case 4:
                     case 5:
                     case 6:
@@ -282,7 +289,7 @@
                         aspectRatio: "1",
                         display: "inline-block",
                         height: "100%",
-                        border: "0.5px solid black",
+                        border: "0.25px solid black",
                         boxSizing: "border-box"
                     }),
 

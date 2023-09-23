@@ -48,6 +48,28 @@
 	}
 
 	/**
+	 * 访问dom树上的路径
+	 * @param {Node} start 
+	 * @param {Array<number>} path
+	 * @returns 
+	 */
+	function domPath(start, path)
+	{
+		let now = start;
+		path.every(o =>
+		{
+			if (o < 0)
+				o += now.childNodes.length;
+			if (now.childNodes[o])
+				now = now.childNodes[o];
+			else
+				return false;
+			return true;
+		});
+		return now;
+	}
+
+	/**
 	 * 主iframe的上下文
 	 */
 	let iframeContext = {
@@ -69,12 +91,42 @@
 	    iframeBody: null,
 
 	    socketApi: {
-	        send: (/** @type {string} */ data) =>
-	        {
-	            iframeContext.socket.send(data);
-	        }
+	        /**
+	         * @type {(data: string) => void}
+	         */
+	        send: () => { }
 	    }
 	};
+
+	/**
+	 * 在 蔷薇终端 中运行命令
+	 * @param {string} command
+	 */
+	function runTerminalCommand(command)
+	{
+	    if (iframeContext.iframeWindow?.["Probe"]?.init?.shellHolder)
+	        iframeContext.iframeWindow?.["Init"]?.movePanel(6);
+	    let inputBox = /** @type {HTMLInputElement} */(domPath(iframeContext.iframeDocument.getElementById("shellHolder"), [2, 0, -1, 0]));
+	    let old = inputBox.value;
+	    inputBox.value = command;
+	    inputBox.oninput(null);
+	    inputBox.dispatchEvent(new KeyboardEvent("keydown", { keyCode: 13 }));
+	    inputBox.value = old;
+	}
+
+	/**
+	 * 使用当前页面中的输入框发送消息
+	 * @param {string} content
+	 */
+	function sendMessageOnCurrentPage(content)
+	{
+	    var inputBox = /** @type {HTMLInputElement} */(document.getElementById("moveinput"));
+	    var old = inputBox.value;
+	    inputBox.value = content;
+	    inputBox.oninput(null);
+	    (/** @type {HTMLElement} */(document.getElementsByClassName("moveinputSendBtn")[0]))?.onclick(null);
+	    inputBox.value = old;
+	}
 
 	/**
 	 * 自定义序列化函数
@@ -1907,7 +1959,7 @@
 
 	/**
 	 * 创建一组NStyle的flat NList
-	 * @param {Object<keyOfStyle, string | HookBindInfo>} obj
+	 * @param {{ [x in keyOfStyle]?: string | HookBindInfo }} obj
 	 */
 	function createNStyleList(obj)
 	{
@@ -2090,6 +2142,15 @@
 	        passive: true
 	    });
 
+	    /**
+	     * @type {Array<{
+	     *  id: number,
+	     *  sx: number,
+	     *  sy: number,
+	     *  x: number,
+	     *  y: number
+	     * }>}
+	     */
 	    let ogTouches = [];
 	    /**
 	     * 通过标识符取触摸点数据索引
@@ -2114,7 +2175,7 @@
 	    {
 	        if (e.cancelable)
 	            e.preventDefault();
-	        forEach(e.touches, o =>
+	        forEach(e.changedTouches, o =>
 	        {
 	            let t = {
 	                id: o.identifier,
@@ -2138,7 +2199,7 @@
 	     */
 	    function touchMove(e)
 	    {
-	        forEach(e.touches, o =>
+	        forEach(e.changedTouches, o =>
 	        {
 	            let ind = getTouchesInd(o.identifier);
 	            if (ind > -1)
@@ -2163,7 +2224,8 @@
 	     */
 	    function touchEnd(e)
 	    {
-	        forEach(e.touches, o =>
+	        e.changedTouches;
+	        forEach(e.changedTouches, o =>
 	        {
 	            let ind = getTouchesInd(o.identifier);
 	            if (ind > -1)
@@ -2355,8 +2417,11 @@
 	        notice.asse(buttonAsse);
 	        notice.addEventListener("click", () =>
 	        {
-	            closeThisNotice();
-	            callback();
+	            if (!startClosing)
+	            {
+	                callback();
+	                closeThisNotice();
+	            }
 	        });
 	    }
 	}
@@ -2554,17 +2619,17 @@
 	        /**
 	         * 静默发送私聊
 	         * @param {string} targetUid
-	         * @param {string} context
+	         * @param {string} content
 	         */
-	        sendPrivateMessageSilence: (targetUid, context) =>
+	        sendPrivateMessageSilence: (targetUid, content) =>
 	        {
 	            targetUid = String(targetUid);
-	            context = String(context);
-	            if (!context || !targetUid)
+	            content = String(content);
+	            if (!content || !targetUid)
 	                return;
 	            iframeContext.socketApi.send(JSON.stringify({
 	                "g": targetUid,
-	                "m": context,
+	                "m": content,
 	                "mc": forgeApi.operation.getUserInputColor(),
 	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
 	            }));
@@ -2625,6 +2690,28 @@
 	            roomId = String(roomId);
 	            if (iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger)
 	                iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger(roomId);
+	        },
+
+	        /**
+	         * 执行终端命令
+	         * 插件暂时无法申请此权限
+	         * @param {string} command
+	         */
+	        runTerminalCommand: (command) =>
+	        {
+	            command = String(command);
+	            runTerminalCommand(command);
+	        },
+
+	        /**
+	         * 在当前用户所在的页面发送信息
+	         * 插件暂时无法申请此权限
+	         * @param {string} content
+	         */
+	        sendCurrentPageMessage: (content) =>
+	        {
+	            content = String(content);
+	            sendMessageOnCurrentPage(content);
 	        }
 	    },
 
@@ -2769,6 +2856,7 @@
 	    packageData[0] = `"` + data.split("<").reverse().map(data =>
 	    {
 	        let part = data.split(">");
+	        console.log(part);
 	        if (part[4] != "s" && part[3][0] != `'`)
 	        {
 	            let senderId = part[8];
@@ -2824,10 +2912,26 @@
 	                });
 	            }
 	        }
-	        return part;
+	        return data;
 	    }).filter(o => o != undefined).join("<");
 	});
 
+
+
+	toServerTrie.addPath(`{`, (_, data) =>
+	{
+	    try
+	    {
+	        let obj = JSON.parse(data);
+	        // console.log("send message", obj);
+	        let objJsob = JSON.stringify(obj);
+	        if (objJsob[0] == "{")
+	            packageData[0] = objJsob;
+	    }
+	    catch (err)
+	    {
+	    }
+	});
 
 
 
@@ -2851,12 +2955,68 @@
 	    return toClientTrie.matchPrefix(data[0]);
 	}
 
+	/**
+	 * 储存上下文
+	 * 将使用json进行序列化
+	 */
+	const storageContext = {
+	    iiroseForge: {
+	        /**
+	         * 插件信息
+	         * @type {Array<[string, string, Array<string>, Array<string>]>}
+	         */
+	        plugInfo: [],
+	        /**
+	         * 侧载脚本
+	         * @type {Array<[string, string, boolean]>}
+	         */
+	        sideLoadedScript: []
+	    }
+	};
+
+	function storageRead()
+	{
+	    try
+	    {
+	        let storageJson = localStorage.getItem("iiroseForge");
+	        if (!storageJson)
+	            return;
+	        let storageObj = JSON.parse(storageJson);
+	        Object.keys(storageObj).forEach(key =>
+	        {
+	            storageContext.iiroseForge[key] = storageObj[key];
+	        });
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法读入储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
+	function storageSave()
+	{
+	    try
+	    {
+	        let storageJson = JSON.stringify(storageContext.iiroseForge);
+	        localStorage.setItem("iiroseForge", storageJson);
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法写入储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
 	const versionInfo = {
-	    version: "alpha v1.0.1"
+	    version: "alpha v1.1.3"
 	};
 
 	let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
 	let iiroseForgeLoaderElementHtml = `<script type="text/javascript" src="${iiroseForgeLoaderUrl}"></script>`;
+
+	/**
+	 * 用户要求安装
+	 */
+	let requiredInstall = (localStorage.getItem("installForge") == "true");
 
 	/**
 	 * 向缓存中注入iiroseForge
@@ -2874,6 +3034,7 @@
 	    let newCacheMainPage = cacheMainPage.slice(0, insertIndex) + iiroseForgeLoaderElementHtml + cacheMainPage.slice(insertIndex);
 	    await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
 	}
+
 	/**
 	 * 从缓存中清除iiroseForge的注入
 	 * @returns {Promise<void>}
@@ -2887,6 +3048,23 @@
 	        return;
 	    let newCacheMainPage = cacheMainPage.slice(0, removeIndex) + cacheMainPage.slice(removeIndex + iiroseForgeLoaderElementHtml.length);
 	    await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	}
+
+	if (requiredInstall)
+	{
+	    writeForgeToCache();
+	    
+	    let location_reload = location.reload.bind(location);
+	    location.reload = () =>
+	    {
+	        (async () =>
+	        {
+	            requiredInstall = (localStorage.getItem("installForge") == "true");
+	            if (requiredInstall)
+	                await writeForgeToCache();
+	            location_reload();
+	        })();
+	    };
 	}
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -3362,54 +3540,6 @@
 	}
 
 	/**
-	 * 储存上下文
-	 * 将使用json进行序列化
-	 */
-	const storageContext = {
-	    iiroseForge: {
-	        /**
-	         * 插件信息
-	         * @type {Array<[string, string, Array<string>, Array<string>]>}
-	         */
-	        plugInfo: []
-	    }
-	};
-
-	storageRead();
-
-	function storageRead()
-	{
-	    try
-	    {
-	        let storageJson = localStorage.getItem("iiroseForge");
-	        if (!storageJson)
-	            return;
-	        let storageObj = JSON.parse(storageJson);
-	        Object.keys(storageObj).forEach(key =>
-	        {
-	            storageContext.iiroseForge[key] = storageObj[key];
-	        });
-	    }
-	    catch (err)
-	    {
-	        showNotice("错误", "无法读入储存 这可能导致iiroseForge配置丢失");
-	    }
-	}
-
-	function storageSave()
-	{
-	    try
-	    {
-	        let storageJson = JSON.stringify(storageContext.iiroseForge);
-	        localStorage.setItem("iiroseForge", storageJson);
-	    }
-	    catch (err)
-	    {
-	        showNotice("错误", "无法写入储存 这可能导致iiroseForge配置丢失");
-	    }
-	}
-
-	/**
 	 * 插件请求的权限列表
 	 */
 	const apiPermission = {
@@ -3604,6 +3734,9 @@
 	function createPlugSandboxWithWindow()
 	{
 	    let x = 0, y = 0;
+	    let width = 280, height = 190;
+	    let resizeSliderShowUpTimeout = null;
+	    let resizeSlider = null;
 	    /**
 	     * @type {NElement}
 	     */
@@ -3695,7 +3828,25 @@
 	                };
 	                mouseBind(e, proc);
 	                touchBind(e, proc);
-	            })
+	            }),
+
+	            new NEvent("touchend", () =>
+	            {
+	                if (resizeSliderShowUpTimeout != null)
+	                {
+	                    clearTimeout(resizeSliderShowUpTimeout);
+	                    resizeSliderShowUpTimeout = null;
+	                }
+	                else
+	                {
+	                    resizeSlider.setDisplay("block");
+	                }
+	                resizeSliderShowUpTimeout = setTimeout(() =>
+	                {
+	                    resizeSliderShowUpTimeout = null;
+	                    resizeSlider.setDisplay("none");
+	                }, 2500);
+	            }),
 	        ],
 
 	        [ // 右上角最小化按钮
@@ -3723,16 +3874,65 @@
 	                right: "0",
 	                overflow: "auto",
 	            }),
-	            new NAsse(o => { iframeHolder = o; })
-	        ]
+	            new NAsse(e => { iframeHolder = e; })
+	        ],
+
+	        [ // 右下角设置大小拖拽块
+	            createNStyleList({
+	                position: "absolute",
+	                right: "0.5px",
+	                bottom: "0.5px",
+	                height: "1.5em",
+	                aspectRatio: "1",
+	                cursor: "nwse-resize",
+	                display: "none",
+	                boxSizing: "border-box",
+	                borderRight: "0.75em blue solid",
+	                borderBottom: "0.75em blue solid",
+	                borderTop: "0.75em transparent solid",
+	                borderLeft: "0.75em transparent solid",
+	            }),
+	            new NEvent("click", () =>
+	            {
+	                windowElement.setDisplay("none");
+	            }),
+	            new NAsse(e => { resizeSlider = e; }),
+	            new NAsse(e =>
+	            {
+	                var ow = 0, oh = 0;
+	                var proc = (/** @type {{ sx: number, sy: number, x: number, y: number, pressing: boolean,hold: boolean }} */ o) =>
+	                {
+	                    if (o.hold)
+	                    {
+	                        if (o.pressing)
+	                        {
+	                            ow = width;
+	                            oh = height;
+	                            // pageManager.moveToTop(this);
+	                        }
+	                        width = ow + o.x - o.sx;
+	                        height = oh + o.y - o.sy;
+	                        windowElement.setStyle("width", `${width}px`);
+	                        windowElement.setStyle("height", `${height}px`);
+	                        iframe.setStyle("pointerEvents", "none");
+	                    }
+	                    else
+	                        iframe.setStyle("pointerEvents", "auto");
+	                };
+	                mouseBind(e, proc);
+	                touchBind(e, proc);
+	            })
+	        ],
 	    ]);
 	    body.addChild(windowElement);
 	    new ResizeObserver(() =>
 	    {
-	        if (x > body.element.clientWidth - windowElement.element.offsetWidth)
-	            windowElement.setStyle("width", `${body.element.clientWidth - x}px`);
-	        if (y > body.element.clientHeight - windowElement.element.offsetHeight)
-	            windowElement.setStyle("height", `${body.element.clientHeight - y}px`);
+	        width = windowElement.element.offsetWidth;
+	        height = windowElement.element.offsetHeight;
+	        if (x > body.element.clientWidth - width)
+	            windowElement.setStyle("width", `${width = (body.element.clientWidth - x)}px`);
+	        if (y > body.element.clientHeight - height)
+	            windowElement.setStyle("height", `${height = (body.element.clientHeight - y)}px`);
 	        if (x < 0)
 	        {
 	            x = 0;
@@ -3834,7 +4034,14 @@
 	    sandbox.apiObj = {
 	        iiroseForge: apiBindObj
 	    };
-	    let scriptCode = await (await fetch(scriptUrl)).text();
+	    let scriptCode = `document.body.innerHTML='<div style="color:white">network_error</div>';`;
+	    try
+	    {
+	        scriptCode = await (await fetch(scriptUrl)).text();
+	    }
+	    catch (err)
+	    {
+	    }
 	    sandbox.execJs(scriptCode);
 
 	    return {
@@ -3942,7 +4149,6 @@
 	}
 
 	const plugList = new PlugList();
-	plugList.readPlugList();
 
 	/**
 	 * 生成添加类名的流水线
@@ -4199,11 +4405,74 @@
 	                        }
 	                    },
 	                    {
+	                        title: "侧载脚本",
+	                        text: "管理侧载js",
+	                        icon: "script",
+	                        onClick: async () =>
+	                        {
+	                            await showInfoBox("警告", [
+	                                "! 侧载外部脚本是高危操作 !",
+	                                "侧载的脚本不接受forge权限管理",
+	                                "外部脚本能获取您在此网站的所有信息",
+	                                "恶意外部脚本可能盗取您的账号",
+	                                "请勿加载他人提供的闭源脚本",
+	                                "继续操作前 您应该了解自己正在做什么"
+	                            ].join("\n"));
+	                            showMenu([
+	                                NList.getElement([
+	                                    "[ 添加iframe外侧侧载脚本 ]",
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随forge启动运行", true);
+	                                        if (scriptUrl != undefined)
+	                                        {
+	                                            storageContext.iiroseForge.sideLoadedScript.push([scriptUrl, scriptUrl, false]);
+	                                            storageSave();
+	                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启时生效");
+	                                        }
+	                                    }),
+	                                ]),
+	                                NList.getElement([
+	                                    "[ 添加iframe内侧侧载脚本 ]",
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随iframe重载运行", true);
+	                                        if (scriptUrl != undefined)
+	                                        {
+	                                            storageContext.iiroseForge.sideLoadedScript.push([scriptUrl, scriptUrl, true]);
+	                                            storageSave();
+	                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启或iframe重载时生效");
+	                                        }
+	                                    }),
+	                                ]),
+	                                ...(storageContext.iiroseForge.sideLoadedScript.map(([name, url, insideIframe], ind) => NList.getElement([
+	                                    `${insideIframe ? "内" : "外"} | ${name}`,
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        showMenu([
+	                                            NList.getElement([
+	                                                "移除插件",
+	                                                new NEvent("click", () =>
+	                                                {
+	                                                    storageContext.iiroseForge.sideLoadedScript.splice(ind, 1);
+	                                                    storageSave();
+	                                                    showNotice("删除侧载脚本", "已将脚本从侧载列表移除\n将在下次重启时生效");
+	                                                })
+	                                            ])
+	                                        ]);
+	                                    }),
+	                                ])))
+	                            ]);
+
+	                        }
+	                    },
+	                    {
 	                        title: "安装iiroseForge",
 	                        text: "下次使用无需注入",
 	                        icon: "puzzle",
 	                        onClick: async () =>
 	                        {
+	                            localStorage.setItem("installForge", "true");
 	                            writeForgeToCache();
 	                            showInfoBox("安装iiroseForge", "已完成");
 	                        }
@@ -4214,6 +4483,7 @@
 	                        icon: "puzzle",
 	                        onClick: async () =>
 	                        {
+	                            localStorage.removeItem("installForge");
 	                            removeForgeFromCache();
 	                            showInfoBox("卸载iiroseForge", "已完成");
 	                        }
@@ -4432,7 +4702,7 @@
 	                // console.log("get data", data);
 	                try
 	                {
-	                    if(toClient(/** @type {[string]} */(param)))
+	                    if (toClient(/** @type {[string]} */(param)))
 	                        return true;
 	                }
 	                catch (err)
@@ -4442,12 +4712,15 @@
 	                }
 	                return false;
 	            });
-	            iframeContext.socket.send = proxyFunction(iframeContext.socket.send.bind(iframeContext.socket), (param) =>
+
+	            iframeContext.socketApi.send = iframeContext.socket.send.bind(iframeContext.socket);
+
+	            iframeContext.socket.send = proxyFunction(iframeContext.socketApi.send, (param) =>
 	            {
 	                // console.log("send data", data);
 	                try
 	                {
-	                    if(toServer(/** @type {[string]} */(param)))
+	                    if (toServer(/** @type {[string]} */(param)))
 	                        return true;
 	                }
 	                catch (err)
@@ -4461,6 +4734,23 @@
 
 	        iframeWindow["iiroseForgeInjected"] = true; // iframe上下文已注入标记
 	        console.log("[iiroseForge] 成功将iiroseForge注入iframe");
+
+	        (async () =>
+	        { // 侧载在内侧执行的脚本
+	            let scriptCount = 0;
+	            storageContext.iiroseForge.sideLoadedScript.forEach(([name, url, insideIframe]) =>
+	            {
+	                if (insideIframe)
+	                {
+	                    let script = document.createElement("script");
+	                    script.src = url;
+	                    iframeDocument.body.appendChild(script);
+	                    scriptCount++;
+	                }
+	            });
+	            if (scriptCount > 0)
+	                showNotice("iiroseForge plug-in", `已在iframe内侧侧载 ${scriptCount} 个js脚本`);
+	        })();
 	    }, 1000);
 	}
 
@@ -4472,6 +4762,10 @@
 	        {
 	            console.log("[iiroseForge] iiroseForge已启用");
 
+	            storageRead();
+	            plugList.readPlugList();
+
+
 	            let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
 	            mainIframe.addEventListener("load", () => // 主iframe加载事件
 	            {
@@ -4482,6 +4776,23 @@
 	            initInjectIframe();
 
 	            window["iiroseForgeInjected"] = true; // 最外层页面已被注入标记
+
+	            (async () =>
+	            { // 侧载在外侧执行的脚本
+	                let scriptCount = 0;
+	                storageContext.iiroseForge.sideLoadedScript.forEach(([name, url, insideIframe]) =>
+	                {
+	                    if (!insideIframe)
+	                    {
+	                        let script = document.createElement("script");
+	                        script.src = url;
+	                        window.document.body.appendChild(script);
+	                        scriptCount++;
+	                    }
+	                });
+	                if (scriptCount > 0)
+	                    showNotice("iiroseForge plug-in", `已在iframe外部侧载 ${scriptCount} 个js脚本`);
+	            })();
 	        }
 	        else
 	            console.log("[iiroseForge] 已阻止重复注入");

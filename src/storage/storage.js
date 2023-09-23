@@ -10,11 +10,14 @@ export const storageContext = {
          * 插件信息
          * @type {Array<[string, string, Array<string>, Array<string>]>}
          */
-        plugInfo: []
+        plugInfo: [],
+        /**
+         * 侧载脚本
+         * @type {Array<[string, string, boolean]>}
+         */
+        sideLoadedScript: []
     }
 };
-
-storageRead();
 
 export function storageRead()
 {

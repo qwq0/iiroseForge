@@ -1,6 +1,8 @@
 import { intervalTry, proxyFunction } from "../../lib/plugToolsLib.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent } from "../../lib/qwqframe.js";
 import { toClient, toServer } from "../protocol/protocol.js";
+import { storageContext } from "../storage/storage.js";
+import { showNotice } from "../ui/notice.js";
 import { iframeContext } from "./iframeContext.js";
 import { getMenuButton } from "./menuButton.js";
 
@@ -47,7 +49,7 @@ export function initInjectIframe()
                 // console.log("get data", data);
                 try
                 {
-                    if(toClient(/** @type {[string]} */(param)))
+                    if (toClient(/** @type {[string]} */(param)))
                         return true;
                 }
                 catch (err)
@@ -57,12 +59,15 @@ export function initInjectIframe()
                 }
                 return false;
             });
-            iframeContext.socket.send = proxyFunction(iframeContext.socket.send.bind(iframeContext.socket), (param) =>
+
+            iframeContext.socketApi.send = iframeContext.socket.send.bind(iframeContext.socket);
+
+            iframeContext.socket.send = proxyFunction(iframeContext.socketApi.send, (param) =>
             {
                 // console.log("send data", data);
                 try
                 {
-                    if(toServer(/** @type {[string]} */(param)))
+                    if (toServer(/** @type {[string]} */(param)))
                         return true;
                 }
                 catch (err)
@@ -76,5 +81,22 @@ export function initInjectIframe()
 
         iframeWindow["iiroseForgeInjected"] = true; // iframe上下文已注入标记
         console.log("[iiroseForge] 成功将iiroseForge注入iframe");
+
+        (async () =>
+        { // 侧载在内侧执行的脚本
+            let scriptCount = 0;
+            storageContext.iiroseForge.sideLoadedScript.forEach(([name, url, insideIframe]) =>
+            {
+                if (insideIframe)
+                {
+                    let script = document.createElement("script");
+                    script.src = url;
+                    iframeDocument.body.appendChild(script);
+                    scriptCount++;
+                }
+            });
+            if (scriptCount > 0)
+                showNotice("iiroseForge plug-in", `已在iframe内侧侧载 ${scriptCount} 个js脚本`);
+        })();
     }, 1000);
 }

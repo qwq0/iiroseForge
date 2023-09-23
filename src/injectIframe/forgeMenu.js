@@ -2,9 +2,11 @@ import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NEl
 import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
 import { plugList } from "../plug/plugList.js";
+import { storageContext, storageSave } from "../storage/storage.js";
 import { className } from "../ui/className.js";
 import { showInfoBox, showInputBox } from "../ui/infobox.js";
 import { showMenu } from "../ui/menu.js";
+import { showNotice } from "../ui/notice.js";
 
 /**
  * 获取forge菜单
@@ -127,11 +129,74 @@ export function getForgeMenu()
                         }
                     },
                     {
+                        title: "侧载脚本",
+                        text: "管理侧载js",
+                        icon: "script",
+                        onClick: async () =>
+                        {
+                            await showInfoBox("警告", [
+                                "! 侧载外部脚本是高危操作 !",
+                                "侧载的脚本不接受forge权限管理",
+                                "外部脚本能获取您在此网站的所有信息",
+                                "恶意外部脚本可能盗取您的账号",
+                                "请勿加载他人提供的闭源脚本",
+                                "继续操作前 您应该了解自己正在做什么"
+                            ].join("\n"));
+                            showMenu([
+                                NList.getElement([
+                                    "[ 添加iframe外侧侧载脚本 ]",
+                                    new NEvent("click", async () =>
+                                    {
+                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随forge启动运行", true);
+                                        if (scriptUrl != undefined)
+                                        {
+                                            storageContext.iiroseForge.sideLoadedScript.push([scriptUrl, scriptUrl, false]);
+                                            storageSave();
+                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启时生效");
+                                        }
+                                    }),
+                                ]),
+                                NList.getElement([
+                                    "[ 添加iframe内侧侧载脚本 ]",
+                                    new NEvent("click", async () =>
+                                    {
+                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随iframe重载运行", true);
+                                        if (scriptUrl != undefined)
+                                        {
+                                            storageContext.iiroseForge.sideLoadedScript.push([scriptUrl, scriptUrl, true]);
+                                            storageSave();
+                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启或iframe重载时生效");
+                                        }
+                                    }),
+                                ]),
+                                ...(storageContext.iiroseForge.sideLoadedScript.map(([name, url, insideIframe], ind) => NList.getElement([
+                                    `${insideIframe ? "内" : "外"} | ${name}`,
+                                    new NEvent("click", async () =>
+                                    {
+                                        showMenu([
+                                            NList.getElement([
+                                                "移除插件",
+                                                new NEvent("click", () =>
+                                                {
+                                                    storageContext.iiroseForge.sideLoadedScript.splice(ind, 1);
+                                                    storageSave();
+                                                    showNotice("删除侧载脚本", "已将脚本从侧载列表移除\n将在下次重启时生效");
+                                                })
+                                            ])
+                                        ]);
+                                    }),
+                                ])))
+                            ]);
+
+                        }
+                    },
+                    {
                         title: "安装iiroseForge",
                         text: "下次使用无需注入",
                         icon: "puzzle",
                         onClick: async () =>
                         {
+                            localStorage.setItem("installForge", "true");
                             writeForgeToCache();
                             showInfoBox("安装iiroseForge", "已完成");
                         }
@@ -142,6 +207,7 @@ export function getForgeMenu()
                         icon: "puzzle",
                         onClick: async () =>
                         {
+                            localStorage.removeItem("installForge");
                             removeForgeFromCache();
                             showInfoBox("卸载iiroseForge", "已完成");
                         }

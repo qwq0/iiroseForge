@@ -5,7 +5,7 @@ import { iframeContext } from "../injectIframe/iframeContext.js";
  * 在 蔷薇终端 中运行命令
  * @param {string} command
  */
-export function runCommand(command)
+export function runTerminalCommand(command)
 {
     if (iframeContext.iframeWindow?.["Probe"]?.init?.shellHolder)
         iframeContext.iframeWindow?.["Init"]?.movePanel(6);

@@ -20,9 +20,9 @@ export let iframeContext = {
     iframeBody: null,
 
     socketApi: {
-        send: (/** @type {string} */ data) =>
-        {
-            iframeContext.socket.send(data);
-        }
+        /**
+         * @type {(data: string) => void}
+         */
+        send: () => { }
     }
 };

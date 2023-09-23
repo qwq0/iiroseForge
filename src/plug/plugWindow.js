@@ -9,6 +9,9 @@ import { body } from "../ui/body.js";
 export function createPlugSandboxWithWindow()
 {
     let x = 0, y = 0;
+    let width = 280, height = 190;
+    let resizeSliderShowUpTimeout = null;
+    let resizeSlider = null;
     /**
      * @type {NElement}
      */
@@ -100,7 +103,25 @@ export function createPlugSandboxWithWindow()
                 };
                 mouseBind(e, proc);
                 touchBind(e, proc);
-            })
+            }),
+
+            new NEvent("touchend", () =>
+            {
+                if (resizeSliderShowUpTimeout != null)
+                {
+                    clearTimeout(resizeSliderShowUpTimeout);
+                    resizeSliderShowUpTimeout = null;
+                }
+                else
+                {
+                    resizeSlider.setDisplay("block");
+                }
+                resizeSliderShowUpTimeout = setTimeout(() =>
+                {
+                    resizeSliderShowUpTimeout = null;
+                    resizeSlider.setDisplay("none");
+                }, 2500);
+            }),
         ],
 
         [ // 右上角最小化按钮
@@ -128,16 +149,65 @@ export function createPlugSandboxWithWindow()
                 right: "0",
                 overflow: "auto",
             }),
-            new NAsse(o => { iframeHolder = o; })
-        ]
+            new NAsse(e => { iframeHolder = e; })
+        ],
+
+        [ // 右下角设置大小拖拽块
+            createNStyleList({
+                position: "absolute",
+                right: "0.5px",
+                bottom: "0.5px",
+                height: "1.5em",
+                aspectRatio: "1",
+                cursor: "nwse-resize",
+                display: "none",
+                boxSizing: "border-box",
+                borderRight: "0.75em blue solid",
+                borderBottom: "0.75em blue solid",
+                borderTop: "0.75em transparent solid",
+                borderLeft: "0.75em transparent solid",
+            }),
+            new NEvent("click", () =>
+            {
+                windowElement.setDisplay("none");
+            }),
+            new NAsse(e => { resizeSlider = e; }),
+            new NAsse(e =>
+            {
+                var ow = 0, oh = 0;
+                var proc = (/** @type {{ sx: number, sy: number, x: number, y: number, pressing: boolean,hold: boolean }} */ o) =>
+                {
+                    if (o.hold)
+                    {
+                        if (o.pressing)
+                        {
+                            ow = width;
+                            oh = height;
+                            // pageManager.moveToTop(this);
+                        }
+                        width = ow + o.x - o.sx;
+                        height = oh + o.y - o.sy;
+                        windowElement.setStyle("width", `${width}px`);
+                        windowElement.setStyle("height", `${height}px`);
+                        iframe.setStyle("pointerEvents", "none");
+                    }
+                    else
+                        iframe.setStyle("pointerEvents", "auto");
+                };
+                mouseBind(e, proc);
+                touchBind(e, proc);
+            })
+        ],
     ]);
     body.addChild(windowElement);
     new ResizeObserver(() =>
     {
-        if (x > body.element.clientWidth - windowElement.element.offsetWidth)
-            windowElement.setStyle("width", `${body.element.clientWidth - x}px`);
-        if (y > body.element.clientHeight - windowElement.element.offsetHeight)
-            windowElement.setStyle("height", `${body.element.clientHeight - y}px`);
+        width = windowElement.element.offsetWidth;
+        height = windowElement.element.offsetHeight;
+        if (x > body.element.clientWidth - width)
+            windowElement.setStyle("width", `${width = (body.element.clientWidth - x)}px`);
+        if (y > body.element.clientHeight - height)
+            windowElement.setStyle("height", `${height = (body.element.clientHeight - y)}px`);
         if (x < 0)
         {
             x = 0;

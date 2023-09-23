@@ -1,4 +1,6 @@
 import { domPath } from "../../lib/plugToolsLib.js";
+import { runTerminalCommand } from "../feature/runCommand.js";
+import { sendMessageOnCurrentPage } from "../feature/sendMessage.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
 import { writeForgePacket } from "../protocol/forgePacket.js";
 import { showNotice } from "../ui/notice.js";
@@ -118,17 +120,17 @@ export const forgeApi = {
         /**
          * 静默发送私聊
          * @param {string} targetUid
-         * @param {string} context
+         * @param {string} content
          */
-        sendPrivateMessageSilence: (targetUid, context) =>
+        sendPrivateMessageSilence: (targetUid, content) =>
         {
             targetUid = String(targetUid);
-            context = String(context);
-            if (!context || !targetUid)
+            content = String(content);
+            if (!content || !targetUid)
                 return;
             iframeContext.socketApi.send(JSON.stringify({
                 "g": targetUid,
-                "m": context,
+                "m": content,
                 "mc": forgeApi.operation.getUserInputColor(),
                 "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
             }));
@@ -189,6 +191,28 @@ export const forgeApi = {
             roomId = String(roomId);
             if (iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger)
                 iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger(roomId);
+        },
+
+        /**
+         * 执行终端命令
+         * 插件暂时无法申请此权限
+         * @param {string} command
+         */
+        runTerminalCommand: (command) =>
+        {
+            command = String(command);
+            runTerminalCommand(command);
+        },
+
+        /**
+         * 在当前用户所在的页面发送信息
+         * 插件暂时无法申请此权限
+         * @param {string} content
+         */
+        sendCurrentPageMessage: (content) =>
+        {
+            content = String(content);
+            sendMessageOnCurrentPage(content);
         }
     },
 

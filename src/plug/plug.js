@@ -80,7 +80,14 @@ export async function loadPlugIn(plugName, scriptUrl, permission)
     sandbox.apiObj = {
         iiroseForge: apiBindObj
     };
-    let scriptCode = await (await fetch(scriptUrl)).text();
+    let scriptCode = `document.body.innerHTML='<div style="color:white">network_error</div>';`;
+    try
+    {
+        scriptCode = await (await fetch(scriptUrl)).text();
+    }
+    catch (err)
+    {
+    }
     sandbox.execJs(scriptCode);
 
     return {

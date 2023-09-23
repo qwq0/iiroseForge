@@ -102,4 +102,3 @@ class PlugList
 }
 
 export const plugList = new PlugList();
-plugList.readPlugList();
