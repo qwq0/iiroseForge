@@ -1,5 +1,6 @@
 import { intervalTry, proxyFunction } from "../../lib/plugToolsLib.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent } from "../../lib/qwqframe.js";
+import { writeForgeToCache } from "../injectCache/injectCache.js";
 import { toClient, toServer } from "../protocol/protocol.js";
 import { storageContext } from "../storage/storage.js";
 import { showNotice } from "../ui/notice.js";
@@ -99,4 +100,37 @@ export function initInjectIframe()
                 showNotice("iiroseForge plug-in", `已在iframe内侧侧载 ${scriptCount} 个js脚本`);
         })();
     }, 1000);
+
+    if (localStorage.getItem("installForge") == "true")
+    {
+        intervalTry(() => // 循环尝试注入
+        {
+            /**
+             * @type {HTMLIFrameElement}
+             */
+            let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
+            let iframeWindow = mainIframe.contentWindow;
+            let iframeDocument = mainIframe.contentDocument;
+            if (!(iframeWindow["Utils"]?.service?.clearCache))
+                throw "Incomplete load";
+            let old_Utils_service_clearCache = iframeWindow["Utils"].service.clearCache.bind(iframeWindow["Utils"].service);
+            iframeWindow["Utils"].service.clearCache = (...param) =>
+            {
+                let old_parent_location__reload = iframeWindow.parent.location["_reload"].bind(iframeWindow.parent.location);
+                iframeWindow.parent.location["_reload"] = (...param) =>
+                {
+                    setTimeout(() =>
+                    {
+                        writeForgeToCache();
+                        setTimeout(() =>
+                        {
+                            old_parent_location__reload(...param);
+                        }, 100);
+                    }, 100);
+                };
+                old_Utils_service_clearCache(...param);
+                iframeWindow.parent.location["_reload"] = old_parent_location__reload;
+            };
+        }, 5);
+    }
 }

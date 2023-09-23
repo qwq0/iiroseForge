@@ -2749,6 +2749,81 @@
 
 	window["iiroseForgeApi"] = forgeApi;
 
+	let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
+	let iiroseForgeLoaderElementHtml = `<script type="text/javascript" src="${iiroseForgeLoaderUrl}"></script>`;
+
+	/**
+	 * 向缓存中注入iiroseForge
+	 * @returns {Promise<void>}
+	 */
+	async function writeForgeToCache()
+	{
+	    let cache = await caches.open("v");
+	    let catchMatch = await caches.match("/");
+	    if (catchMatch)
+	    {
+	        let cacheMainPage = await catchMatch.text();
+	        if (cacheMainPage.indexOf(iiroseForgeLoaderElementHtml) > -1)
+	            return;
+	        let insertIndex = cacheMainPage.lastIndexOf("</body></html>");
+	        if (insertIndex == -1)
+	            return;
+	        let newCacheMainPage = cacheMainPage.slice(0, insertIndex) + iiroseForgeLoaderElementHtml + cacheMainPage.slice(insertIndex);
+	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	    }
+	    else
+	    {
+	        let newCacheMainPage = ([
+	            `<!DOCTYPE html>`,
+	            `<html>`,
+	            `<head>`,
+	            `</head>`,
+	            `<body>`,
+	            `<script>`,
+	            `(async() => {`,
+	            
+	            `let cache = await caches.open("v");`,
+	            `await cache.delete("/");`,
+
+	            `let cacheMainPage = await (await fetch("/",{cache:"no-cache"})).text();`,
+	            `let insertIndex = cacheMainPage.lastIndexOf("</body></html>");`,
+
+	            `let newCacheMainPage = (insertIndex == -1 ? cacheMainPage : (cacheMainPage.slice(0, insertIndex) + \`<script\` + `,
+	            `\` type="text/javascript" src="${iiroseForgeLoaderUrl}"><\` + \`/script>\` + cacheMainPage.slice(insertIndex)));`,
+	            
+	            `await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));`,
+
+	            `location.reload();`,
+
+	            `})();`,
+	            `</script>`,
+	            `</body>`,
+	            `</html>`
+	        ]).join("");
+	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	    }
+	}
+
+	/**
+	 * 从缓存中清除iiroseForge的注入
+	 * @returns {Promise<void>}
+	 */
+	async function removeForgeFromCache()
+	{
+	    let cache = await caches.open("v");
+	    let cacheMainPage = await (await caches.match("/")).text();
+	    let removeIndex = cacheMainPage.indexOf(iiroseForgeLoaderElementHtml);
+	    if (removeIndex == -1)
+	        return;
+	    let newCacheMainPage = cacheMainPage.slice(0, removeIndex) + cacheMainPage.slice(removeIndex + iiroseForgeLoaderElementHtml.length);
+	    await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	}
+
+	if (localStorage.getItem("installForge") == "true")
+	{ // 用户要求安装
+	    writeForgeToCache();
+	}
+
 	/**
 	 * 字典树
 	 */
@@ -3007,65 +3082,8 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.1.4"
+	    version: "alpha v1.1.5"
 	};
-
-	let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
-	let iiroseForgeLoaderElementHtml = `<script type="text/javascript" src="${iiroseForgeLoaderUrl}"></script>`;
-
-	/**
-	 * 用户要求安装
-	 */
-	let requiredInstall = (localStorage.getItem("installForge") == "true");
-
-	/**
-	 * 向缓存中注入iiroseForge
-	 * @returns {Promise<void>}
-	 */
-	async function writeForgeToCache()
-	{
-	    let cache = await caches.open("v");
-	    let cacheMainPage = await (await caches.match("/")).text();
-	    if (cacheMainPage.indexOf(iiroseForgeLoaderElementHtml) > -1)
-	        return;
-	    let insertIndex = cacheMainPage.indexOf("</body></html>");
-	    if (insertIndex == -1)
-	        return;
-	    let newCacheMainPage = cacheMainPage.slice(0, insertIndex) + iiroseForgeLoaderElementHtml + cacheMainPage.slice(insertIndex);
-	    await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
-	}
-
-	/**
-	 * 从缓存中清除iiroseForge的注入
-	 * @returns {Promise<void>}
-	 */
-	async function removeForgeFromCache()
-	{
-	    let cache = await caches.open("v");
-	    let cacheMainPage = await (await caches.match("/")).text();
-	    let removeIndex = cacheMainPage.indexOf(iiroseForgeLoaderElementHtml);
-	    if (removeIndex == -1)
-	        return;
-	    let newCacheMainPage = cacheMainPage.slice(0, removeIndex) + cacheMainPage.slice(removeIndex + iiroseForgeLoaderElementHtml.length);
-	    await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
-	}
-
-	if (requiredInstall)
-	{
-	    writeForgeToCache();
-	    
-	    let location_reload = location.reload.bind(location);
-	    location.reload = () =>
-	    {
-	        (async () =>
-	        {
-	            requiredInstall = (localStorage.getItem("installForge") == "true");
-	            if (requiredInstall)
-	                await writeForgeToCache();
-	            location_reload();
-	        })();
-	    };
-	}
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
 
@@ -4752,6 +4770,39 @@
 	                showNotice("iiroseForge plug-in", `已在iframe内侧侧载 ${scriptCount} 个js脚本`);
 	        })();
 	    }, 1000);
+
+	    if (localStorage.getItem("installForge") == "true")
+	    {
+	        intervalTry(() => // 循环尝试注入
+	        {
+	            /**
+	             * @type {HTMLIFrameElement}
+	             */
+	            let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
+	            let iframeWindow = mainIframe.contentWindow;
+	            let iframeDocument = mainIframe.contentDocument;
+	            if (!(iframeWindow["Utils"]?.service?.clearCache))
+	                throw "Incomplete load";
+	            let old_Utils_service_clearCache = iframeWindow["Utils"].service.clearCache.bind(iframeWindow["Utils"].service);
+	            iframeWindow["Utils"].service.clearCache = (...param) =>
+	            {
+	                let old_parent_location__reload = iframeWindow.parent.location["_reload"].bind(iframeWindow.parent.location);
+	                iframeWindow.parent.location["_reload"] = (...param) =>
+	                {
+	                    setTimeout(() =>
+	                    {
+	                        writeForgeToCache();
+	                        setTimeout(() =>
+	                        {
+	                            old_parent_location__reload(...param);
+	                        }, 100);
+	                    }, 100);
+	                };
+	                old_Utils_service_clearCache(...param);
+	                iframeWindow.parent.location["_reload"] = old_parent_location__reload;
+	            };
+	        }, 5);
+	    }
 	}
 
 	if (location.host == "iirose.com")
