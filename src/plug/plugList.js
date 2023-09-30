@@ -36,7 +36,7 @@ class PlugList
         {
             let windowElement = this.map.get(name).windowElement;
             windowElement.setDisplay("block");
-            windowElement.setStyle("pointerEvents", "auto");;
+            windowElement.setStyle("pointerEvents", "auto");
         }
     }
 

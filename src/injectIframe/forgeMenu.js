@@ -1,12 +1,19 @@
+import { RcoCcontext } from "../../lib/jsRco.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList } from "../../lib/qwqframe.js";
 import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
 import { plugList } from "../plug/plugList.js";
+import { createPlugWindow } from "../plug/plugWindow.js";
 import { storageContext, storageSave } from "../storage/storage.js";
 import { className } from "../ui/className.js";
 import { showInfoBox, showInputBox } from "../ui/infobox.js";
 import { showMenu } from "../ui/menu.js";
 import { showNotice } from "../ui/notice.js";
+
+/**
+ * @type {ReturnType<createPlugWindow>}
+ */
+let plugStone = null;
 
 /**
  * 获取forge菜单
@@ -188,6 +195,65 @@ export function getForgeMenu()
                                 ])))
                             ]);
 
+                        }
+                    },
+                    {
+                        title: "插件商店",
+                        text: "打开插件商店",
+                        icon: "shopping",
+                        onClick: async () =>
+                        {
+                            if (plugStone)
+                            {
+                                plugStone.windowElement.setDisplay("block");
+                                plugStone.windowElement.setStyle("pointerEvents", "auto");
+                                return;
+                            }
+
+                            plugStone = createPlugWindow(true);
+                            plugStone.iframe.element.src = "https://iplugin.reifuu.icu";
+
+                            let available = false;
+
+                            let channel = new MessageChannel();
+                            let port = channel.port1;
+
+                            let rcoContext = new RcoCcontext();
+                            rcoContext.addGlobalNamedFunctions({
+                                getForgeVersion: async () => versionInfo.version,
+                                getPlugList: async () => Array.from(plugList.map.entries()).map(o => ({
+                                    name: o[0],
+                                    url: o[1].url
+                                })),
+                                installPlug: async (name, url) =>
+                                {
+                                    name = String(name);
+                                    url = String(url);
+                                    return 3;
+                                },
+                                uninstallPlug: async (name) =>
+                                {
+                                    name = String(name);
+                                    return 3;
+                                },
+                            });
+                            port.addEventListener("message", data => { rcoContext.onData(data); });
+                            rcoContext.bindOutStream(data => { port.postMessage(data); }, "raw");
+
+                            plugStone.iframe.addEventListener("load", () =>
+                            {
+                                if (!available)
+                                {
+                                    port.start();
+                                    plugStone.iframe.element.contentWindow.postMessage({
+                                        type: "setMessagePort",
+                                        port: channel.port2
+                                    }, "*", [channel.port2]); // 初始化通信管道
+                                }
+                            });
+
+                            plugStone.windowElement.setDisplay("block");
+                            plugStone.windowElement.setStyle("pointerEvents", "auto");
                         }
                     },
                     {

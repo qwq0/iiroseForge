@@ -3,10 +3,9 @@ import { NList, createNStyle as style, getNElement, createNStyleList, NAsse, NEv
 import { body } from "../ui/body.js";
 
 /**
- * 在悬浮窗中创建插件沙箱
- * 以便插件显示ui
+ * 创建悬浮窗
  */
-export function createPlugSandboxWithWindow()
+export function createPlugWindow(noSandbox = false)
 {
     let x = 0, y = 0;
     let width = 280, height = 190;
@@ -219,8 +218,21 @@ export function createPlugSandboxWithWindow()
             windowElement.setStyle("top", `${y}px`);
         }
     }).observe(windowElement.element);
-    let sandbox = new SandboxContext(iframeHolder.element);
-    iframe = getNElement(sandbox.iframe);
+
+    /**
+     * @type {SandboxContext}
+     */
+    let sandbox = null;
+    if (!noSandbox)
+    {
+        sandbox = new SandboxContext(iframeHolder.element);
+        iframe = getNElement(sandbox.iframe);
+    }
+    else
+    {
+        iframe = getNElement(document.createElement("iframe"));
+        iframeHolder.addChild(iframe);
+    }
     iframe.setStyles({
         display: "block",
         border: "none",
@@ -229,6 +241,19 @@ export function createPlugSandboxWithWindow()
     });
     return ({
         windowElement: windowElement,
-        sandbox: sandbox
+        sandbox: sandbox,
+        iframe: iframe
+    });
+}
+/**
+ * 在悬浮窗中创建插件沙箱
+ * 以便插件显示ui
+ */
+export function createPlugSandboxWithWindow()
+{
+    let plugWindow = createPlugWindow(false);
+    return ({
+        windowElement: plugWindow.iframe,
+        sandbox: plugWindow.sandbox
     });
 }
