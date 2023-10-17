@@ -1,5 +1,6 @@
 import { intervalTry, proxyFunction } from "../../lib/plugToolsLib.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent } from "../../lib/qwqframe.js";
+import { forgeApi } from "../forgeApi/forgeApi.js";
 import { globalState } from "../globalState.js";
 import { writeForgeToCache } from "../injectCache/injectCache.js";
 import { toClient, toServer } from "../protocol/protocol.js";
@@ -85,6 +86,8 @@ export function initInjectIframe()
 
         iframeWindow["iiroseForgeInjected"] = true; // iframe上下文已注入标记
         console.log("[iiroseForge] 成功将iiroseForge注入iframe");
+
+        iframeWindow["iiroseForgeApi"] = forgeApi; // 给内侧侧载脚本预留forgeApi
 
         (async () =>
         { // 侧载在内侧执行的脚本

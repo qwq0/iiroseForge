@@ -248,4 +248,4 @@ export const forgeApi = {
     }
 };
 
-window["iiroseForgeApi"] = forgeApi;
+window["iiroseForgeApi"] = forgeApi; // 给外侧侧载脚本预留forgeApi
