@@ -1,5 +1,6 @@
 import { intervalTry, proxyFunction } from "../../lib/plugToolsLib.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent } from "../../lib/qwqframe.js";
+import { globalState } from "../globalState.js";
 import { writeForgeToCache } from "../injectCache/injectCache.js";
 import { toClient, toServer } from "../protocol/protocol.js";
 import { storageContext } from "../storage/storage.js";
@@ -47,7 +48,8 @@ export function initInjectIframe()
         {
             iframeContext.socket._onmessage = proxyFunction(iframeContext.socket._onmessage.bind(iframeContext.socket), (param) =>
             {
-                // console.log("get data", data);
+                if (globalState.debugMode)
+                    console.log("receive packet", param);
                 try
                 {
                     if (toClient(/** @type {[string]} */(param)))
@@ -65,7 +67,8 @@ export function initInjectIframe()
 
             iframeContext.socket.send = proxyFunction(iframeContext.socketApi.send, (param) =>
             {
-                // console.log("send data", data);
+                if (globalState.debugMode)
+                    console.log("send packet", param);
                 try
                 {
                     if (toServer(/** @type {[string]} */(param)))
@@ -111,7 +114,7 @@ export function initInjectIframe()
             let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
 
             let iframeWindow = mainIframe.contentWindow;
-            if(iframeWindow["iiroseForgeClearCacheInjected"])
+            if (iframeWindow["iiroseForgeClearCacheInjected"])
                 return;
 
             if (!(iframeWindow["Utils"]?.service?.clearCache))
@@ -133,7 +136,7 @@ export function initInjectIframe()
                 };
                 old_Utils_service_clearCache(...param);
             };
-            
+
             iframeWindow["iiroseForgeClearCacheInjected"] = true;
         }, 5);
     }

@@ -4,6 +4,7 @@ import { iiroseForgeLoaderUrl } from "./injectCache/injectCache.js";
 import { showNotice } from "./ui/notice.js";
 import { plugList } from "./plug/plugList.js";
 import { storageContext, storageRead } from "./storage/storage.js";
+import { enableForgeDebugMode } from "./feature/debugMode.js";
 
 
 if (location.host == "iirose.com")
@@ -12,7 +13,11 @@ if (location.host == "iirose.com")
     {
         if (!window["iiroseForgeInjected"])
         {
+            window["iiroseForgeInjected"] = true; // 最外层页面已被注入标记
+
             console.log("[iiroseForge] iiroseForge已启用");
+
+            window["enableForgeDebugMode"] = enableForgeDebugMode;
 
             storageRead();
             plugList.readPlugList();
@@ -26,8 +31,6 @@ if (location.host == "iirose.com")
             });
             console.log("[iiroseForge] 正在将iiroseForge注入iframe");
             initInjectIframe();
-
-            window["iiroseForgeInjected"] = true; // 最外层页面已被注入标记
 
             (async () =>
             { // 侧载在外侧执行的脚本
