@@ -11,6 +11,6 @@
 		return;
 	let script = doc.createElement("script");
 	script.type = "text/javascript";
-	script.src = "https://qwq0.github.io/iiroseForge/iiroseForge.js?" + Math.random();
+	script.src = "https://cdn.jsdelivr.net/gh/qwq0/iiroseForge@page/iiroseForge.js";
 	doc.body.appendChild(script);
 })();
