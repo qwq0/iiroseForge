@@ -15,7 +15,13 @@ export const storageContext = {
          * 侧载脚本
          * @type {Array<[string, string, boolean]>}
          */
-        sideLoadedScript: []
+        sideLoadedScript: [],
+        /**
+         * 用户备注
+         * 用户uid 到 用户备注
+         * @type {Object<string, string>}
+         */
+        userRemark: {}
     }
 };
 

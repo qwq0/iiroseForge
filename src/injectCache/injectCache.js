@@ -1,5 +1,7 @@
 export let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
 let iiroseForgeLoaderElementHtml = `<script type="text/javascript" src="${iiroseForgeLoaderUrl}"></script>`;
+let injectCacheStartTag = `<!-- iiroseForge Installed Start -->`;
+let injectCacheEndTag = `<!-- iiroseForge Installed End -->`;
 
 /**
  * 向缓存中注入iiroseForge

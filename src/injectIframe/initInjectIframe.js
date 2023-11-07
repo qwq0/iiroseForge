@@ -1,8 +1,10 @@
 import { intervalTry, proxyFunction } from "../../lib/plugToolsLib.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent } from "../../lib/qwqframe.js";
+import { enableForgeDebugMode } from "../feature/debugMode.js";
 import { forgeApi } from "../forgeApi/forgeApi.js";
 import { globalState } from "../globalState.js";
 import { writeForgeToCache } from "../injectCache/injectCache.js";
+import { enableUserRemark } from "../patch/userRemark.js";
 import { toClient, toServer } from "../protocol/protocol.js";
 import { storageContext } from "../storage/storage.js";
 import { showNotice } from "../ui/notice.js";
@@ -89,6 +91,9 @@ export function initInjectIframe()
 
         iframeWindow["iiroseForgeApi"] = forgeApi; // 给内侧侧载脚本预留forgeApi
 
+        if(globalState.debugMode)
+            enableForgeDebugMode(globalState.debugMode);
+
         (async () =>
         { // 侧载在内侧执行的脚本
             let scriptCount = 0;
@@ -105,6 +110,10 @@ export function initInjectIframe()
             if (scriptCount > 0)
                 showNotice("iiroseForge plug-in", `已在iframe内侧侧载 ${scriptCount} 个js脚本`);
         })();
+
+        // 补丁功能
+        
+        enableUserRemark();
     }, 1000);
 
     if (localStorage.getItem("installForge") == "true")

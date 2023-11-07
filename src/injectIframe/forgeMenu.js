@@ -1,5 +1,5 @@
 import { RcoCcontext } from "../../lib/jsRco.js";
-import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList } from "../../lib/qwqframe.js";
+import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
 import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
 import { plugList } from "../plug/plugList.js";
@@ -49,7 +49,7 @@ export function getForgeMenu()
 
             [
                 className("mdi-anvil"),
-                createNStyleList({
+                styles({
                     display: "inline",
                     opacity: "0.8",
                     backgroundColor: "#303030",
@@ -219,7 +219,7 @@ export function getForgeMenu()
                             let port = channel.port1;
 
                             let rcoContext = new RcoCcontext();
-                            rcoContext.addGlobalNamedFunctions({
+                            rcoContext.addGlobalNamedFunctions(/** @satisfies {import("../../doc/plugStoreApi").iiroseForgePlugStoreApi} */({
                                 getForgeVersion: async () => versionInfo.version,
                                 getPlugList: async () => Array.from(plugList.map.entries()).map(o => ({
                                     name: o[0],
@@ -236,7 +236,7 @@ export function getForgeMenu()
                                     name = String(name);
                                     return 3;
                                 },
-                            });
+                            }));
                             port.addEventListener("message", data => { rcoContext.onData(data); });
                             rcoContext.bindOutStream(data => { port.postMessage(data); }, "raw");
 

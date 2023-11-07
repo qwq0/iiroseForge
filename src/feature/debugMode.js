@@ -10,7 +10,7 @@ export let debugModeContext = {
     {
         iframeContext.socketApi.send(packet);
     },
-    
+
     /**
      * 模拟客户端发送数据包
      * @param {string} packet 
@@ -43,9 +43,14 @@ export function enableForgeDebugMode(enable)
     if (enable)
     {
         window["fdb"] = debugModeContext;
+        if (iframeContext.iframeWindow)
+            iframeContext.iframeWindow["fdb"] = debugModeContext;
     }
     else
     {
-        delete window["fdb"];
+        if (window["fdb"])
+            delete window["fdb"];
+        if (iframeContext.iframeWindow?.["fdb"])
+            delete iframeContext.iframeWindow["fdb"];
     }
 }

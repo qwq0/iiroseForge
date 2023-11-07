@@ -5,68 +5,74 @@
 	 * 代理函数
 	 * 在执行前调用回调
 	 * @param {function(...any): any} targetFunction 目标函数
-	 * @param {function(Array<any>, function(...any): any): boolean} callback 回调返回true则不执行目标函数
-	 * @returns {function(...any): any}
-	 */
+	 * @param {(
+	* 	params: Array<any>,
+	* 	targetFnBindThis: function(...any): any,
+	* 	targetFn: function(...any): any,
+	* 	thisObj: any
+	* ) => boolean} callback 回调返回true则不执行目标函数
+	* @returns {function(...any): any}
+	*/
 	function proxyFunction(targetFunction, callback)
 	{
-		return ((...param) =>
-		{
-			if (callback(param, targetFunction) != true)
-				return targetFunction(...param);
-		});
+	   return (function(...param)
+	   {
+		   let targetFunctionBindThis = targetFunction.bind(this);
+		   if (callback(param, targetFunctionBindThis, targetFunction, this) != true)
+			   return targetFunctionBindThis(...param);
+	   });
 	}
 
 	/**
-	 * 定义循环尝试运行
-	 * 直到运行回调时不再抛出错误
-	 * @param {function (number, number): void} callback 第一个参数为尝试运行的次数 第二个参数为尝试运行的时间
-	 * @param {number} interval
-	 * @param {boolean} [immediate]
-	 */
+	* 定义循环尝试运行
+	* 直到运行回调时不再抛出错误
+	* @param {function (number, number): void} callback 第一个参数为尝试运行的次数 第二个参数为尝试运行的时间
+	* @param {number} interval
+	* @param {boolean} [immediate]
+	*/
 	function intervalTry(callback, interval, immediate = false)
 	{
-		let countOfCall = 0;
-		let startTime = Date.now();
-		let intervalId = null;
-		let func = (() =>
-		{
-			countOfCall++;
-			try
-			{
-				callback(countOfCall, Date.now() - startTime);
-				if (intervalId != null)
-					clearInterval(intervalId);
-				return;
-			}
-			catch (err)
-			{ }
-		});
-		intervalId = setInterval(func, interval);
-		if (immediate)
-			func();
+	   let countOfCall = 0;
+	   let startTime = Date.now();
+	   let intervalId = null;
+	   let func = (() =>
+	   {
+		   countOfCall++;
+		   try
+		   {
+			   callback(countOfCall, Date.now() - startTime);
+			   if (intervalId != null)
+				   clearInterval(intervalId);
+			   return;
+		   }
+		   catch (err)
+		   { }
+	   });
+	   intervalId = setInterval(func, interval);
+	   if (immediate)
+		   func();
 	}
 
 	/**
-	 * 访问dom树上的路径
-	 * @param {Node} start 
-	 * @param {Array<number>} path
-	 * @returns 
-	 */
+	* 访问dom树上的路径
+	* @param {Node} start 
+	* @param {Array<number>} path
+	* @returns 
+	*/
 	function domPath(start, path)
 	{
-		let now = start;
-		path.every(o =>
-		{
-			if (o < 0)
-				o += now.childNodes.length;
-			if (now.childNodes[o])
-				now = now.childNodes[o];
-			else
-				return false;
-			return true;
-		});
-		return now;
+	   let now = start;
+	   path.every(o =>
+	   {
+		   if (o < 0)
+			   o += now.childNodes.length;
+		   if (now.childNodes[o])
+			   now = now.childNodes[o];
+		   else
+			   return false;
+		   return true;
+	   });
+	   return now;
 	}
 
 	/**
@@ -2753,6 +2759,60 @@
 	    debugMode: false
 	};
 
+	let debugModeContext = {
+	    /**
+	     * 发送数据包
+	     * @param {string} packet 
+	     */
+	    send: (packet) =>
+	    {
+	        iframeContext.socketApi.send(packet);
+	    },
+
+	    /**
+	     * 模拟客户端发送数据包
+	     * @param {string} packet 
+	     */
+	    clientSend: (packet) =>
+	    {
+	        iframeContext.socket.send(packet);
+	    },
+
+	    /**
+	     * 模拟收到数据包
+	     * @param {string} packet 
+	     */
+	    receive: (packet) =>
+	    {
+	        iframeContext.socket._onmessage(packet);
+	    }
+	};
+
+	/**
+	 * 启用调试模式
+	 * @param {Boolean} enable 
+	 */
+	function enableForgeDebugMode(enable)
+	{
+	    enable = Boolean(enable);
+
+	    globalState.debugMode = enable;
+
+	    if (enable)
+	    {
+	        window["fdb"] = debugModeContext;
+	        if (iframeContext.iframeWindow)
+	            iframeContext.iframeWindow["fdb"] = debugModeContext;
+	    }
+	    else
+	    {
+	        if (window["fdb"])
+	            delete window["fdb"];
+	        if (iframeContext.iframeWindow?.["fdb"])
+	            delete iframeContext.iframeWindow["fdb"];
+	    }
+	}
+
 	let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
 	let iiroseForgeLoaderElementHtml = `<script type="text/javascript" src="${iiroseForgeLoaderUrl}"></script>`;
 
@@ -2826,6 +2886,351 @@
 	if (localStorage.getItem("installForge") == "true")
 	{ // 用户要求安装
 	    writeForgeToCache();
+	}
+
+	/**
+	 * 储存上下文
+	 * 将使用json进行序列化
+	 */
+	const storageContext = {
+	    iiroseForge: {
+	        /**
+	         * 插件信息
+	         * @type {Array<[string, string, Array<string>, Array<string>]>}
+	         */
+	        plugInfo: [],
+	        /**
+	         * 侧载脚本
+	         * @type {Array<[string, string, boolean]>}
+	         */
+	        sideLoadedScript: [],
+	        /**
+	         * 用户备注
+	         * 用户uid 到 用户备注
+	         * @type {Object<string, string>}
+	         */
+	        userRemark: {}
+	    }
+	};
+
+	function storageRead()
+	{
+	    try
+	    {
+	        let storageJson = localStorage.getItem("iiroseForge");
+	        if (!storageJson)
+	            return;
+	        let storageObj = JSON.parse(storageJson);
+	        Object.keys(storageObj).forEach(key =>
+	        {
+	            storageContext.iiroseForge[key] = storageObj[key];
+	        });
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法读入储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
+	function storageSave()
+	{
+	    try
+	    {
+	        let storageJson = JSON.stringify(storageContext.iiroseForge);
+	        localStorage.setItem("iiroseForge", storageJson);
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法写入储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
+	/**
+	 * 生成添加类名的流水线
+	 * @param {string} classNameStr
+	 */
+	function className(classNameStr)
+	{
+	    let classList = classNameStr.split(" ");
+	    return new NAsse((/** @type {NElement} */e) =>
+	    {
+	        classList.forEach(o =>
+	        {
+	            (/** @type {HTMLElement} */(e.element)).classList.add(o);
+	        });
+	    });
+	}
+
+	/**
+	 * 显示信息框
+	 * @async
+	 * @param {string} title
+	 * @param {string} text
+	 * @param {boolean} [allowCancel]
+	 * @param {Array<NElement>} [extraEle]
+	 * @returns {Promise<boolean>}
+	 */
+	function showInfoBox(title, text, allowCancel = false, ...extraEle)
+	{
+	    return new Promise(resolve =>
+	    {
+	        /**
+	         * @type {NElement}
+	         */
+	        var infoBox = undefined;
+	        var infoBoxHolder = expandElement({ // 背景
+	            width: "100%", height: "100%",
+	            $position: "absolute",
+	            style: {
+	                userSelect: "none",
+	                backgroundColor: cssG.rgb(0, 0, 0, 0.7),
+	                alignItems: "center",
+	                justifyContent: "center",
+	                zIndex: "30001"
+	            },
+	            assembly: [e =>
+	            {
+	                e.animate([
+	                    {
+	                        opacity: 0.1
+	                    },
+	                    {
+	                        opacity: 1
+	                    }
+	                ], {
+	                    duration: 120
+	                });
+	            }],
+	            display: "flex",
+	            child: [{ // 信息框
+	                style: {
+	                    border: "1px white solid",
+	                    backgroundColor: cssG.rgb(255, 255, 255, 0.95),
+	                    color: cssG.rgb(0, 0, 0),
+	                    alignItems: "center",
+	                    justifyContent: "center",
+	                    flexFlow: "column",
+	                    lineHeight: "35px",
+	                    minHeight: "190px",
+	                    minWidth: "280px",
+	                    maxWidth: "95%",
+	                    boxSizing: "border-box",
+	                    padding: "20px",
+	                    borderRadius: "7px",
+	                    pointerEvents: "none"
+	                },
+	                assembly: [e =>
+	                {
+	                    e.animate([
+	                        {
+	                            transform: "scale(0.9) translateY(-100px)"
+	                        },
+	                        {
+	                        }
+	                    ], {
+	                        duration: 120
+	                    });
+	                    setTimeout(() => { e.setStyle("pointerEvents", "auto"); }, 120);
+	                }, e => { infoBox = e; }],
+	                position$: "static",
+	                display: "flex",
+	                child: [{
+	                    text: title
+	                }, {
+	                    text: text
+	                }, ...extraEle, {
+	                    text: "确定",
+	                    assembly: [buttonAsse],
+	                    event: {
+	                        click: () =>
+	                        {
+	                            closeInfoBox();
+	                            resolve(true);
+	                        }
+	                    }
+	                },
+	                (allowCancel ? {
+	                    text: "取消",
+	                    assembly: [buttonAsse],
+	                    event: {
+	                        click: () =>
+	                        {
+	                            closeInfoBox();
+	                            resolve(false);
+	                        }
+	                    }
+	                } : null)]
+	            }]
+	        });
+	        function closeInfoBox()
+	        {
+	            infoBox.setStyle("pointerEvents", "none");
+	            infoBox.animate([
+	                {
+	                },
+	                {
+	                    transform: "scale(0.9) translateY(-100px)"
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            infoBoxHolder.animate([
+	                {
+	                    opacity: 1
+	                },
+	                {
+	                    opacity: 0.1
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            setTimeout(() =>
+	            {
+	                infoBoxHolder.remove();
+	            }, 120);
+	        }
+	        body.addChild(infoBoxHolder);
+	    });
+	}
+
+	/**
+	 * 显示输入框
+	 * @async
+	 * @param {string} title
+	 * @param {string} text
+	 * @param {boolean} [allowCancel]
+	 * @param {string} [initValue]
+	 * @returns {Promise<string>}
+	 */
+	async function showInputBox(title, text, allowCancel = false, initValue = "")
+	{
+	    var input = expandElement({
+	        tagName: "input",
+	        assembly: [buttonAsse],
+	        style: {
+	            textAlign: "center",
+	            margin: "15px"
+	        },
+	        attr: {
+	            value: initValue
+	        }
+	    });
+	    input.addEventListener("keydown", e => { e.stopPropagation(); }, true);
+	    var confirm = await showInfoBox(title, text, allowCancel, input);
+	    return (confirm ? input.element.value : undefined);
+	}
+
+	/**
+	 * 启用用户备注功能
+	 * @returns 
+	 */
+	function enableUserRemark()
+	{
+	    let msgBox = iframeContext.iframeDocument.getElementsByClassName("msgholderBox")[0];// 聊天消息列表节点(房间消息)
+	    (new MutationObserver(mutationsList =>
+	    {
+	        for (let mutation of mutationsList)
+	        {
+	            if (mutation.type == "childList")
+	            {
+	                Array.from(mutation.addedNodes).forEach((/** @type {HTMLElement} */element) =>
+	                {
+	                    if (element.classList != undefined && element.classList.contains("msg")) // 是消息
+	                    {
+	                        processingMessageElement(element);
+	                    }
+	                });
+	            }
+	        }
+	    })).observe(msgBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+
+	    let oldFunction = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
+	    if (oldFunction)
+	    {
+	        iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction, function (param, srcFunction, _targetFn, thisObj)
+	        {
+	            if (param.length == 1 && param[0] == 7)
+	            {
+	                let uid = thisObj?.dataset?.uid;
+	                if (!uid)
+	                    return false;
+
+	                srcFunction(...param);
+
+	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+	                selectHolderBox.appendChild((NList.getElement([
+	                    className("selectHolderBoxItem selectHolderBoxItemIcon"),
+	                    [
+	                        className("mdi-account-cog"),
+	                        createNStyleList({
+	                            fontFamily: "md",
+	                            fontSize: "28px",
+	                            textAlign: "center",
+	                            lineHeight: "100px",
+	                            height: "100px",
+	                            width: "100px",
+	                            position: "absolute",
+	                            top: "0",
+	                            opacity: ".7",
+	                            left: "0",
+	                        })
+	                    ],
+
+	                    "设置备注",
+	                    
+	                    [
+	                        className("fullBox whoisTouch3")
+	                    ],
+
+	                    new NEvent("click", async e =>
+	                    {
+	                        e.stopPropagation();
+
+
+
+	                        let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                        let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
+	                        if (newRemark != undefined)
+	                        {
+	                            storageContext.iiroseForge.userRemark[uid] = newRemark;
+	                            storageSave();
+	                        }
+	                    })
+	                ])).element);
+	                return true;
+	            }
+	            return false;
+	        });
+	    }
+	}
+
+	/**
+	 * 处理消息元素
+	 * @param {HTMLElement} messageElement
+	 */
+	function processingMessageElement(messageElement)
+	{
+	    if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "msg")
+	    {
+	        let messageElementDataId = String(messageElement.dataset.id);
+	        let uid = messageElementDataId.split("_")[0];
+	        let remarkName = storageContext.iiroseForge.userRemark[uid];
+	        if (remarkName)
+	        {
+	            let pubUserInfoElement = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, -1, -1])));
+	            pubUserInfoElement.appendChild((NList.getElement([
+	                createNStyleList({
+	                    color: "white",
+	                    position: "absolute",
+	                    [pubUserInfoElement.style.float != "right" ? "left" : "right"]: "0px",
+	                    bottom: "42px"
+	                }),
+	                remarkName
+	            ])).element);
+	        }
+	    }
 	}
 
 	/**
@@ -3032,57 +3437,6 @@
 	{
 	    packageData = data;
 	    return toClientTrie.matchPrefix(data[0]);
-	}
-
-	/**
-	 * 储存上下文
-	 * 将使用json进行序列化
-	 */
-	const storageContext = {
-	    iiroseForge: {
-	        /**
-	         * 插件信息
-	         * @type {Array<[string, string, Array<string>, Array<string>]>}
-	         */
-	        plugInfo: [],
-	        /**
-	         * 侧载脚本
-	         * @type {Array<[string, string, boolean]>}
-	         */
-	        sideLoadedScript: []
-	    }
-	};
-
-	function storageRead()
-	{
-	    try
-	    {
-	        let storageJson = localStorage.getItem("iiroseForge");
-	        if (!storageJson)
-	            return;
-	        let storageObj = JSON.parse(storageJson);
-	        Object.keys(storageObj).forEach(key =>
-	        {
-	            storageContext.iiroseForge[key] = storageObj[key];
-	        });
-	    }
-	    catch (err)
-	    {
-	        showNotice("错误", "无法读入储存 这可能导致iiroseForge配置丢失");
-	    }
-	}
-
-	function storageSave()
-	{
-	    try
-	    {
-	        let storageJson = JSON.stringify(storageContext.iiroseForge);
-	        localStorage.setItem("iiroseForge", storageJson);
-	    }
-	    catch (err)
-	    {
-	        showNotice("错误", "无法写入储存 这可能导致iiroseForge配置丢失");
-	    }
 	}
 
 	/*
@@ -4430,7 +4784,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.1.10"
+	    version: "alpha v1.2.0"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -4933,167 +5287,6 @@
 	};
 
 	/**
-	 * 显示信息框
-	 * @async
-	 * @param {string} title
-	 * @param {string} text
-	 * @param {boolean} [allowCancel]
-	 * @param {Array<NElement>} [extraEle]
-	 * @returns {Promise<boolean>}
-	 */
-	function showInfoBox(title, text, allowCancel = false, ...extraEle)
-	{
-	    return new Promise(resolve =>
-	    {
-	        /**
-	         * @type {NElement}
-	         */
-	        var infoBox = undefined;
-	        var infoBoxHolder = expandElement({ // 背景
-	            width: "100%", height: "100%",
-	            $position: "absolute",
-	            style: {
-	                userSelect: "none",
-	                backgroundColor: cssG.rgb(0, 0, 0, 0.7),
-	                alignItems: "center",
-	                justifyContent: "center",
-	                zIndex: "30001"
-	            },
-	            assembly: [e =>
-	            {
-	                e.animate([
-	                    {
-	                        opacity: 0.1
-	                    },
-	                    {
-	                        opacity: 1
-	                    }
-	                ], {
-	                    duration: 120
-	                });
-	            }],
-	            display: "flex",
-	            child: [{ // 信息框
-	                style: {
-	                    border: "1px white solid",
-	                    backgroundColor: cssG.rgb(255, 255, 255, 0.95),
-	                    color: cssG.rgb(0, 0, 0),
-	                    alignItems: "center",
-	                    justifyContent: "center",
-	                    flexFlow: "column",
-	                    lineHeight: "35px",
-	                    minHeight: "190px",
-	                    minWidth: "280px",
-	                    maxWidth: "95%",
-	                    boxSizing: "border-box",
-	                    padding: "20px",
-	                    borderRadius: "7px",
-	                    pointerEvents: "none"
-	                },
-	                assembly: [e =>
-	                {
-	                    e.animate([
-	                        {
-	                            transform: "scale(0.9) translateY(-100px)"
-	                        },
-	                        {
-	                        }
-	                    ], {
-	                        duration: 120
-	                    });
-	                    setTimeout(() => { e.setStyle("pointerEvents", "auto"); }, 120);
-	                }, e => { infoBox = e; }],
-	                position$: "static",
-	                display: "flex",
-	                child: [{
-	                    text: title
-	                }, {
-	                    text: text
-	                }, ...extraEle, {
-	                    text: "确定",
-	                    assembly: [buttonAsse],
-	                    event: {
-	                        click: () =>
-	                        {
-	                            closeInfoBox();
-	                            resolve(true);
-	                        }
-	                    }
-	                },
-	                (allowCancel ? {
-	                    text: "取消",
-	                    assembly: [buttonAsse],
-	                    event: {
-	                        click: () =>
-	                        {
-	                            closeInfoBox();
-	                            resolve(false);
-	                        }
-	                    }
-	                } : null)]
-	            }]
-	        });
-	        function closeInfoBox()
-	        {
-	            infoBox.setStyle("pointerEvents", "none");
-	            infoBox.animate([
-	                {
-	                },
-	                {
-	                    transform: "scale(0.9) translateY(-100px)"
-	                }
-	            ], {
-	                duration: 120,
-	                fill: "forwards"
-	            });
-	            infoBoxHolder.animate([
-	                {
-	                    opacity: 1
-	                },
-	                {
-	                    opacity: 0.1
-	                }
-	            ], {
-	                duration: 120,
-	                fill: "forwards"
-	            });
-	            setTimeout(() =>
-	            {
-	                infoBoxHolder.remove();
-	            }, 120);
-	        }
-	        body.addChild(infoBoxHolder);
-	    });
-	}
-
-	/**
-	 * 显示输入框
-	 * @async
-	 * @param {string} title
-	 * @param {string} text
-	 * @param {boolean} [allowCancel]
-	 * @param {string} [initValue]
-	 * @returns {Promise<string>}
-	 */
-	async function showInputBox(title, text, allowCancel = false, initValue = "")
-	{
-	    var input = expandElement({
-	        tagName: "input",
-	        assembly: [buttonAsse],
-	        style: {
-	            textAlign: "center",
-	            margin: "15px"
-	        },
-	        attr: {
-	            value: initValue
-	        }
-	    });
-	    input.addEventListener("keydown", e => { e.stopPropagation(); }, true);
-	    var confirm = await showInfoBox(title, text, allowCancel, input);
-	    return (confirm ? input.element.value : undefined);
-	}
-
-	/**
 	 * 创建悬浮窗
 	 */
 	function createPlugWindow(noSandbox = false)
@@ -5543,22 +5736,6 @@
 	const plugList = new PlugList();
 
 	/**
-	 * 生成添加类名的流水线
-	 * @param {string} classNameStr
-	 */
-	function className(classNameStr)
-	{
-	    let classList = classNameStr.split(" ");
-	    return new NAsse((/** @type {NElement} */e) =>
-	    {
-	        classList.forEach(o =>
-	        {
-	            (/** @type {HTMLElement} */(e.element)).classList.add(o);
-	        });
-	    });
-	}
-
-	/**
 	 * 显示菜单
 	 * @async
 	 * @param {Array<NElement>} menuItems
@@ -5883,7 +6060,7 @@
 	                            let port = channel.port1;
 
 	                            let rcoContext = new RcoCcontext();
-	                            rcoContext.addGlobalNamedFunctions({
+	                            rcoContext.addGlobalNamedFunctions(/** @satisfies {import("../../doc/plugStoreApi").iiroseForgePlugStoreApi} */({
 	                                getForgeVersion: async () => versionInfo.version,
 	                                getPlugList: async () => Array.from(plugList.map.entries()).map(o => ({
 	                                    name: o[0],
@@ -5897,7 +6074,7 @@
 	                                {
 	                                    return 3;
 	                                },
-	                            });
+	                            }));
 	                            port.addEventListener("message", data => { rcoContext.onData(data); });
 	                            rcoContext.bindOutStream(data => { port.postMessage(data); }, "raw");
 
@@ -6189,6 +6366,9 @@
 
 	        iframeWindow["iiroseForgeApi"] = forgeApi; // 给内侧侧载脚本预留forgeApi
 
+	        if(globalState.debugMode)
+	            enableForgeDebugMode(globalState.debugMode);
+
 	        (async () =>
 	        { // 侧载在内侧执行的脚本
 	            let scriptCount = 0;
@@ -6205,6 +6385,10 @@
 	            if (scriptCount > 0)
 	                showNotice("iiroseForge plug-in", `已在iframe内侧侧载 ${scriptCount} 个js脚本`);
 	        })();
+
+	        // 补丁功能
+	        
+	        enableUserRemark();
 	    }, 1000);
 
 	    if (localStorage.getItem("installForge") == "true")
@@ -6242,55 +6426,6 @@
 
 	            iframeWindow["iiroseForgeClearCacheInjected"] = true;
 	        }, 5);
-	    }
-	}
-
-	let debugModeContext = {
-	    /**
-	     * 发送数据包
-	     * @param {string} packet 
-	     */
-	    send: (packet) =>
-	    {
-	        iframeContext.socketApi.send(packet);
-	    },
-	    
-	    /**
-	     * 模拟客户端发送数据包
-	     * @param {string} packet 
-	     */
-	    clientSend: (packet) =>
-	    {
-	        iframeContext.socket.send(packet);
-	    },
-
-	    /**
-	     * 模拟收到数据包
-	     * @param {string} packet 
-	     */
-	    receive: (packet) =>
-	    {
-	        iframeContext.socket._onmessage(packet);
-	    }
-	};
-
-	/**
-	 * 启用调试模式
-	 * @param {Boolean} enable 
-	 */
-	function enableForgeDebugMode(enable)
-	{
-	    enable = Boolean(enable);
-
-	    globalState.debugMode = enable;
-
-	    if (enable)
-	    {
-	        window["fdb"] = debugModeContext;
-	    }
-	    else
-	    {
-	        delete window["fdb"];
 	    }
 	}
 
