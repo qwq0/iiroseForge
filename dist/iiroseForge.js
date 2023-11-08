@@ -3129,6 +3129,10 @@
 	function enableUserRemark()
 	{
 	    let msgBox = iframeContext.iframeDocument.getElementsByClassName("msgholderBox")[0];// 聊天消息列表节点(房间消息)
+	    Array.from(msgBox.children).forEach(o =>
+	    { // 处理已有的消息
+	        processingMessageElement(/** @type {HTMLElement} */(o));
+	    });
 	    (new MutationObserver(mutationsList =>
 	    {
 	        for (let mutation of mutationsList)
@@ -3136,7 +3140,7 @@
 	            if (mutation.type == "childList")
 	            {
 	                Array.from(mutation.addedNodes).forEach((/** @type {HTMLElement} */element) =>
-	                {
+	                { // 处理新增的消息
 	                    if (element.classList != undefined && element.classList.contains("msg")) // 是消息
 	                    {
 	                        processingMessageElement(element);
@@ -3146,10 +3150,10 @@
 	        }
 	    })).observe(msgBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
 
-	    let oldFunction = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
-	    if (oldFunction)
-	    {
-	        iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction, function (param, srcFunction, _targetFn, thisObj)
+	    let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
+	    if (oldFunction_Objs_mapHolder_function_event)
+	    { // 资料卡头像点击
+	        iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, function (param, srcFunction, _targetFn, thisObj)
 	        {
 	            if (param.length == 1 && param[0] == 7)
 	            {
@@ -3160,50 +3164,106 @@
 	                srcFunction(...param);
 
 	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-	                selectHolderBox.appendChild((NList.getElement([
-	                    className("selectHolderBoxItem selectHolderBoxItemIcon"),
-	                    [
-	                        className("mdi-account-cog"),
-	                        createNStyleList({
-	                            fontFamily: "md",
-	                            fontSize: "28px",
-	                            textAlign: "center",
-	                            lineHeight: "100px",
-	                            height: "100px",
-	                            width: "100px",
-	                            position: "absolute",
-	                            top: "0",
-	                            opacity: ".7",
-	                            left: "0",
-	                        })
-	                    ],
-
-	                    "设置备注",
-	                    
-	                    [
-	                        className("fullBox whoisTouch3")
-	                    ],
-
-	                    new NEvent("click", async e =>
-	                    {
-	                        e.stopPropagation();
-
-
-
-	                        let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
-	                        let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
-	                        if (newRemark != undefined)
+	                let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                selectHolderBox.appendChild(
+	                    createIiroseMenuElement(
+	                        "mdi-account-cog",
+	                        `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`,
+	                        async e =>
 	                        {
-	                            storageContext.iiroseForge.userRemark[uid] = newRemark;
-	                            storageSave();
+	                            e.stopPropagation();
+
+
+
+	                            let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
+	                            if (newRemark != undefined)
+	                            {
+	                                storageContext.iiroseForge.userRemark[uid] = newRemark;
+	                                storageSave();
+	                            }
 	                        }
-	                    })
-	                ])).element);
+	                    ).element
+	                );
 	                return true;
 	            }
 	            return false;
 	        });
 	    }
+	    let oldFunction_Utils_service_pm_menu = iframeContext.iframeWindow["Utils"]?.service?.pm?.menu;
+	    if (oldFunction_Utils_service_pm_menu)
+	    { // 私聊标签页点击
+	        iframeContext.iframeWindow["Utils"].service.pm.menu = proxyFunction(oldFunction_Utils_service_pm_menu, function (param, srcFunction)
+	        {
+	            if (param.length == 1)
+	            {
+	                let uid = param[0]?.parentNode?.getAttribute?.("ip");
+	                if (!uid)
+	                    return false;
+
+	                srcFunction(...param);
+
+	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+	                let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                selectHolderBox.appendChild(
+	                    createIiroseMenuElement(
+	                        "mdi-account-cog",
+	                        `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`,
+	                        async e =>
+	                        {
+	                            e.stopPropagation();
+
+
+
+	                            let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
+	                            if (newRemark != undefined)
+	                            {
+	                                storageContext.iiroseForge.userRemark[uid] = newRemark;
+	                                storageSave();
+	                            }
+	                        }
+	                    ).element
+	                );
+	                return true;
+	            }
+	            return false;
+	        });
+	    }
+	}
+
+	/**
+	 * 创建蔷薇菜单元素
+	 * @param {string} icon
+	 * @param {string} title
+	 * @param {(e: MouseEvent) => void} callback
+	 * @returns {NElement}
+	 */
+	function createIiroseMenuElement(icon, title, callback)
+	{
+	    return NList.getElement([
+	        className("selectHolderBoxItem selectHolderBoxItemIcon"),
+	        [
+	            className(icon),
+	            createNStyleList({
+	                fontFamily: "md",
+	                fontSize: "28px",
+	                textAlign: "center",
+	                lineHeight: "100px",
+	                height: "100px",
+	                width: "100px",
+	                position: "absolute",
+	                top: "0",
+	                opacity: ".7",
+	                left: "0",
+	            })
+	        ],
+	        title,
+	        [
+	            className("fullBox whoisTouch3")
+	        ],
+	        new NEvent("click", callback)
+	    ]);
 	}
 
 	/**
@@ -3224,7 +3284,10 @@
 	                createNStyleList({
 	                    color: "white",
 	                    position: "absolute",
+	                    whiteSpace: "pre",
+
 	                    [pubUserInfoElement.style.float != "right" ? "left" : "right"]: "0px",
+	                    width: "max-content",
 	                    bottom: "42px"
 	                }),
 	                remarkName
@@ -4784,7 +4847,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.2.0"
+	    version: "alpha v1.2.1"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
