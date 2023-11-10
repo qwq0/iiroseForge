@@ -15,12 +15,12 @@
 	*/
 	function proxyFunction(targetFunction, callback)
 	{
-	   return (function(...param)
-	   {
-		   let targetFunctionBindThis = targetFunction.bind(this);
-		   if (callback(param, targetFunctionBindThis, targetFunction, this) != true)
-			   return targetFunctionBindThis(...param);
-	   });
+		return (function (...param)
+		{
+			let targetFunctionBindThis = targetFunction.bind(this);
+			if (callback(param, targetFunctionBindThis, targetFunction, this) != true)
+				return targetFunctionBindThis(...param);
+		});
 	}
 
 	/**
@@ -32,25 +32,25 @@
 	*/
 	function intervalTry(callback, interval, immediate = false)
 	{
-	   let countOfCall = 0;
-	   let startTime = Date.now();
-	   let intervalId = null;
-	   let func = (() =>
-	   {
-		   countOfCall++;
-		   try
-		   {
-			   callback(countOfCall, Date.now() - startTime);
-			   if (intervalId != null)
-				   clearInterval(intervalId);
-			   return;
-		   }
-		   catch (err)
-		   { }
-	   });
-	   intervalId = setInterval(func, interval);
-	   if (immediate)
-		   func();
+		let countOfCall = 0;
+		let startTime = Date.now();
+		let intervalId = null;
+		let func = (() =>
+		{
+			countOfCall++;
+			try
+			{
+				callback(countOfCall, Date.now() - startTime);
+				if (intervalId != null)
+					clearInterval(intervalId);
+				return;
+			}
+			catch (err)
+			{ }
+		});
+		intervalId = setInterval(func, interval);
+		if (immediate)
+			func();
 	}
 
 	/**
@@ -61,18 +61,23 @@
 	*/
 	function domPath(start, path)
 	{
-	   let now = start;
-	   path.every(o =>
-	   {
-		   if (o < 0)
-			   o += now.childNodes.length;
-		   if (now.childNodes[o])
-			   now = now.childNodes[o];
-		   else
-			   return false;
-		   return true;
-	   });
-	   return now;
+		let now = start;
+		path.every(o =>
+		{
+			if (o < 0)
+				o += now.childNodes.length;
+
+			if (now.childNodes[o])
+				now = now.childNodes[o];
+			else
+			{
+				now = null;
+				return false;
+			}
+
+			return true;
+		});
+		return now;
 	}
 
 	/**
@@ -810,34 +815,6 @@
 	}
 
 	/**
-	 * css生成
-	 * @namespace
-	 */
-	const cssG = {
-	    /**
-	     * 100%减去指定值
-	     * @param {string} value
-	     * @returns {string}
-	     */
-	    diFull: (value) =>
-	    {
-	        return ("calc(100% - " + value + ")");
-	    },
-
-	    /**
-	     * 构建rgb或rgba颜色颜色
-	     * @param {number | string} r 0~255
-	     * @param {number | string} g 0~255
-	     * @param {number | string} b 0~255
-	     * @param {number | string} [a] 0~1
-	     */
-	    rgb: (r, g, b, a = 1) =>
-	    {
-	        return "rgba(" + r + ", " + g + ", " + b + ", " + a + ")";
-	    }
-	};
-
-	/**
 	 * 正向遍历数组
 	 * 在回调中返回不为false或void的值主动结束遍历
 	 * 主动结束遍历 返回true
@@ -869,24 +846,187 @@
 	{
 	    return forEach(s, o => o == k);
 	}
+
+	/**
+	 * 代理对象 到 钩子映射和源对象 映射
+	 * 
+	 * @type {WeakMap<object, {
+	 *  hookMap: Map<string | symbol, Set<import("./HookBindValue").HookBindValue | import("./HookBindCallback").HookBindCallback>>,
+	 *  srcObj: object
+	 * }>}
+	 */
+	const proxyMap = new WeakMap();
 	/**
 	 * 目标对象 到 引用集合 映射
+	 *
 	 * 确保当目标对象存活时引用集合的引用存活
 	 * 目前仅在HookBindCallback中使用
 	 * @type {WeakMap<object, Set<any>>}
 	 */
-	const targetRefMap = new WeakMap();
+	const targetRefMap$1 = new WeakMap();
 
 	/**
 	 * 记录器
+
 	 * 在目标对象销毁时销毁钩子
-	 * @type {FinalizationRegistry<HookBindValue | HookBindCallback>}
+	 * @type {FinalizationRegistry<import("./HookBindValue").HookBindValue | import("./HookBindCallback").HookBindCallback>}
 	 */
-	const register = new FinalizationRegistry(heldValue =>
+	const register$1 = new FinalizationRegistry(heldValue =>
 	{
 	    heldValue.destroy();
 	});
 
+	/**
+	 * 钩子绑定到回调类
+	 */
+	class HookBindCallback
+	{
+	    /**
+	     * 钩子信息
+	     * @type {import("./HookBindInfo").HookBindInfo}
+	     */
+	    info = null;
+
+	    /**
+	     * 回调函数的弱引用
+	     * @type {WeakRef<function(any): void>}
+	     */
+	    cbRef = null;
+	    /**
+	     * 回调函数
+	     * 当此钩子绑定自动释放时为null
+	     * @type {function(any): void}
+	     */
+	    callback = null;
+
+	    /**
+	     * @param {import("./HookBindInfo").HookBindInfo} info
+	     * @param {function(any): void} callback
+	     */
+	    constructor(info, callback)
+	    {
+	        this.info = info;
+	        this.cbRef = new WeakRef(callback);
+	        this.callback = callback;
+	        info.addHook(this);
+	    }
+
+	    /**
+	     * 触发此钩子
+	     */
+	    emit()
+	    {
+	        let callback = this.cbRef.deref();
+	        if (callback)
+	        {
+	            try
+	            {
+	                callback(this.info.getValue());
+	            }
+	            catch (err)
+	            {
+	                console.error(err);
+	            }
+	        }
+	    }
+
+	    /**
+	     * 销毁此钩子
+	     * 销毁后钩子将不再自动触发
+	     */
+	    destroy()
+	    {
+	        this.info.removeHook(this);
+	        register$1.unregister(this);
+	    }
+
+	    /**
+	     * 绑定销毁
+	     * 当目标对象释放时销毁
+	     * @param {object} targetObj
+	     * @returns {HookBindCallback} 返回自身
+	     */
+	    bindDestroy(targetObj)
+	    {
+	        let targetRefSet = targetRefMap$1.get(targetObj);
+	        if (targetRefSet == undefined)
+	        {
+	            targetRefSet = new Set();
+	            targetRefMap$1.set(targetObj, targetRefSet);
+	        }
+	        targetRefSet.add(this.callback);
+	        this.callback = null;
+	        register$1.register(targetObj, this, this);
+	        return this;
+	    }
+	}
+
+	/**
+	 * 钩子绑定到值类
+	 */
+	class HookBindValue
+	{
+	    /**
+	     * 钩子信息
+	     * @type {import("./HookBindInfo").HookBindInfo}
+	     */
+	    info = null;
+
+	    /**
+	     * 目标对象
+	     * @type {WeakRef<object>}
+	     */
+	    targetRef = null;
+	    /**
+	     * 目标对象的键
+	     * @type {string | symbol}
+	     */
+	    targetKey = "";
+
+	    /**
+	     * @param {import("./HookBindInfo").HookBindInfo} info
+	     * @param {object} targetObj
+	     * @param {string | symbol} targetKey
+	     */
+	    constructor(info, targetObj, targetKey)
+	    {
+	        this.info = info;
+	        this.targetRef = new WeakRef(targetObj);
+	        this.targetKey = targetKey;
+	        info.addHook(this);
+	        register$1.register(targetObj, this, this);
+	    }
+
+	    /**
+	     * 触发此钩子
+	     * 销毁后仍可通过此方法手动触发
+	     */
+	    emit()
+	    {
+	        let target = this.targetRef.deref();
+	        if (target != undefined)
+	        {
+	            try
+	            {
+	                target[this.targetKey] = this.info.getValue();
+	            }
+	            catch (err)
+	            {
+	                console.error(err);
+	            }
+	        }
+	    }
+
+	    /**
+	     * 销毁此钩子
+	     * 销毁后钩子将不再自动触发
+	     */
+	    destroy()
+	    {
+	        this.info.removeHook(this);
+	        register$1.unregister(this);
+	    }
+	}
 
 	/**
 	 * 钩子绑定信息
@@ -1006,157 +1146,358 @@
 	}
 
 	/**
-	 * 钩子绑定到回调类
+	 * 流水线
 	 */
-	class HookBindCallback
+	class NAsse
 	{
 	    /**
-	     * 钩子信息
-	     * @type {HookBindInfo}
-	     */
-	    info = null;
-
-	    /**
-	     * 回调函数的弱引用
-	     * @type {WeakRef<function(any): void>}
-	     */
-	    cbRef = null;
-	    /**
-	     * 回调函数
-	     * 当此钩子绑定自动释放时为null
-	     * @type {function(any): void}
+	     * @type {function(import("../element/NElement").NElement): void}
 	     */
 	    callback = null;
 
 	    /**
-	     * @param {HookBindInfo} info
-	     * @param {function(any): void} callback
+	     * @param {function(import("../element/NElement").NElement): void} callback
 	     */
-	    constructor(info, callback)
+	    constructor(callback)
 	    {
-	        this.info = info;
-	        this.cbRef = new WeakRef(callback);
 	        this.callback = callback;
-	        info.addHook(this);
 	    }
 
 	    /**
-	     * 触发此钩子
+	     * 将此特征应用于元素
+	     * @param {import("../element/NElement").NElement} e
 	     */
-	    emit()
+	    apply(e)
 	    {
-	        let callback = this.cbRef.deref();
-	        if (callback)
-	        {
-	            try
-	            {
-	                callback(this.info.getValue());
-	            }
-	            catch (err)
-	            {
-	                console.error(err);
-	            }
-	        }
-	    }
-
-	    /**
-	     * 销毁此钩子
-	     * 销毁后钩子将不再自动触发
-	     */
-	    destroy()
-	    {
-	        this.info.removeHook(this);
-	        register.unregister(this);
-	    }
-
-	    /**
-	     * 绑定销毁
-	     * 当目标对象释放时销毁
-	     * @param {object} targetObj
-	     * @returns {HookBindCallback} 返回自身
-	     */
-	    bindDestroy(targetObj)
-	    {
-	        let targetRefSet = targetRefMap.get(targetObj);
-	        if (targetRefSet == undefined)
-	        {
-	            targetRefSet = new Set();
-	            targetRefMap.set(targetObj, targetRefSet);
-	        }
-	        targetRefSet.add(this.callback);
-	        this.callback = null;
-	        register.register(targetObj, this, this);
-	        return this;
+	        this.callback(e);
 	    }
 	}
 
 	/**
-	 * 钩子绑定到值类
+	 * @typedef {(keyof HTMLElement & string) | (string & {})} keyObjectOfHtmlElementAttr
 	 */
-	class HookBindValue
+	/**
+	 * 属性
+	 * @template {keyObjectOfHtmlElementAttr} T
+	 */
+	class NAttr
 	{
 	    /**
-	     * 钩子信息
-	     * @type {HookBindInfo}
+	     * @type {T}
 	     */
-	    info = null;
+	    key = null;
+	    /**
+	     * 若为函数则应用时调用
+	     * 若有返回值则赋值到属性
+	     * @type {string | number | boolean | Function}
+	     */
+	    value = null;
 
 	    /**
-	     * 目标对象
-	     * @type {WeakRef<object>}
+	     * @param {T} key
+	     * @param {string | number | boolean | Function} value
 	     */
-	    targetRef = null;
-	    /**
-	     * 目标对象的键
-	     * @type {string | symbol}
-	     */
-	    targetKey = "";
-
-	    /**
-	     * @param {HookBindInfo} info
-	     * @param {object} targetObj
-	     * @param {string | symbol} targetKey
-	     */
-	    constructor(info, targetObj, targetKey)
+	    constructor(key, value)
 	    {
-	        this.info = info;
-	        this.targetRef = new WeakRef(targetObj);
-	        this.targetKey = targetKey;
-	        info.addHook(this);
-	        register.register(targetObj, this, this);
+	        this.key = key;
+	        this.value = value;
 	    }
 
 	    /**
-	     * 触发此钩子
-	     * 销毁后仍可通过此方法手动触发
+	     * 将此特征应用于元素
+	     * @param {import("../element/NElement").NElement} e
 	     */
-	    emit()
+	    apply(e)
 	    {
-	        let target = this.targetRef.deref();
-	        if (target != undefined)
+	        if (typeof (this.value) == "function")
 	        {
-	            try
-	            {
-	                target[this.targetKey] = this.info.getValue();
-	            }
-	            catch (err)
-	            {
-	                console.error(err);
-	            }
+	            let cbRet = this.value(e.element[this.key]);
+	            if (cbRet != undefined)
+	                e.element[this.key] = cbRet;
 	        }
-	    }
-
-	    /**
-	     * 销毁此钩子
-	     * 销毁后钩子将不再自动触发
-	     */
-	    destroy()
-	    {
-	        this.info.removeHook(this);
-	        register.unregister(this);
+	        else
+	            e.element[this.key] = this.value;
 	    }
 	}
 
+	/**
+	 * 事件
+	 * @template {keyof HTMLElementEventMap} T
+	 */
+	class NEvent
+	{
+	    /**
+	     * @type {T}
+	     */
+	    eventName = null;
+	    /**
+	     * @type {(event: HTMLElementEventMap[T], currentElement: import("../element/NElement").NElement) => void}
+	     */
+	    callback = null;
+
+	    /**
+	     * @param {T} key
+	     * @param {(event: HTMLElementEventMap[T], currentElement: import("../element/NElement").NElement) => void} callback
+	     */
+	    constructor(key, callback)
+	    {
+	        this.eventName = key;
+	        this.callback = callback;
+	    }
+
+	    /**
+	     * 将此特征应用于元素
+	     * @param {import("../element/NElement").NElement} element
+	     */
+	    apply(element)
+	    {
+	        element.addEventListener(this.eventName, event =>
+	        {
+	            this.callback(event, element);
+	        });
+	    }
+	}
+
+	/**
+	 * @typedef {(keyof CSSStyleDeclaration & string) | (string & {})} keyOfStyle
+	 */
+	/**
+	 * 样式
+	 * @template {keyOfStyle} T
+	 */
+	class NStyle
+	{
+	    /**
+	     * @type {T}
+	     */
+	    key = null;
+	    /**
+	     * @type {string | HookBindInfo}
+	     */
+	    value = null;
+
+	    /**
+	     * @param {T} key
+	     * @param {string | HookBindInfo} value
+	     */
+	    constructor(key, value)
+	    {
+	        this.key = key;
+	        this.value = value;
+	    }
+
+	    /**
+	     * 将此特征应用于元素
+	     * @param {import("../element/NElement").NElement} e
+	     */
+	    apply(e)
+	    {
+	        e.setStyle(this.key, this.value);
+	    }
+	}
+
+	/**
+	 * 创建NStyle 省略new
+	 * @param {keyOfStyle} key
+	 * @param {string | HookBindInfo} value
+	 */
+	function createNStyle(key, value)
+	{
+	    return new NStyle(key, value);
+	}
+
+	/**
+	 * 创建一组NStyle的flat NList
+	 * @param {{ [x in keyOfStyle]?: string | HookBindInfo }} obj
+	 */
+	function createNStyleList(obj)
+	{
+	    return NList.flat(Object.keys(obj).map(key => new NStyle(key, obj[key])));
+	}
+
+	/**
+	 * 标签名
+	 * 标签名使用小写字母
+	 * 不包含此类的特征列表默认为div
+	 * 一层特征列表只能有唯一tagName (或等价的)
+	 * @template {keyof HTMLElementTagNameMap} T
+	 */
+	class NTagName
+	{
+	    /**
+	     * @type {T}
+	     */
+	    tagName = null;
+
+	    /**
+	     * @param {T} tagName
+	     */
+	    constructor(tagName)
+	    {
+	        this.tagName = /** @type {T} */(tagName.toLowerCase());
+	    }
+	}
+
+	/**
+	 * 特征列表
+	 * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement | ((e: NElement) => void)>} NList_list
+	 */
+	class NList
+	{
+	    /**
+	     * @type {NList_list}
+	     */
+	    list = null;
+	    /**
+	     * 拉平特征
+	     * (默认)标记为false将作为子元素节点
+	     * 标记为true将作为上层节点的特征列表
+	     * @type {boolean}
+	     */
+	    flatFlag = false;
+
+	    /**
+	     * @param {NList_list} list
+	     */
+	    constructor(list)
+	    {
+	        this.list = list;
+	    }
+
+	    /**
+	     * 为元素应用特征列表
+	     * @param {NElement<HTMLElement>} element
+	     */
+	    apply(element)
+	    {
+	        const tagName = element.getTagName();
+	        this.list.forEach(o =>
+	        {
+	            if (o == undefined)
+	                return;
+	            if (typeof (o) == "string") // 内部文本
+	            {
+	                element.addText(o);
+	            }
+	            else if (typeof (o) == "function") // 流水线函数
+	            {
+	                o(element);
+	            }
+	            else if (typeof (o) == "object")
+	            {
+	                switch (Object.getPrototypeOf(o)?.constructor)
+	                {
+	                    case HookBindInfo: { // 子元素或文本
+	                        element.addChild(/** @type {HookBindInfo} */(o));
+	                        break;
+	                    }
+
+	                    case NTagName: { // 标签名
+	                        if (tagName != (/** @type {NTagName} */(o)).tagName)
+	                            throw "(NList) The feature tagName does not match the element";
+	                        break;
+	                    }
+
+	                    case NStyle: // 样式
+	                    case NAttr: // 元素属性
+	                    case NEvent: // 事件
+	                    case NAsse: { // 流水线
+	                        (/** @type {NStyle | NAttr | NEvent | NAsse} */(o)).apply(element);
+	                        break;
+	                    }
+
+	                    case NElement: { // 子元素
+	                        element.addChild(/** @type {NElement} */(o));
+	                        break;
+	                    }
+
+	                    case NList: { // 子列表
+	                        const childList = (/** @type {NList} */(o));
+	                        if (childList.flatFlag) // 子特征(列表)
+	                            childList.apply(element);
+	                        else // 子元素(列表)
+	                            element.addChild(childList.getElement());
+	                        break;
+	                    }
+
+	                    case Array: { // 子元素(列表)
+	                        element.addChild(NList.getElement((/** @type {Array} */(o))));
+	                        break;
+	                    }
+	                    
+	                    default:
+	                        throw "(NList) Untractable feature types were found";
+	                }
+	            }
+	            else
+	                throw "(NList) Untractable feature types were found";
+	        });
+	    }
+
+	    /**
+	     * 获取列表的标签名
+	     * @returns {string}
+	     */
+	    getTagName()
+	    {
+	        let ret = "";
+	        this.list.forEach(o =>
+	        {
+	            let tagName = "";
+	            if (o instanceof NTagName)
+	                tagName = o.tagName;
+	            else if ((o instanceof NList) && o.flatFlag)
+	                tagName = o.getTagName();
+	            if (tagName)
+	            {
+	                if (!ret)
+	                    ret = tagName;
+	                else if (ret != tagName)
+	                    throw "(NList) Multiple TagNames exist in a feature list";
+	            }
+	        });
+	        return ret;
+	    }
+
+	    /**
+	     * 获取(生成)元素
+	     * @returns {NElement}
+	     */
+	    getElement()
+	    {
+	        let tagName = this.getTagName();
+	        if (tagName == "")
+	            tagName = "div";
+	        let ele = getNElement(document.createElement(tagName));
+	        this.apply(ele);
+	        return ele;
+	    }
+
+	    /**
+	     * 生成拉平列表
+	     * @param {NList_list} list
+	     */
+	    static flat(list)
+	    {
+	        let ret = new NList(list);
+	        ret.flatFlag = true;
+	        return ret;
+	    }
+
+	    /**
+	     * 获取(生成)元素
+	     * @param {NList_list} list
+	     */
+	    static getElement(list)
+	    {
+	        return (new NList(list)).getElement();
+	    }
+	}
+
+	/**
+	 * NElement的symbol
+	 * 用于将NElement绑定到对应的HTMLElement
+	 */
 	const symbolKey = Symbol("NElement");
 
 	/**
@@ -1189,19 +1530,46 @@
 
 	    /**
 	     * 添加单个子节点
-	     * @param {NElement | HTMLElement} chi
+	     * @param {NElement | Node | string | HookBindInfo} chi
 	     */
 	    addChild(chi)
 	    {
 	        if (chi instanceof NElement)
 	            this.element.appendChild(chi.element);
-	        else
+	        else if (chi instanceof Node)
 	            this.element.appendChild(chi);
+	        else if (typeof (chi) == "string")
+	            this.addText(chi);
+	        else if (chi instanceof HookBindInfo)
+	        {
+	            let currentNode = null;
+	            {
+	                let initVal = chi.getValue();
+	                currentNode = (initVal == null ? new Comment() : (typeof (initVal) == "string" ? new Text(initVal) : (initVal instanceof NElement ? initVal.element : initVal)));
+	                this.element.appendChild(currentNode);
+	            }
+	            chi.bindToCallback(val =>
+	            {
+	                if (currentNode instanceof Text && typeof (val) == "string")
+	                {
+	                    currentNode.data = val;
+	                    return;
+	                }
+	                else
+	                {
+	                    let newNode = (val == null ? new Comment() : (typeof (val) == "string" ? new Text(val) : (val instanceof NElement ? val.element : val)));
+	                    this.element.replaceChild(newNode, currentNode);
+	                    currentNode = newNode;
+	                }
+	            }).bindDestroy(this);
+	        }
+	        else
+	            throw "(NElement) Type of child node that cannot be added";
 	    }
 
 	    /**
 	     * 添加多个子节点
-	     * @param {Array<NElement | HTMLElement | Array<NElement | HTMLElement>>} chi
+	     * @param {Array<NElement | Node | string | HookBindInfo | Array<NElement | Node | string | HookBindInfo>>} chi
 	     */
 	    addChilds(...chi)
 	    {
@@ -1303,6 +1671,15 @@
 	    getChild(ind)
 	    {
 	        return getNElement(/** @type {HTMLElement} */(this.element.children[ind]));
+	    }
+
+	    /**
+	     * 使用指定元素替换此元素
+	     * @param {Array<NElement>} elements
+	     */
+	    replaceWith(...elements)
+	    {
+	        this.element.replaceWith(...(elements.map(o => o.element)));
 	    }
 
 	    /**
@@ -1419,10 +1796,35 @@
 	     * 执行动画
 	     * @param {Array<Keyframe> | PropertyIndexedKeyframes} keyframes
 	     * @param {number | KeyframeAnimationOptions} options
+	     * @returns {Animation}
 	     */
 	    animate(keyframes, options)
 	    {
-	        this.element.animate(keyframes, options);
+	        return this.element.animate(keyframes, options);
+	    }
+
+	    /**
+	     * 执行动画并提交
+	     * 在执行完成动画后将最后的效果提交到style
+	     * @param {Array<Keyframe> | PropertyIndexedKeyframes} keyframes
+	     * @param {number | KeyframeAnimationOptions} options
+	     * @returns {Promise<void>} 动画执行完后返回
+	     */
+	    async animateCommit(keyframes, options)
+	    {
+	        if (typeof (options) == "number")
+	            options = {
+	                duration: options,
+	                fill: "forwards"
+	            };
+	        else
+	            options = Object.assign({ fill: "forwards" }, options);
+	        if (options.fill != "forwards" && options.fill != "both")
+	            throw "(NElelemt) animateCommit can only be used when fill forwards or both";
+	        let animate = this.element.animate(keyframes, options);
+	        await animate.finished;
+	        animate.commitStyles();
+	        animate.cancel();
 	    }
 
 	    /**
@@ -1447,6 +1849,18 @@
 	    }
 
 	    /**
+	     * 应用NList到元素
+	     * @param {NList | ConstructorParameters<typeof NList>[0]} list
+	     * @returns {NElement} 返回被操作的NElement
+	     */
+	    applyNList(list)
+	    {
+	        let nList = (list instanceof NList ? list : NList.flat(list));
+	        nList.apply(this);
+	        return this;
+	    }
+
+	    /**
 	     * 根据HTMLElement对象获取NElement对象
 	     * @template {HTMLElement} ElementObjectType
 	     * @param {ElementObjectType} element
@@ -1456,6 +1870,8 @@
 	    {
 	        if (element[symbolKey])
 	            return element[symbolKey];
+	        else if (element instanceof NElement)
+	            return element;
 	        else
 	            return element[symbolKey] = new NElement(element);
 	    }
@@ -1472,6 +1888,34 @@
 	{
 	    return NElement.byElement(element);
 	}
+
+	/**
+	 * css生成
+	 * @namespace
+	 */
+	const cssG = {
+	    /**
+	     * 100%减去指定值
+	     * @param {string} value
+	     * @returns {string}
+	     */
+	    diFull: (value) =>
+	    {
+	        return ("calc(100% - " + value + ")");
+	    },
+
+	    /**
+	     * 构建rgb或rgba颜色颜色
+	     * @param {number | string} r 0~255
+	     * @param {number | string} g 0~255
+	     * @param {number | string} b 0~255
+	     * @param {number | string} [a] 0~1
+	     */
+	    rgb: (r, g, b, a = 1) =>
+	    {
+	        return "rgba(" + r + ", " + g + ", " + b + ", " + a + ")";
+	    }
+	};
 
 	/**
 	 * 遍历展开元素
@@ -1641,343 +2085,11 @@
 	}
 
 	/**
-	 * 事件
-	 * @template {keyof HTMLElementEventMap} T
-	 */
-	class NEvent
-	{
-	    /**
-	     * @type {T}
-	     */
-	    eventName = null;
-	    /**
-	     * @type {function(HTMLElementEventMap[T]): any}
-	     */
-	    callback = null;
-
-	    /**
-	     * @param {T} key
-	     * @param {function(HTMLElementEventMap[T]): any} callback
-	     */
-	    constructor(key, callback)
-	    {
-	        this.eventName = key;
-	        this.callback = callback;
-	    }
-
-	    /**
-	     * 将此特征应用于元素
-	     * @param {NElement} e
-	     */
-	    apply(e)
-	    {
-	        e.addEventListener(this.eventName, this.callback);
-	    }
-	}
-
-	/**
-	 * 流水线
-	 */
-	class NAsse
-	{
-	    /**
-	     * @type {function(NElement): void}
-	     */
-	    callback = null;
-
-	    /**
-	     * @param {function(NElement): void} callback
-	     */
-	    constructor(callback)
-	    {
-	        this.callback = callback;
-	    }
-
-	    /**
-	     * 将此特征应用于元素
-	     * @param {NElement} e
-	     */
-	    apply(e)
-	    {
-	        this.callback(e);
-	    }
-	}
-
-	/**
-	 * @typedef {(keyof HTMLElement & string) | (string & {})} keyObjectOfHtmlElementAttr
-	 */
-	/**
-	 * 属性
-	 * @template {keyObjectOfHtmlElementAttr} T
-	 */
-	class NAttr
-	{
-	    /**
-	     * @type {T}
-	     */
-	    key = null;
-	    /**
-	     * 若为函数则应用时调用
-	     * 若有返回值则赋值到属性
-	     * @type {string | number | boolean | Function}
-	     */
-	    value = null;
-
-	    /**
-	     * @param {T} key
-	     * @param {string | number | boolean | Function} value
-	     */
-	    constructor(key, value)
-	    {
-	        this.key = key;
-	        this.value = value;
-	    }
-
-	    /**
-	     * 将此特征应用于元素
-	     * @param {NElement} e
-	     */
-	    apply(e)
-	    {
-	        if (typeof (this.value) == "function")
-	        {
-	            let cbRet = this.value(e.element[this.key]);
-	            if (cbRet != undefined)
-	                e.element[this.key] = cbRet;
-	        }
-	        else
-	            e.element[this.key] = this.value;
-	    }
-	}
-
-	/**
-	 * 标签名
-	 * 标签名使用小写字母
-	 * 不包含此类的特征列表默认为div
-	 * 一层特征列表只能有唯一tagName
-	 * @template {keyof HTMLElementTagNameMap} T
-	 */
-	class NTagName
-	{
-	    /**
-	     * @type {T}
-	     */
-	    tagName = null;
-
-	    /**
-	     * @param {T} tagName
-	     */
-	    constructor(tagName)
-	    {
-	        this.tagName = /** @type {T} */(tagName.toLowerCase());
-	    }
-	}
-
-	/**
-	 * 特征列表
-	 * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement>} NList_list
-	 */
-	class NList
-	{
-	    /**
-	     * @type {NList_list}
-	     */
-	    list = null;
-	    /**
-	     * 拉平特征
-	     * (默认)标记为false将作为子元素节点
-	     * 标记为true将作为上层节点的特征列表
-	     * @type {boolean}
-	     */
-	    flatFlag = false;
-
-	    /**
-	     * @param {NList_list} list
-	     */
-	    constructor(list)
-	    {
-	        this.list = list;
-	    }
-
-	    /**
-	     * 为元素应用特征列表
-	     * @param {NElement<HTMLElement>} element
-	     */
-	    apply(element)
-	    {
-	        const tagName = element.getTagName();
-	        this.list.forEach(o =>
-	        {
-	            if (typeof (o) == "string") // 内部文本
-	                element.addText(o);
-	            else
-	            {
-	                switch (Object.getPrototypeOf(o)?.constructor)
-	                {
-	                    case HookBindInfo:{ // 内部文本
-	                        const hookInfo =  (/** @type {HookBindInfo} */(o));
-	                        const text = element.addText(hookInfo.getValue());
-	                        hookInfo.bindToValue(text, "data");
-	                        break;
-	                    }
-	                    case NTagName: { // 标签名
-	                        if (tagName != (/** @type {NTagName} */(o)).tagName)
-	                            throw "(NList) The feature tagName does not match the element";
-	                        break;
-	                    }
-	                    case NStyle: // 样式
-	                    case NAttr: // 元素属性
-	                    case NEvent: // 事件
-	                    case NAsse: { // 流水线
-	                        (/** @type {NStyle | NAttr | NEvent | NAsse} */(o)).apply(element);
-	                        break;
-	                    }
-	                    case NElement: { // 子元素
-	                        element.addChild(/** @type {NElement} */(o));
-	                        break;
-	                    }
-	                    case NList: { // 子列表
-	                        const childList = (/** @type {NList} */(o));
-	                        if (childList.flatFlag) // 子特征(列表)
-	                            childList.apply(element);
-	                        else // 子元素(列表)
-	                            element.addChild(childList.getElement());
-	                        break;
-	                    }
-	                    case Array: { // 子元素(列表)
-	                        element.addChild(NList.getElement((/** @type {Array} */(o))));
-	                        break;
-	                    }
-	                    default:
-	                        throw "(NList) Untractable feature types were found";
-	                }
-	            }
-	        });
-	    }
-
-	    /**
-	     * 获取列表的标签名
-	     * @returns {string}
-	     */
-	    getTagName()
-	    {
-	        let ret = "";
-	        this.list.forEach(o =>
-	        {
-	            let tagName = "";
-	            if (o instanceof NTagName)
-	                tagName = o.tagName;
-	            else if ((o instanceof NList) && o.flatFlag)
-	                tagName = o.getTagName();
-	            if (tagName)
-	            {
-	                if (!ret)
-	                    ret = tagName;
-	                else if (ret != tagName)
-	                    throw "(NList) Multiple TagNames exist in a feature list";
-	            }
-	        });
-	        return ret;
-	    }
-
-	    /**
-	     * 获取(生成)元素
-	     * @returns {NElement}
-	     */
-	    getElement()
-	    {
-	        let tagName = this.getTagName();
-	        if (tagName == "")
-	            tagName = "div";
-	        let ele = getNElement(document.createElement(tagName));
-	        this.apply(ele);
-	        return ele;
-	    }
-
-	    /**
-	     * 生成拉平列表
-	     * @param {NList_list} list
-	     */
-	    static flat(list)
-	    {
-	        let ret = new NList(list);
-	        ret.flatFlag = true;
-	        return ret;
-	    }
-
-	    /**
-	     * 获取(生成)元素
-	     * @param {NList_list} list
-	     */
-	    static getElement(list)
-	    {
-	        return (new NList(list)).getElement();
-	    }
-	}
-
-	/**
-	 * @typedef {(keyof CSSStyleDeclaration & string) | (string & {})} keyOfStyle
-	 */
-	/**
-	 * 样式
-	 * @template {keyOfStyle} T
-	 */
-	class NStyle
-	{
-	    /**
-	     * @type {T}
-	     */
-	    key = null;
-	    /**
-	     * @type {string | HookBindInfo}
-	     */
-	    value = null;
-
-	    /**
-	     * @param {T} key
-	     * @param {string | HookBindInfo} value
-	     */
-	    constructor(key, value)
-	    {
-	        this.key = key;
-	        this.value = value;
-	    }
-
-	    /**
-	     * 将此特征应用于元素
-	     * @param {NElement} e
-	     */
-	    apply(e)
-	    {
-	        e.setStyle(this.key, this.value);
-	    }
-	}
-
-	/**
-	 * 创建NStyle 省略new
-	 * @param {keyOfStyle} key
-	 * @param {string | HookBindInfo} value
-	 */
-	function createNStyle(key, value)
-	{
-	    return new NStyle(key, value);
-	}
-
-	/**
-	 * 创建一组NStyle的flat NList
-	 * @param {{ [x in keyOfStyle]?: string | HookBindInfo }} obj
-	 */
-	function createNStyleList(obj)
-	{
-	    return NList.flat(Object.keys(obj).map(key => new NStyle(key, obj[key])));
-	}
-
-	/**
 	 * 指针数据
 	 * 当发生鼠标或触摸事件时传递
 	 * 包含指针坐标和按下状态等数据
 	 */
-	class pointerData
+	class PointerData
 	{
 	    /**
 	     * 当前指针位置x
@@ -2046,7 +2158,7 @@
 	/**
 	 * 鼠标(拖拽)事件处理
 	 * @param {NElement} element 绑定到元素
-	 * @param {function(pointerData):void} callBack 回调
+	 * @param {function(PointerData):void} callBack 回调
 	 * @param {number} [button] 绑定的按键
 	 */
 	function mouseBind(element, callBack, button = 0)
@@ -2074,7 +2186,7 @@
 	        if (e.button == button)
 	        {
 	            leftDown = true;
-	            callBack(new pointerData(
+	            callBack(new PointerData(
 	                x, y,
 	                0, 0,
 	                x, y,
@@ -2095,7 +2207,7 @@
 	            let vy = e.clientY - y;
 	            x = e.clientX;
 	            y = e.clientY;
-	            callBack(new pointerData(
+	            callBack(new PointerData(
 	                x, y,
 	                vx, vy,
 	                sx, sy,
@@ -2118,7 +2230,7 @@
 	        if (leftDown && e.button == button)
 	        {
 	            leftDown = false;
-	            callBack(new pointerData(
+	            callBack(new PointerData(
 	                x, y,
 	                vx, vy,
 	                sx, sy,
@@ -2131,7 +2243,7 @@
 	/**
 	 * 触摸(拖拽) 事件处理
 	 * @param {NElement} element 
-	 * @param {function(pointerData):void} callBack
+	 * @param {function(PointerData):void} callBack
 	 */
 	function touchBind(element, callBack)
 	{
@@ -2191,7 +2303,7 @@
 	                y: o.clientY
 	            };
 	            ogTouches.push(t);
-	            callBack(new pointerData(
+	            callBack(new PointerData(
 	                t.x, t.y,
 	                0, 0,
 	                t.sx, t.sy,
@@ -2215,7 +2327,7 @@
 	                let vy = o.clientY - t.y;
 	                t.x = o.clientX;
 	                t.y = o.clientY;
-	                callBack(new pointerData(
+	                callBack(new PointerData(
 	                    t.x, t.y,
 	                    vx, vy,
 	                    t.sx, t.sy,
@@ -2242,7 +2354,7 @@
 	                let vy = o.clientY - t.y;
 	                t.x = o.clientX;
 	                t.y = o.clientY;
-	                callBack(new pointerData(
+	                callBack(new PointerData(
 	                    t.x, t.y,
 	                    vx, vy,
 	                    t.sx, t.sy,
@@ -2252,6 +2364,93 @@
 	        });
 	    }
 	}
+
+	/**
+	 * 创建对象的代理
+	 * @template {object} T
+	 * @param {T} srcObj
+	 * @returns {T}
+	 */
+	function createHookObj(srcObj)
+	{
+	    if (proxyMap.has(srcObj)) // 已经是代理对象
+	        throw "Unable to create a proxy for a proxy object";
+	    /**
+	     * 修改指定值时需要触发的钩子
+	     * @type {Map<string | symbol, Set<HookBindValue | HookBindCallback>>}
+	     */
+	    const hookMap = new Map();
+	    const proxyObj = (new Proxy((/** @type {object} */(srcObj)), {
+	        get: (target, key) => // 取值
+	        {
+	            return Reflect.get(target, key);
+	        },
+
+	        set: (target, key, newValue) => // 设置值
+	        {
+	            let ret = Reflect.set(target, key, newValue);
+	            if (ret)
+	            {
+	                let hookSet = hookMap.get(key);
+	                if (hookSet) // 若此key上存在钩子集合
+	                {
+	                    hookSet.forEach(o =>
+	                    {
+	                        o.emit(); // 触发每个钩子
+	                    });
+	                }
+	            }
+	            return ret;
+	        },
+
+	        deleteProperty: (target, key) => // 删除值
+	        {
+	            let ret = Reflect.deleteProperty(target, key);
+	            if (ret)
+	            {
+	                let hookSet = hookMap.get(key);
+	                if (hookSet) // 若此key上存在钩子集合
+	                {
+	                    hookSet.forEach(o =>
+	                    {
+	                        o.destroy(); // 销毁每个钩子
+	                    });
+	                    hookMap.delete(key); // 移除此key上的钩子集合
+	                }
+	            }
+	            return ret;
+	        }
+	    }));
+	    proxyMap.set(proxyObj, { hookMap, srcObj });
+	    return proxyObj;
+	}
+
+	/**
+	 * 获取代理对象中指定值的绑定信息
+	 * @template {Object} T
+	 * @param {T} proxyObj
+	 * @param {[(keyof T) | (string & {}) | symbol] | [((keyof T) | (string & {}) | symbol), ...Array<(keyof T) | (string & {}) | symbol>, function(...any): any]} keys
+	 * @returns {HookBindInfo}
+	 */
+	function bindValue(proxyObj, ...keys)
+	{
+	    const ctFunc = (/** @type {function(...any): any} */(keys.length >= 2 ? keys.pop() : null));
+	    const proxyMata = proxyMap.get(proxyObj);
+	    if (proxyMata == undefined)
+	        throw "bindValue: Values can only be bound from proxy objects";
+	    return new HookBindInfo(proxyObj, proxyMata.srcObj, (/** @type {Array<string | symbol>}*/(keys)), proxyMata.hookMap, ctFunc);
+	}
+
+	/**
+	 * 记录器
+
+	 * 在目标对象销毁时销毁钩子
+	 * @type {FinalizationRegistry<import("./ArrayHookBind").ArrayHookBind>}
+	 */
+	new FinalizationRegistry(heldValue =>
+	{
+	    heldValue.destroy();
+	});
 
 	/**
 	 * document.body的NElement封装
@@ -2925,6 +3124,14 @@
 	        {
 	            storageContext.iiroseForge[key] = storageObj[key];
 	        });
+	        Object.keys(storageContext.iiroseForge).forEach(key =>
+	        {
+	            if (
+	                typeof (storageContext.iiroseForge[key]) == "object" &&
+	                !Array.isArray(storageContext.iiroseForge[key])
+	            )
+	                storageContext.iiroseForge[key] = createHookObj(storageContext.iiroseForge[key]);
+	        });
 	    }
 	    catch (err)
 	    {
@@ -3128,7 +3335,10 @@
 	 */
 	function enableUserRemark()
 	{
-	    let msgBox = iframeContext.iframeDocument.getElementsByClassName("msgholderBox")[0];// 聊天消息列表节点(房间消息)
+	    // 房间消息显示备注
+
+	    // 聊天消息列表节点(房间消息)
+	    let msgBox = iframeContext.iframeDocument.getElementsByClassName("msgholderBox")[0];
 	    Array.from(msgBox.children).forEach(o =>
 	    { // 处理已有的消息
 	        processingMessageElement(/** @type {HTMLElement} */(o));
@@ -3149,6 +3359,37 @@
 	            }
 	        }
 	    })).observe(msgBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+
+
+
+	    // 私聊选项卡显示备注
+
+	    // 私聊选项卡列表
+	    let sessionHolderPmTaskBox = iframeContext.iframeDocument.getElementsByClassName("sessionHolderPmTaskBox")[0];
+	    Array.from(sessionHolderPmTaskBox.children).forEach(o =>
+	    { // 处理已有的私聊选项卡
+	        processingPrivateChatTabElement(/** @type {HTMLElement} */(o));
+	    });
+	    (new MutationObserver(mutationsList =>
+	    {
+	        for (let mutation of mutationsList)
+	        {
+	            if (mutation.type == "childList")
+	            {
+	                Array.from(mutation.addedNodes).forEach((/** @type {HTMLElement} */element) =>
+	                { // 处理新增的私聊选项卡
+	                    if (element.classList != undefined && element.classList.contains("sessionHolderPmTaskBoxItem"))
+	                    {
+	                        processingPrivateChatTabElement(element);
+	                    }
+	                });
+	            }
+	        }
+	    })).observe(sessionHolderPmTaskBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+
+
+
+	    // 资料卡菜单设置备注
 
 	    let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
 	    if (oldFunction_Objs_mapHolder_function_event)
@@ -3190,6 +3431,11 @@
 	            return false;
 	        });
 	    }
+
+
+
+	    // 私聊选项卡菜单设置备注
+
 	    let oldFunction_Utils_service_pm_menu = iframeContext.iframeWindow["Utils"]?.service?.pm?.menu;
 	    if (oldFunction_Utils_service_pm_menu)
 	    { // 私聊标签页点击
@@ -3274,12 +3520,13 @@
 	{
 	    if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "msg")
 	    {
-	        let messageElementDataId = String(messageElement.dataset.id);
-	        let uid = messageElementDataId.split("_")[0];
-	        let remarkName = storageContext.iiroseForge.userRemark[uid];
-	        if (remarkName)
-	        {
-	            let pubUserInfoElement = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, -1, -1])));
+	        let uid = (
+	            messageElement.dataset.id ?
+	                messageElement.dataset.id.split("_")[0] :
+	                (/** @type {HTMLElement} */(domPath(messageElement, [0, -1, 0])))?.dataset?.uid
+	        );
+	        let pubUserInfoElement = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, -1, -1])));
+	        if (pubUserInfoElement)
 	            pubUserInfoElement.appendChild((NList.getElement([
 	                createNStyleList({
 	                    color: "white",
@@ -3290,9 +3537,41 @@
 	                    width: "max-content",
 	                    bottom: "42px"
 	                }),
-	                remarkName
+	                bindValue(
+	                    storageContext.iiroseForge.userRemark,
+	                    uid,
+	                    remarkName => (remarkName ? remarkName : "")
+	                )
 	            ])).element);
-	        }
+	    }
+	}
+
+	/**
+	 * 处理私聊选项卡元素
+	 * @param {HTMLElement} privateChatTabElement
+	 */
+	function processingPrivateChatTabElement(privateChatTabElement)
+	{
+	    if (
+	        privateChatTabElement.classList.length == 2 &&
+	        privateChatTabElement.classList.contains("sessionHolderPmTaskBoxItem") &&
+	        privateChatTabElement.classList.contains("whoisTouch2")
+	    )
+	    {
+	        let uid = privateChatTabElement.getAttribute("ip");
+	        let userNameElement = (/** @type {HTMLElement} */(domPath(privateChatTabElement, [1, 0, -1])));
+	        if (userNameElement)
+	            userNameElement.appendChild((NList.getElement([
+	                createNStyleList({
+	                    display: "inline",
+	                    marginLeft: "3px"
+	                }),
+	                bindValue(
+	                    storageContext.iiroseForge.userRemark,
+	                    uid,
+	                    remarkName => (remarkName ? `(${remarkName})` : "")
+	                )
+	            ])).element);
 	    }
 	}
 
@@ -4847,7 +5126,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.2.1"
+	    version: "alpha v1.2.2"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -5927,7 +6206,7 @@
 	 */
 	function getForgeMenu()
 	{
-	    let menu = NList.getElement([
+	    let menu = NList.getElement([ // 整个菜单
 	        createNStyle("position", "fixed"),
 	        createNStyle("top", "0"),
 	        createNStyle("left", "0"),
@@ -5937,7 +6216,7 @@
 	        createNStyle("backgroundColor", "rgba(255, 255, 255, 0.75)"),
 	        createNStyle("backdropFilter", "blur(3px)"),
 
-	        [
+	        [ // 标题栏
 	            createNStyle("opacity", "0.8"),
 	            createNStyle("backgroundColor", "#303030"),
 	            createNStyle("width", "100%"),
@@ -5987,11 +6266,12 @@
 	            ]
 	        ],
 
-	        [
+	        [ // 菜单主体
 	            createNStyle("position", "absolute"),
 	            createNStyle("width", "100%"),
 	            createNStyle("top", "40px"),
 	            createNStyle("bottom", "40px"),
+	            createNStyle("overflow", "auto"),
 
 	            [
 	                ...([
@@ -6249,7 +6529,7 @@
 	            ]
 	        ],
 
-	        [
+	        [ // 底栏
 	            createNStyle("color", "#303030"),
 	            createNStyle("background", "#fff"),
 	            createNStyle("opacity", "0.8"),
@@ -6429,7 +6709,7 @@
 
 	        iframeWindow["iiroseForgeApi"] = forgeApi; // 给内侧侧载脚本预留forgeApi
 
-	        if(globalState.debugMode)
+	        if (globalState.debugMode)
 	            enableForgeDebugMode(globalState.debugMode);
 
 	        (async () =>
@@ -6450,8 +6730,14 @@
 	        })();
 
 	        // 补丁功能
-	        
-	        enableUserRemark();
+	        try
+	        {
+	            enableUserRemark();
+	        }
+	        catch (err)
+	        {
+	            console.error("patch error:", err);
+	        }
 	    }, 1000);
 
 	    if (localStorage.getItem("installForge") == "true")

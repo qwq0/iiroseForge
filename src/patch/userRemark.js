@@ -1,5 +1,5 @@
 import { domPath, proxyFunction } from "../../lib/plugToolsLib.js";
-import { NElement, NEvent, NList } from "../../lib/qwqframe.js";
+import { NElement, NEvent, NList, bindValue } from "../../lib/qwqframe.js";
 import { createNStyleList as styles } from "../../lib/qwqframe.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
 import { storageContext, storageSave } from "../storage/storage.js";
@@ -12,7 +12,10 @@ import { showInputBox } from "../ui/infobox.js";
  */
 export function enableUserRemark()
 {
-    let msgBox = iframeContext.iframeDocument.getElementsByClassName("msgholderBox")[0];// 聊天消息列表节点(房间消息)
+    // 房间消息显示备注
+
+    // 聊天消息列表节点(房间消息)
+    let msgBox = iframeContext.iframeDocument.getElementsByClassName("msgholderBox")[0];
     Array.from(msgBox.children).forEach(o =>
     { // 处理已有的消息
         processingMessageElement(/** @type {HTMLElement} */(o));
@@ -33,6 +36,37 @@ export function enableUserRemark()
             }
         }
     })).observe(msgBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+
+
+
+    // 私聊选项卡显示备注
+
+    // 私聊选项卡列表
+    let sessionHolderPmTaskBox = iframeContext.iframeDocument.getElementsByClassName("sessionHolderPmTaskBox")[0];
+    Array.from(sessionHolderPmTaskBox.children).forEach(o =>
+    { // 处理已有的私聊选项卡
+        processingPrivateChatTabElement(/** @type {HTMLElement} */(o));
+    });
+    (new MutationObserver(mutationsList =>
+    {
+        for (let mutation of mutationsList)
+        {
+            if (mutation.type == "childList")
+            {
+                Array.from(mutation.addedNodes).forEach((/** @type {HTMLElement} */element) =>
+                { // 处理新增的私聊选项卡
+                    if (element.classList != undefined && element.classList.contains("sessionHolderPmTaskBoxItem"))
+                    {
+                        processingPrivateChatTabElement(element);
+                    }
+                });
+            }
+        }
+    })).observe(sessionHolderPmTaskBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+
+
+
+    // 资料卡菜单设置备注
 
     let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
     if (oldFunction_Objs_mapHolder_function_event)
@@ -74,6 +108,11 @@ export function enableUserRemark()
             return false;
         });
     }
+
+
+
+    // 私聊选项卡菜单设置备注
+
     let oldFunction_Utils_service_pm_menu = iframeContext.iframeWindow["Utils"]?.service?.pm?.menu;
     if (oldFunction_Utils_service_pm_menu)
     { // 私聊标签页点击
@@ -158,12 +197,13 @@ function processingMessageElement(messageElement)
 {
     if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "msg")
     {
-        let messageElementDataId = String(messageElement.dataset.id);
-        let uid = messageElementDataId.split("_")[0];
-        let remarkName = storageContext.iiroseForge.userRemark[uid];
-        if (remarkName)
-        {
-            let pubUserInfoElement = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, -1, -1])));
+        let uid = (
+            messageElement.dataset.id ?
+                messageElement.dataset.id.split("_")[0] :
+                (/** @type {HTMLElement} */(domPath(messageElement, [0, -1, 0])))?.dataset?.uid
+        );
+        let pubUserInfoElement = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, -1, -1])));
+        if (pubUserInfoElement)
             pubUserInfoElement.appendChild((NList.getElement([
                 styles({
                     color: "white",
@@ -174,8 +214,40 @@ function processingMessageElement(messageElement)
                     width: "max-content",
                     bottom: "42px"
                 }),
-                remarkName
+                bindValue(
+                    storageContext.iiroseForge.userRemark,
+                    uid,
+                    remarkName => (remarkName ? remarkName : "")
+                )
             ])).element);
-        }
+    }
+}
+
+/**
+ * 处理私聊选项卡元素
+ * @param {HTMLElement} privateChatTabElement
+ */
+function processingPrivateChatTabElement(privateChatTabElement)
+{
+    if (
+        privateChatTabElement.classList.length == 2 &&
+        privateChatTabElement.classList.contains("sessionHolderPmTaskBoxItem") &&
+        privateChatTabElement.classList.contains("whoisTouch2")
+    )
+    {
+        let uid = privateChatTabElement.getAttribute("ip");
+        let userNameElement = (/** @type {HTMLElement} */(domPath(privateChatTabElement, [1, 0, -1])));
+        if (userNameElement)
+            userNameElement.appendChild((NList.getElement([
+                styles({
+                    display: "inline",
+                    marginLeft: "3px"
+                }),
+                bindValue(
+                    storageContext.iiroseForge.userRemark,
+                    uid,
+                    remarkName => (remarkName ? `(${remarkName})` : "")
+                )
+            ])).element);
     }
 }

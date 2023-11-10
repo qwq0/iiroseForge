@@ -91,7 +91,7 @@ export function initInjectIframe()
 
         iframeWindow["iiroseForgeApi"] = forgeApi; // 给内侧侧载脚本预留forgeApi
 
-        if(globalState.debugMode)
+        if (globalState.debugMode)
             enableForgeDebugMode(globalState.debugMode);
 
         (async () =>
@@ -112,8 +112,14 @@ export function initInjectIframe()
         })();
 
         // 补丁功能
-        
-        enableUserRemark();
+        try
+        {
+            enableUserRemark();
+        }
+        catch (err)
+        {
+            console.error("patch error:", err);
+        }
     }, 1000);
 
     if (localStorage.getItem("installForge") == "true")

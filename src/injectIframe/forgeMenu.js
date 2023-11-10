@@ -21,7 +21,7 @@ let plugStone = null;
  */
 export function getForgeMenu()
 {
-    let menu = NList.getElement([
+    let menu = NList.getElement([ // 整个菜单
         style("position", "fixed"),
         style("top", "0"),
         style("left", "0"),
@@ -31,7 +31,7 @@ export function getForgeMenu()
         style("backgroundColor", "rgba(255, 255, 255, 0.75)"),
         style("backdropFilter", "blur(3px)"),
 
-        [
+        [ // 标题栏
             style("opacity", "0.8"),
             style("backgroundColor", "#303030"),
             style("width", "100%"),
@@ -81,11 +81,12 @@ export function getForgeMenu()
             ]
         ],
 
-        [
+        [ // 菜单主体
             style("position", "absolute"),
             style("width", "100%"),
             style("top", "40px"),
             style("bottom", "40px"),
+            style("overflow", "auto"),
 
             [
                 ...([
@@ -349,7 +350,7 @@ export function getForgeMenu()
             ]
         ],
 
-        [
+        [ // 底栏
             style("color", "#303030"),
             style("background", "#fff"),
             style("opacity", "0.8"),

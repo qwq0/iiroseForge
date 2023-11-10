@@ -1,3 +1,4 @@
+import { createHookObj } from "../../lib/qwqframe.js";
 import { showNotice } from "../ui/notice.js";
 
 /**
@@ -36,6 +37,14 @@ export function storageRead()
         Object.keys(storageObj).forEach(key =>
         {
             storageContext.iiroseForge[key] = storageObj[key];
+        });
+        Object.keys(storageContext.iiroseForge).forEach(key =>
+        {
+            if (
+                typeof (storageContext.iiroseForge[key]) == "object" &&
+                !Array.isArray(storageContext.iiroseForge[key])
+            )
+                storageContext.iiroseForge[key] = createHookObj(storageContext.iiroseForge[key]);
         });
     }
     catch (err)

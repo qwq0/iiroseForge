@@ -1,23 +1,83 @@
-declare namespace cssG {
-    function diFull(value: string): string;
-    function rgb(r: string | number, g: string | number, b: string | number, a?: string | number | undefined): string;
+/**
+ * 钩子绑定到值类
+ */
+declare class HookBindValue {
+    /**
+     * @param {import("./HookBindInfo").HookBindInfo} info
+     * @param {object} targetObj
+     * @param {string | symbol} targetKey
+     */
+    constructor(info: HookBindInfo, targetObj: object, targetKey: string | symbol);
+    /**
+     * 钩子信息
+     * @type {import("./HookBindInfo").HookBindInfo}
+     */
+    info: HookBindInfo;
+    /**
+     * 目标对象
+     * @type {WeakRef<object>}
+     */
+    targetRef: WeakRef<any>;
+    /**
+     * 目标对象的键
+     * @type {string | symbol}
+     */
+    targetKey: string | symbol;
+    /**
+     * 触发此钩子
+     * 销毁后仍可通过此方法手动触发
+     */
+    emit(): void;
+    /**
+     * 销毁此钩子
+     * 销毁后钩子将不再自动触发
+     */
+    destroy(): void;
 }
 
 /**
- * 创建对象的代理
- * @template {object} T
- * @param {T} srcObj
- * @returns {T}
+ * 钩子绑定到回调类
  */
-declare function createHookObj<T extends unknown>(srcObj: T): T;
-/**
- * 获取代理对象中指定值的绑定信息
- * @template {Object} T
- * @param {T} proxyObj
- * @param {[(keyof T) | (string & {}) | symbol] | [...Array<(keyof T) | (string & {}) | symbol>, function(...any): any]} keys
- * @returns {HookBindInfo}
- */
-declare function bindValue<T extends unknown>(proxyObj: T, ...keys: [symbol | (string & {}) | keyof T] | [...(symbol | (string & {}) | keyof T)[], (...arg0: any[]) => any]): HookBindInfo;
+declare class HookBindCallback {
+    /**
+     * @param {import("./HookBindInfo").HookBindInfo} info
+     * @param {function(any): void} callback
+     */
+    constructor(info: HookBindInfo, callback: (arg0: any) => void);
+    /**
+     * 钩子信息
+     * @type {import("./HookBindInfo").HookBindInfo}
+     */
+    info: HookBindInfo;
+    /**
+     * 回调函数的弱引用
+     * @type {WeakRef<function(any): void>}
+     */
+    cbRef: WeakRef<(arg0: any) => void>;
+    /**
+     * 回调函数
+     * 当此钩子绑定自动释放时为null
+     * @type {function(any): void}
+     */
+    callback: (arg0: any) => void;
+    /**
+     * 触发此钩子
+     */
+    emit(): void;
+    /**
+     * 销毁此钩子
+     * 销毁后钩子将不再自动触发
+     */
+    destroy(): void;
+    /**
+     * 绑定销毁
+     * 当目标对象释放时销毁
+     * @param {object} targetObj
+     * @returns {HookBindCallback} 返回自身
+     */
+    bindDestroy(targetObj: object): HookBindCallback;
+}
+
 /**
  * 钩子绑定信息
  */
@@ -87,228 +147,6 @@ declare class HookBindInfo {
      */
     bindToCallback(callback: (arg0: any) => void): HookBindCallback;
 }
-/**
- * 钩子绑定到回调类
- */
-declare class HookBindCallback {
-    /**
-     * @param {HookBindInfo} info
-     * @param {function(any): void} callback
-     */
-    constructor(info: HookBindInfo, callback: (arg0: any) => void);
-    /**
-     * 钩子信息
-     * @type {HookBindInfo}
-     */
-    info: HookBindInfo;
-    /**
-     * 回调函数的弱引用
-     * @type {WeakRef<function(any): void>}
-     */
-    cbRef: WeakRef<(arg0: any) => void>;
-    /**
-     * 回调函数
-     * 当此钩子绑定自动释放时为null
-     * @type {function(any): void}
-     */
-    callback: (arg0: any) => void;
-    /**
-     * 触发此钩子
-     */
-    emit(): void;
-    /**
-     * 销毁此钩子
-     * 销毁后钩子将不再自动触发
-     */
-    destroy(): void;
-    /**
-     * 绑定销毁
-     * 当目标对象释放时销毁
-     * @param {object} targetObj
-     * @returns {HookBindCallback} 返回自身
-     */
-    bindDestroy(targetObj: object): HookBindCallback;
-}
-/**
- * 钩子绑定到值类
- */
-declare class HookBindValue {
-    /**
-     * @param {HookBindInfo} info
-     * @param {object} targetObj
-     * @param {string | symbol} targetKey
-     */
-    constructor(info: HookBindInfo, targetObj: object, targetKey: string | symbol);
-    /**
-     * 钩子信息
-     * @type {HookBindInfo}
-     */
-    info: HookBindInfo;
-    /**
-     * 目标对象
-     * @type {WeakRef<object>}
-     */
-    targetRef: WeakRef<any>;
-    /**
-     * 目标对象的键
-     * @type {string | symbol}
-     */
-    targetKey: string | symbol;
-    /**
-     * 触发此钩子
-     * 销毁后仍可通过此方法手动触发
-     */
-    emit(): void;
-    /**
-     * 销毁此钩子
-     * 销毁后钩子将不再自动触发
-     */
-    destroy(): void;
-}
-
-/**
- * 标签名
- * 标签名使用小写字母
- * 不包含此类的特征列表默认为div
- * 一层特征列表只能有唯一tagName
- * @template {keyof HTMLElementTagNameMap} T
- */
-declare class NTagName<T extends keyof HTMLElementTagNameMap> {
-    /**
-     * @param {T} tagName
-     */
-    constructor(tagName: T);
-    /**
-     * @type {T}
-     */
-    tagName: T;
-}
-
-/**
- * @typedef {(keyof HTMLElement & string) | (string & {})} keyObjectOfHtmlElementAttr
- */
-/**
- * 属性
- * @template {keyObjectOfHtmlElementAttr} T
- */
-declare class NAttr<T extends keyObjectOfHtmlElementAttr> {
-    /**
-     * @param {T} key
-     * @param {string | number | boolean | Function} value
-     */
-    constructor(key: T, value: string | number | boolean | Function);
-    /**
-     * @type {T}
-     */
-    key: T;
-    /**
-     * 若为函数则应用时调用
-     * 若有返回值则赋值到属性
-     * @type {string | number | boolean | Function}
-     */
-    value: string | number | boolean | Function;
-    /**
-     * 将此特征应用于元素
-     * @param {NElement} e
-     */
-    apply(e: NElement<any>): void;
-}
-type keyObjectOfHtmlElementAttr = (keyof HTMLElement & string) | (string & {});
-
-/**
- * 事件
- * @template {keyof HTMLElementEventMap} T
- */
-declare class NEvent<T extends keyof HTMLElementEventMap> {
-    /**
-     * @param {T} key
-     * @param {function(HTMLElementEventMap[T]): any} callback
-     */
-    constructor(key: T, callback: (arg0: HTMLElementEventMap[T]) => any);
-    /**
-     * @type {T}
-     */
-    eventName: T;
-    /**
-     * @type {function(HTMLElementEventMap[T]): any}
-     */
-    callback: (arg0: HTMLElementEventMap[T]) => any;
-    /**
-     * 将此特征应用于元素
-     * @param {NElement} e
-     */
-    apply(e: NElement<any>): void;
-}
-
-/**
- * 流水线
- */
-declare class NAsse {
-    /**
-     * @param {function(NElement): void} callback
-     */
-    constructor(callback: (arg0: NElement<any>) => void);
-    /**
-     * @type {function(NElement): void}
-     */
-    callback: (arg0: NElement<any>) => void;
-    /**
-     * 将此特征应用于元素
-     * @param {NElement} e
-     */
-    apply(e: NElement<any>): void;
-}
-
-/**
- * 特征列表
- * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement>} NList_list
- */
-declare class NList {
-    /**
-     * 生成拉平列表
-     * @param {NList_list} list
-     */
-    static flat(list: NList_list): NList;
-    /**
-     * 获取(生成)元素
-     * @param {NList_list} list
-     */
-    static getElement(list: NList_list): NElement<any>;
-    /**
-     * @param {NList_list} list
-     */
-    constructor(list: NList_list);
-    /**
-     * @type {NList_list}
-     */
-    list: NList_list;
-    /**
-     * 拉平特征
-     * (默认)标记为false将作为子元素节点
-     * 标记为true将作为上层节点的特征列表
-     * @type {boolean}
-     */
-    flatFlag: boolean;
-    /**
-     * 为元素应用特征列表
-     * @param {NElement<HTMLElement>} element
-     */
-    apply(element: NElement<HTMLElement>): void;
-    /**
-     * 获取列表的标签名
-     * @returns {string}
-     */
-    getTagName(): string;
-    /**
-     * 获取(生成)元素
-     * @returns {NElement}
-     */
-    getElement(): NElement<any>;
-}
-/**
- * 特征列表
- */
-type NList_list = Array<string | HookBindInfo | NTagName<any> | NStyle<any> | NAttr<any> | NEvent<any> | NAsse | NList | (string | HookBindInfo | NAsse | NElement<any> | NTagName<any> | NStyle<any> | NAttr<any> | NEvent<any> | NList | NList_list)[] | NElement<any>>;
 
 /**
  * 创建NStyle 省略new
@@ -816,7 +654,7 @@ declare class NStyle<T extends keyOfStyle> {
     value: string | HookBindInfo;
     /**
      * 将此特征应用于元素
-     * @param {NElement} e
+     * @param {import("../element/NElement").NElement} e
      */
     apply(e: NElement<any>): void;
 }
@@ -860,14 +698,14 @@ declare class NElement<ElementObjectType extends HTMLElement> {
     private styleHooks;
     /**
      * 添加单个子节点
-     * @param {NElement | HTMLElement} chi
+     * @param {NElement | Node | string | HookBindInfo} chi
      */
-    addChild(chi: NElement<any> | HTMLElement): void;
+    addChild(chi: NElement<any> | Node | string | HookBindInfo): void;
     /**
      * 添加多个子节点
-     * @param {Array<NElement | HTMLElement | Array<NElement | HTMLElement>>} chi
+     * @param {Array<NElement | Node | string | HookBindInfo | Array<NElement | Node | string | HookBindInfo>>} chi
      */
-    addChilds(...chi: Array<NElement<any> | HTMLElement | Array<NElement<any> | HTMLElement>>): void;
+    addChilds(...chi: Array<NElement<any> | Node | string | HookBindInfo | Array<NElement<any> | Node | string | HookBindInfo>>): void;
     /**
      * 插入单个子节点(在中间)
      * 如果此节点之前在树中则先移除后加入
@@ -905,6 +743,11 @@ declare class NElement<ElementObjectType extends HTMLElement> {
      * @returns {NElement}
      */
     getChild(ind: number): NElement<any>;
+    /**
+     * 使用指定元素替换此元素
+     * @param {Array<NElement>} elements
+     */
+    replaceWith(...elements: Array<NElement<any>>): void;
     /**
      * 修改样式
      * @param {import("../feature/NStyle").keyOfStyle} styleName
@@ -1437,8 +1280,17 @@ declare class NElement<ElementObjectType extends HTMLElement> {
      * 执行动画
      * @param {Array<Keyframe> | PropertyIndexedKeyframes} keyframes
      * @param {number | KeyframeAnimationOptions} options
+     * @returns {Animation}
      */
-    animate(keyframes: Array<Keyframe> | PropertyIndexedKeyframes, options: number | KeyframeAnimationOptions): void;
+    animate(keyframes: Array<Keyframe> | PropertyIndexedKeyframes, options: number | KeyframeAnimationOptions): Animation;
+    /**
+     * 执行动画并提交
+     * 在执行完成动画后将最后的效果提交到style
+     * @param {Array<Keyframe> | PropertyIndexedKeyframes} keyframes
+     * @param {number | KeyframeAnimationOptions} options
+     * @returns {Promise<void>} 动画执行完后返回
+     */
+    animateCommit(keyframes: Array<Keyframe> | PropertyIndexedKeyframes, options: number | KeyframeAnimationOptions): Promise<void>;
     /**
      * 流水线
      * @param {function(NElement): void} asseFunc 流水线函数(无视返回值)
@@ -1451,7 +1303,173 @@ declare class NElement<ElementObjectType extends HTMLElement> {
      * @returns {keyof HTMLElementTagNameMap}
      */
     getTagName(): keyof HTMLElementTagNameMap;
+    /**
+     * 应用NList到元素
+     * @param {NList | ConstructorParameters<typeof NList>[0]} list
+     * @returns {NElement} 返回被操作的NElement
+     */
+    applyNList(list: NList | ConstructorParameters<typeof NList>[0]): NElement<any>;
 }
+
+/**
+ * 标签名
+ * 标签名使用小写字母
+ * 不包含此类的特征列表默认为div
+ * 一层特征列表只能有唯一tagName (或等价的)
+ * @template {keyof HTMLElementTagNameMap} T
+ */
+declare class NTagName<T extends keyof HTMLElementTagNameMap> {
+    /**
+     * @param {T} tagName
+     */
+    constructor(tagName: T);
+    /**
+     * @type {T}
+     */
+    tagName: T;
+}
+
+/**
+ * @typedef {(keyof HTMLElement & string) | (string & {})} keyObjectOfHtmlElementAttr
+ */
+/**
+ * 属性
+ * @template {keyObjectOfHtmlElementAttr} T
+ */
+declare class NAttr<T extends keyObjectOfHtmlElementAttr> {
+    /**
+     * @param {T} key
+     * @param {string | number | boolean | Function} value
+     */
+    constructor(key: T, value: string | number | boolean | Function);
+    /**
+     * @type {T}
+     */
+    key: T;
+    /**
+     * 若为函数则应用时调用
+     * 若有返回值则赋值到属性
+     * @type {string | number | boolean | Function}
+     */
+    value: string | number | boolean | Function;
+    /**
+     * 将此特征应用于元素
+     * @param {import("../element/NElement").NElement} e
+     */
+    apply(e: NElement<any>): void;
+}
+type keyObjectOfHtmlElementAttr = (keyof HTMLElement & string) | (string & {});
+
+/**
+ * 事件
+ * @template {keyof HTMLElementEventMap} T
+ */
+declare class NEvent<T extends keyof HTMLElementEventMap> {
+    /**
+     * @param {T} key
+     * @param {(event: HTMLElementEventMap[T], currentElement: import("../element/NElement").NElement) => void} callback
+     */
+    constructor(key: T, callback: (event: HTMLElementEventMap[T], currentElement: NElement<any>) => void);
+    /**
+     * @type {T}
+     */
+    eventName: T;
+    /**
+     * @type {(event: HTMLElementEventMap[T], currentElement: import("../element/NElement").NElement) => void}
+     */
+    callback: (event: HTMLElementEventMap[T], currentElement: NElement<any>) => void;
+    /**
+     * 将此特征应用于元素
+     * @param {import("../element/NElement").NElement} element
+     */
+    apply(element: NElement<any>): void;
+}
+
+/**
+ * 流水线
+ */
+declare class NAsse {
+    /**
+     * @param {function(import("../element/NElement").NElement): void} callback
+     */
+    constructor(callback: (arg0: NElement<any>) => void);
+    /**
+     * @type {function(import("../element/NElement").NElement): void}
+     */
+    callback: (arg0: NElement<any>) => void;
+    /**
+     * 将此特征应用于元素
+     * @param {import("../element/NElement").NElement} e
+     */
+    apply(e: NElement<any>): void;
+}
+
+/**
+ * 特征列表
+ * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement | ((e: NElement) => void)>} NList_list
+ */
+declare class NList {
+    /**
+     * 生成拉平列表
+     * @param {NList_list} list
+     */
+    static flat(list: NList_list$1): NList;
+    /**
+     * 获取(生成)元素
+     * @param {NList_list} list
+     */
+    static getElement(list: NList_list$1): NElement<any>;
+    /**
+     * @param {NList_list} list
+     */
+    constructor(list: NList_list$1);
+    /**
+     * @type {NList_list}
+     */
+    list: NList_list$1;
+    /**
+     * 拉平特征
+     * (默认)标记为false将作为子元素节点
+     * 标记为true将作为上层节点的特征列表
+     * @type {boolean}
+     */
+    flatFlag: boolean;
+    /**
+     * 为元素应用特征列表
+     * @param {NElement<HTMLElement>} element
+     */
+    apply(element: NElement<HTMLElement>): void;
+    /**
+     * 获取列表的标签名
+     * @returns {string}
+     */
+    getTagName(): string;
+    /**
+     * 获取(生成)元素
+     * @returns {NElement}
+     */
+    getElement(): NElement<any>;
+}
+/**
+ * 特征列表
+ */
+type NList_list$1 = (string | HookBindInfo | NAsse | NElement<any> | NList | NList_list$1 | NTagName<any> | NStyle<any> | NAttr<any> | NEvent<any> | ((e: NElement<any>) => void))[];
+
+declare namespace cssG {
+    function diFull(value: string): string;
+    function rgb(r: string | number, g: string | number, b: string | number, a?: string | number | undefined): string;
+}
+
+/**
+ * 绑定元素属性到对象作为getter/setter
+ * @template {Object} T
+ * @param {string} attrName
+ * @param {T} obj
+ * @param {(keyof T) | (string & {})} key
+ * @param {boolean} [noInitialize] 不将对象中原来的值赋给元素属性
+ * @returns {(element: NElement) => void} 流水线函数
+ */
+declare function bindAttribute<T extends unknown>(attrName: string, obj: T, key: (string & {}) | keyof T, noInitialize?: boolean | undefined): (element: NElement<any>) => void;
 
 /**
  * 展开元素
@@ -2071,7 +2089,7 @@ type EDObj = {
  * 当发生鼠标或触摸事件时传递
  * 包含指针坐标和按下状态等数据
  */
-declare class pointerData {
+declare class PointerData {
     /**
      * @param {number} x
      * @param {number} y
@@ -2128,17 +2146,17 @@ declare class pointerData {
 /**
  * 鼠标(拖拽)事件处理
  * @param {NElement} element 绑定到元素
- * @param {function(pointerData):void} callBack 回调
+ * @param {function(PointerData):void} callBack 回调
  * @param {number} [button] 绑定的按键
  */
-declare function mouseBind(element: NElement<any>, callBack: (arg0: pointerData) => void, button?: number | undefined): void;
+declare function mouseBind(element: NElement<any>, callBack: (arg0: PointerData) => void, button?: number | undefined): void;
 
 /**
  * 触摸(拖拽) 事件处理
  * @param {NElement} element
- * @param {function(pointerData):void} callBack
+ * @param {function(PointerData):void} callBack
  */
-declare function touchBind(element: NElement<any>, callBack: (arg0: pointerData) => void): void;
+declare function touchBind(element: NElement<any>, callBack: (arg0: PointerData) => void): void;
 
 /**
  * 包装为仅能执行一次的函数
@@ -2149,6 +2167,69 @@ declare function touchBind(element: NElement<any>, callBack: (arg0: pointerData)
  * @returns {T}
  */
 declare function runOnce<P, R, T extends (...arg0: P[]) => R>(func: T): T;
+
+/**
+ * 异步延迟
+ * 将创建一个Promise并在指定延迟时间后解决
+ * @param {number} time 单位:毫秒
+ * @returns {Promise<void>}
+ */
+declare function delayPromise(time: number): Promise<void>;
+
+/**
+ * 事件处理器
+ * 可以定多个事件响应函数
+ * @template {*} T
+ */
+declare class EventHandler<T extends unknown> {
+    /**
+     * 回调列表
+     * @type {Array<function(T): void>}
+     */
+    cbList: Array<(arg0: T) => void>;
+    /**
+     * 单次回调列表
+     * @type {Array<function(T): void>}
+     */
+    onceCbList: Array<(arg0: T) => void>;
+    /**
+     * 添加响应函数
+     * @param {function(T): void} cb
+     */
+    add(cb: (arg0: T) => void): void;
+    /**
+     * 添加单次响应函数
+     * 触发一次事件后将不再响应
+     * @param {function(T): void} cb
+     */
+    addOnce(cb: (arg0: T) => void): void;
+    /**
+     * 返回一个Primise
+     * 下次响应时此primise将解决
+     * @returns {Promise<T>}
+     */
+    oncePromise(): Promise<T>;
+    /**
+     * 移除响应函数
+     * @param {function(T): void} cb
+     */
+    remove(cb: (arg0: T) => void): void;
+    /**
+     * 移除所有响应函数
+     */
+    removeAll(): void;
+    /**
+     * 触发事件
+     * @param {T} e
+     */
+    trigger(e: T): void;
+    /**
+     * 存在监听器
+     * @returns {boolean}
+     */
+    existListener(): boolean;
+    #private;
+}
 
 /**
  * 左右方向分割
@@ -2202,4 +2283,114 @@ declare function tagName(name: string): (arg0: TemplateStringsArray, ...args: pa
  */
 type parsingElementKeysType = NElement<any> | NStyle<any> | NEvent<any>;
 
-export { NAsse, NAttr, NElement, NEvent, NList, NStyle, NTagName, bindValue, createHookObj, createNStyle, createNStyleList, cssG, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, mouseBind, runOnce, tag, tagName, touchBind };
+/**
+ * 创建对象的代理
+ * @template {object} T
+ * @param {T} srcObj
+ * @returns {T}
+ */
+declare function createHookObj<T extends unknown>(srcObj: T): T;
+/**
+ * 获取代理对象中指定值的绑定信息
+ * @template {Object} T
+ * @param {T} proxyObj
+ * @param {[(keyof T) | (string & {}) | symbol] | [((keyof T) | (string & {}) | symbol), ...Array<(keyof T) | (string & {}) | symbol>, function(...any): any]} keys
+ * @returns {HookBindInfo}
+ */
+declare function bindValue<T extends unknown>(proxyObj: T, ...keys: [symbol | (string & {}) | keyof T] | [symbol | (string & {}) | keyof T, ...(symbol | (string & {}) | keyof T)[], (...arg0: any[]) => any]): HookBindInfo;
+
+/**
+ * 数组钩子绑定类
+ */
+declare class ArrayHookBind {
+    /**
+     * @param {typeof ArrayHookBind.prototype.callback} callback
+     */
+    constructor(callback: typeof ArrayHookBind.prototype.callback);
+    /**
+     * 回调函数的弱引用
+     * @type {WeakRef<typeof ArrayHookBind.prototype.callback>}
+     */
+    cbRef: WeakRef<{
+        /** @type {(index: number, value: any) => void} */
+        set: (index: number, value: any) => void;
+        /** @type {(index: number, value: any) => void} */
+        add: (index: number, value: any) => void;
+        /** @type {(index: number) => void} */
+        del: (index: number) => void;
+    }>;
+    /**
+     * 回调函数
+     * 当此钩子绑定自动释放时为null
+     */
+    callback: {
+        /** @type {(index: number, value: any) => void} */
+        set: (index: number, value: any) => void;
+        /** @type {(index: number, value: any) => void} */
+        add: (index: number, value: any) => void;
+        /** @type {(index: number) => void} */
+        del: (index: number) => void;
+    };
+    /**
+     * 触发此钩子 (设置)
+     * @param {number} index
+     * @param {any} value
+     */
+    emitSet(index: number, value: any): void;
+    /**
+     * 触发此钩子 (增加)
+     * @param {number} index
+     * @param {any} value
+     */
+    emitAdd(index: number, value: any): void;
+    /**
+     * 触发此钩子 (删除)
+     * @param {number} index
+     */
+    emitDel(index: number): void;
+    /**
+     * 销毁此钩子
+     * 销毁后钩子将不再自动触发
+     */
+    destroy(): void;
+    /**
+     * 绑定销毁
+     * 当目标对象释放时销毁
+     * @param {object} targetObj
+     * @returns {ArrayHookBind} 返回自身
+     */
+    bindDestroy(targetObj: object): ArrayHookBind;
+}
+
+/**
+ * 创建数组的代理
+ * @template {Array} T
+ * @param {T} srcArray
+ * @returns {T}
+ */
+declare function createHookArray<T extends any[]>(srcArray: T): T;
+/**
+ * 绑定数组的代理
+ * 回调函数中不应当进行可能触发钩子的操作
+ * @template {Array} T
+ * @param {T} proxyArray
+ * @param {{
+ *  set?: (index: number, value: any) => void;
+ *  add: (index: number, value: any) => void;
+ *  del: (index: number) => void;
+ * }} callbacks
+ * @param {{ noSet?: boolean, addExisting?: boolean }} [option]
+ * @returns {ArrayHookBind}
+ */
+declare function bindArrayHook<T extends any[]>(proxyArray: T, callbacks: {
+    set?: (index: number, value: any) => void;
+    add: (index: number, value: any) => void;
+    del: (index: number) => void;
+}, option?: {
+    noSet?: boolean;
+    addExisting?: boolean;
+} | undefined): ArrayHookBind;
+
+type NList_list = NList_list$1;
+
+export { EventHandler, NAsse, NAttr, NElement, NEvent, NList, NList_list, NStyle, NTagName, bindArrayHook, bindAttribute, bindValue, createHookArray, createHookObj, createNStyle, createNStyleList, cssG, delayPromise, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, mouseBind, runOnce, tag, tagName, touchBind };
