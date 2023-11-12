@@ -1,4 +1,4 @@
-import { JSOBin } from "../../lib/JSOBin.js";
+import { JSOBin } from "../../lib/jsobin.js";
 import { uniqueIdentifierString } from "../util/uniqueIdentifier.js";
 
 const jsob = new JSOBin();
