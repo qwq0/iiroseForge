@@ -1,6 +1,7 @@
-import { forgeApi } from "../forgeApi/forgeApi.js";
+import { forgeApi, forgeOccupyPlugNameSet } from "../forgeApi/forgeApi.js";
 import { Trie } from "./Trie.js";
-import { readForgePacket } from "./forgePacket.js";
+import { readForgePacket, unfinishedSliceSymbol } from "./forgePacket.js";
+import { protocolEvent } from "./protocolEvent.js";
 
 let toServerTrie = new Trie();
 let toClientTrie = new Trie();
@@ -11,27 +12,39 @@ let toClientTrie = new Trie();
  */
 let packageData = [""];
 
-toClientTrie.addPath(`"`, (data) =>
+toClientTrie.addPath(`"`, (data) => // 房间消息
 {
     packageData[0] = `"` + data.split("<").reverse().map(data =>
     {
         let part = data.split(">");
         // console.log(part);
+
         if (part[4] != "s" && part[3][0] != `'`)
         {
             let senderId = part[8];
             let senderName = part[2];
             let content = part[3];
 
-            let forgePacket = readForgePacket(content);
+            let forgePacket = readForgePacket(content, senderId);
             if (forgePacket != undefined)
             {
-                forgeApi.event.roomForgePacket.trigger({
-                    senderId: senderId,
-                    senderName: senderName,
-                    content: forgePacket
-                });
-                // console.log("forgePacket", senderId, senderName, forgePacket);
+                if (forgePacket != unfinishedSliceSymbol)
+                {
+                    if (typeof (forgePacket) != "object")
+                        return undefined;
+                    if (forgeOccupyPlugNameSet.has(forgePacket.plug))
+                        protocolEvent.forge.roomForgePacket.trigger({
+                            senderId: senderId,
+                            senderName: senderName,
+                            content: forgePacket
+                        });
+                    else
+                        forgeApi.event.roomForgePacket.trigger({
+                            senderId: senderId,
+                            senderName: senderName,
+                            content: forgePacket
+                        });
+                }
                 return undefined;
             }
             else
@@ -45,7 +58,7 @@ toClientTrie.addPath(`"`, (data) =>
     }).filter(o => o != undefined).reverse().join("<");
 });
 
-toClientTrie.addPath(`""`, (data) =>
+toClientTrie.addPath(`""`, (data) => // 私聊消息
 {
     let userId = forgeApi.operation.getUserUid();
     packageData[0] = `""` + data.split("<").map(data =>
@@ -59,17 +72,59 @@ toClientTrie.addPath(`""`, (data) =>
 
             if (part[1] != userId)
             {
-                forgeApi.event.privateMessage.trigger({
-                    senderId: senderId,
-                    senderName: senderName,
-                    content: content
-                });
+                let forgePacket = readForgePacket(content, senderId);
+                if (forgePacket != undefined)
+                {
+                    if (forgePacket != unfinishedSliceSymbol)
+                    {
+                        if (typeof (forgePacket) != "object")
+                            return undefined;
+                        if (forgeOccupyPlugNameSet.has(forgePacket.plug))
+                            protocolEvent.forge.privateForgePacket.trigger({
+                                senderId: senderId,
+                                senderName: senderName,
+                                content: forgePacket
+                            });
+                        else
+                            forgeApi.event.privateForgePacket.trigger({
+                                senderId: senderId,
+                                senderName: senderName,
+                                content: forgePacket
+                            });
+                    }
+                    return undefined;
+                }
+                else
+                    forgeApi.event.privateMessage.trigger({
+                        senderId: senderId,
+                        senderName: senderName,
+                        content: content
+                    });
             }
             else if (part[1] == userId && part[11] == userId)
             {
-                forgeApi.event.selfPrivateMessage.trigger({
-                    content: part[4]
-                });
+                let forgePacket = readForgePacket(content, senderId);
+                if (forgePacket != undefined)
+                {
+                    if (forgePacket != unfinishedSliceSymbol)
+                    {
+                        if (typeof (forgePacket) != "object")
+                            return undefined;
+                        if (forgeOccupyPlugNameSet.has(forgePacket.plug))
+                            protocolEvent.forge.selfPrivateForgePacket.trigger({
+                                content: forgePacket
+                            });
+                        else
+                            forgeApi.event.selfPrivateForgePacket.trigger({
+                                content: forgePacket
+                            });
+                    }
+                    return undefined;
+                }
+                else
+                    forgeApi.event.selfPrivateMessage.trigger({
+                        content: part[4]
+                    });
             }
         }
         return data;

@@ -4,12 +4,13 @@ import { enableForgeDebugMode } from "../feature/debugMode.js";
 import { forgeApi } from "../forgeApi/forgeApi.js";
 import { globalState } from "../globalState.js";
 import { writeForgeToCache } from "../injectCache/injectCache.js";
-import { enableUserRemark } from "../patch/userRemark.js";
+import { enableUserRemark } from "../feature/userRemark.js";
 import { toClient, toServer } from "../protocol/protocol.js";
 import { storageContext } from "../storage/storage.js";
 import { showNotice } from "../ui/notice.js";
 import { iframeContext } from "./iframeContext.js";
 import { getMenuButton } from "./menuButton.js";
+import { enableSyncConfig } from "../feature/syncConfig.js";
 
 
 
@@ -111,10 +112,11 @@ export function initInjectIframe()
                 showNotice("iiroseForge plug-in", `已在iframe内侧侧载 ${scriptCount} 个js脚本`);
         })();
 
-        // 补丁功能
+        // 附加功能
         try
         {
             enableUserRemark();
+            enableSyncConfig();
         }
         catch (err)
         {

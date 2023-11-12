@@ -26,14 +26,14 @@ export const storageContext = {
     }
 };
 
-export function storageRead()
+/**
+ * 设置储存
+ * @param {Object} storageObj
+ */
+export function storageSet(storageObj)
 {
     try
     {
-        let storageJson = localStorage.getItem("iiroseForge");
-        if (!storageJson)
-            return;
-        let storageObj = JSON.parse(storageJson);
         Object.keys(storageObj).forEach(key =>
         {
             storageContext.iiroseForge[key] = storageObj[key];
@@ -46,6 +46,22 @@ export function storageRead()
             )
                 storageContext.iiroseForge[key] = createHookObj(storageContext.iiroseForge[key]);
         });
+    }
+    catch (err)
+    {
+        showNotice("错误", "无法设置储存 这可能导致iiroseForge配置丢失");
+    }
+}
+
+export function storageRead()
+{
+    try
+    {
+        let storageJson = localStorage.getItem("iiroseForge");
+        if (!storageJson)
+            return;
+        let storageObj = JSON.parse(storageJson);
+        storageSet(storageObj);
     }
     catch (err)
     {

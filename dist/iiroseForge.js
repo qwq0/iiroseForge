@@ -81,740 +81,6 @@
 	}
 
 	/**
-	 * 主iframe的上下文
-	 */
-	let iframeContext = {
-	    /**
-	     * @type {Window | Object}
-	     */
-	    iframeWindow: null,
-	    /**
-	     * @type {Document}
-	     */
-	    iframeDocument: null,
-	    /**
-	     * @type {WebSocket | Object}
-	     */
-	    socket: null,
-	    /**
-	     * @type {import("../../lib/qwqframe").NElement<HTMLBodyElement>}
-	     */
-	    iframeBody: null,
-
-	    socketApi: {
-	        /**
-	         * @type {(data: string) => void}
-	         */
-	        send: () => { }
-	    }
-	};
-
-	/**
-	 * 在 蔷薇终端 中运行命令
-	 * @param {string} command
-	 */
-	function runTerminalCommand(command)
-	{
-	    if (iframeContext.iframeWindow?.["Probe"]?.init?.shellHolder)
-	        iframeContext.iframeWindow?.["Init"]?.movePanel(6);
-	    let inputBox = /** @type {HTMLInputElement} */(domPath(iframeContext.iframeDocument.getElementById("shellHolder"), [2, 0, -1, 0]));
-	    let old = inputBox.value;
-	    inputBox.value = command;
-	    inputBox.oninput(null);
-	    inputBox.dispatchEvent(new KeyboardEvent("keydown", { keyCode: 13 }));
-	    inputBox.value = old;
-	}
-
-	/**
-	 * 使用当前页面中的输入框发送消息
-	 * @param {string} content
-	 */
-	function sendMessageOnCurrentPage(content)
-	{
-	    var inputBox = /** @type {HTMLInputElement} */(document.getElementById("moveinput"));
-	    var old = inputBox.value;
-	    inputBox.value = content;
-	    inputBox.oninput(null);
-	    (/** @type {HTMLElement} */(document.getElementsByClassName("moveinputSendBtn")[0]))?.onclick(null);
-	    inputBox.value = old;
-	}
-
-	/**
-	 * 自定义序列化函数
-	 */
-	const serializationFunctionSymbol$1 = Symbol("serialization function");
-	/**
-	 * 自定义反序列化函数
-	 */
-	const deserializationFunctionSymbol$1 = Symbol("deserialization function");
-
-	/**
-	 * js内置类集合
-	 */
-	const jsBuiltInClassSet = new Set();
-	([
-	    Set,
-	    Map
-	]).forEach(o => { jsBuiltInClassSet.add(o); });
-
-	const textEncoder$1 = new TextEncoder();
-	const textDecoder$1 = new TextDecoder("utf-8");
-
-	/**
-	 * 可变长buffer类
-	 */
-	class VariableSizeBuffer
-	{
-	    arr = new Uint8Array(128);
-	    endInd = 0;
-
-	    /**
-	     * @param {number} c
-	     */
-	    push(c)
-	    {
-	        if (this.endInd >= this.arr.length)
-	        {
-	            let old = this.arr;
-	            this.arr = new Uint8Array(this.arr.length * 2);
-	            this.arr.set(old);
-	        }
-	        this.arr[this.endInd++] = c;
-	    }
-
-	    /**
-	     * @param {Uint8Array} a 
-	     */
-	    pushArr(a)
-	    {
-	        if (this.endInd + a.length > this.arr.length)
-	        {
-	            let old = this.arr;
-	            let newLen = old.length * 2;
-	            while (this.endInd + a.length > newLen)
-	                newLen *= 2;
-	            this.arr = new Uint8Array(newLen);
-	            this.arr.set(old);
-	        }
-	        this.arr.set(a, this.endInd);
-	        this.endInd += a.length;
-	    }
-	}
-
-	/**
-	 * JSOBin操作上下文
-	 */
-	let JSOBin$1 = class JSOBin
-	{
-	    /**
-	     * 类映射
-	     * 类名字符串标识 到 类(构造函数)
-	     * @private
-	     * @type {Map<string, object>}
-	     */
-	    nameToClass = new Map();
-
-	    /**
-	     * 类映射
-	     * 类(构造函数) 到 类名字符串标识
-	     * @private
-	     * @type {Map<object, string>}
-	     */
-	    classToName = new Map();
-
-	    /**
-	     * 安全函数映射
-	     * 安全函数字符串标识 到 函数
-	     * @private
-	     * @type {Map<string, function>}
-	     */
-	    nameToSFunction = new Map();
-
-	    /**
-	     * 安全函数映射
-	     * 函数 到 安全函数字符串标识
-	     * @private
-	     * @type {Map<function, string>}
-	     */
-	    sFunctionToName = new Map();
-
-	    /**
-	     * 添加类到上下文
-	     * 注册标识符和类(构造器)的相互映射
-	     * @param {string} identifier 类标识符
-	     * @param {function} classConstructor 类的构造器
-	     */
-	    addClass(identifier, classConstructor)
-	    {
-	        this.nameToClass.set(identifier, classConstructor);
-	        this.classToName.set(classConstructor, identifier);
-	    }
-
-	    /**
-	     * 添加安全函数到上下文
-	     * 允许确保安全的函数注册标识符和函数的相互映射
-	     * @param {string} identifier 安全函数标识符
-	     * @param {function} safetyFunction 函数
-	     */
-	    addSafetyFunction(identifier, safetyFunction)
-	    {
-	        this.nameToSFunction.set(identifier, safetyFunction);
-	        this.sFunctionToName.set(safetyFunction, identifier);
-	    }
-
-	    /**
-	     * 编码
-	     * @param {object | number | string} obj
-	     * @returns {Uint8Array}
-	     */
-	    encode(obj)
-	    {
-	        /**
-	         * 输出结果由此数组拼接
-	         */
-	        let buffer = new VariableSizeBuffer();
-
-	        /**
-	         * 序列化一个vint
-	         * @param {number} num
-	         */
-	        const pushVint = (num) =>
-	        {
-	            while (true)
-	            {
-	                let c = (num & ((1 << 7) - 1));
-	                num >>>= 7;
-	                if (!num)
-	                {
-	                    buffer.push(c | (1 << 7));
-	                    return;
-	                }
-	                buffer.push(c);
-	            }
-	        };
-
-	        /**
-	         * 写入字符串
-	         * @param {string} str
-	         */
-	        const pushStr = str =>
-	        {
-	            let strBin = textEncoder$1.encode(str);
-	            pushVint(strBin.byteLength);
-	            buffer.pushArr(strBin);
-	        };
-
-	        let referenceIndCount = -1;
-	        let referenceIndMap = new Map();
-
-	        /**
-	         * 遍历处理对象
-	         * @param {object | number | string} now 
-	         */
-	        const tr = (now) =>
-	        {
-	            ++referenceIndCount;
-	            if (!referenceIndMap.has(now))
-	                referenceIndMap.set(now, referenceIndCount);
-	            switch (typeof (now))
-	            {
-	                case "number": { // 数值型(整数或小数)
-	                    if (Number.isInteger(now)) // 整数
-	                    {
-	                        buffer.push(1);
-	                        pushVint(now);
-	                    }
-	                    else // 浮点数
-	                    {
-	                        buffer.push(2);
-	                        buffer.pushArr(new Uint8Array(new Float64Array([now]).buffer));
-	                    }
-	                    break;
-	                }
-
-	                case "string": { // 字符串
-	                    buffer.push(3);
-	                    pushStr(now);
-	                    break;
-	                }
-
-	                case "object": { // 对象 数组 类 null
-	                    if (now == null) // null
-	                        buffer.push(11);
-	                    else if (referenceIndMap.get(now) < referenceIndCount) // 需要引用的对象
-	                    {
-	                        buffer.push(14);
-	                        pushVint(referenceIndMap.get(now));
-	                    }
-	                    else if (Array.isArray(now)) // 数组
-	                    {
-	                        buffer.push(5);
-	                        now.forEach(tr);
-	                        buffer.push(0);
-	                    }
-	                    else if (this.classToName.has(Object.getPrototypeOf(now)?.constructor)) // 类(自定义类)
-	                    {
-	                        buffer.push(6);
-	                        pushStr(this.classToName.get(Object.getPrototypeOf(now)?.constructor));
-	                        let obj = now[serializationFunctionSymbol$1] ? now[serializationFunctionSymbol$1].call(now) : now; // 处理自定义序列化函数
-	                        let keys = Object.getOwnPropertyNames(obj);
-	                        pushVint(keys.length);
-	                        keys.forEach(key =>
-	                        {
-	                            pushStr(key);
-	                            tr(obj[key]);
-	                        });
-	                    }
-	                    else if (jsBuiltInClassSet.has(Object.getPrototypeOf(now)?.constructor)) // js内置类
-	                    {
-	                        buffer.push(15);
-	                        switch (Object.getPrototypeOf(now)?.constructor)
-	                        {
-	                            case Map: { // Map类
-	                                pushVint(1);
-	                                pushVint((/** @type {Map} */(now)).size);
-	                                (/** @type {Map} */(now)).forEach((value, key) =>
-	                                {
-	                                    tr(key);
-	                                    tr(value);
-	                                });
-	                                break;
-	                            }
-	                            case Set: { // Set类
-	                                pushVint(2);
-	                                (/** @type {Set} */(now)).forEach(tr);
-	                                buffer.push(0);
-	                                break;
-	                            }
-	                            default:
-	                                buffer.push(7); // 不支持的js内置类类型
-	                        }
-	                    }
-	                    else // 对象
-	                    {
-	                        buffer.push(4);
-	                        let keys = Object.keys(now);
-	                        pushVint(keys.length);
-	                        keys.forEach(key =>
-	                        {
-	                            pushStr(key);
-	                            tr(now[key]);
-	                        });
-	                    }
-	                    break;
-	                }
-
-	                case "undefined": { // 未定义(undefined)
-	                    buffer.push(7);
-	                    break;
-	                }
-
-	                case "boolean": { // 布尔值
-	                    buffer.push(now ? 9 : 8);
-	                    break;
-	                }
-
-	                case "bigint": { // bigint类型
-	                    /** @type {Uint8Array} */
-	                    let bigintBuf = null;
-	                    if (now >= 0n) // bigint正数和0
-	                    {
-	                        buffer.push(12);
-	                        if (now > 0n) // bigint正数
-	                            bigintBuf = JSOBin.writeBigint(now);
-	                        else // bigint 0
-	                            bigintBuf = new Uint8Array(0);
-	                    }
-	                    else // bigint负数
-	                    {
-	                        buffer.push(13);
-	                        bigintBuf = JSOBin.writeBigint(-(/** @type {bigint} */(now)));
-	                    }
-	                    pushVint(bigintBuf.byteLength);
-	                    buffer.pushArr(bigintBuf);
-	                    break;
-	                }
-
-	                case "symbol": { // symbol类型
-	                    if (referenceIndMap.get(now) < referenceIndCount) // 需要引用的symbol
-	                    {
-	                        buffer.push(14);
-	                        pushVint(referenceIndMap.get(now));
-	                    }
-	                    else // 新的symbol
-	                    {
-	                        buffer.push(10);
-	                        pushStr(now.description ? now.description : "");
-	                    }
-	                    break;
-	                }
-
-	                case "function": { // 函数
-	                    if (this.sFunctionToName.has(now)) // 安全函数
-	                    {
-	                        buffer.push(17);
-	                        pushStr(this.sFunctionToName.get(now));
-	                    }
-	                    else
-	                        buffer.push(7); // 目前不处理其他函数
-	                    break;
-	                }
-
-	                default:
-	                    throw "JSObin(encode): The type of value that cannot be processed.";
-	            }
-	        };
-	        tr(obj);
-
-	        return buffer.arr.slice(0, buffer.endInd);
-	    }
-
-	    /**
-	     * 解码
-	     * @param {Uint8Array} bin
-	     * @returns {object | number | string}
-	     */
-	    decode(bin)
-	    {
-	        let dataView = new DataView(bin.buffer);
-	        /**
-	         * 当前读到的位置
-	         * @type {number}
-	         */
-	        let ind = 0;
-
-
-	        /**
-	         * 读一个vint
-	         * @returns {number}
-	         */
-	        const getVInt = () =>
-	        {
-	            let ret = 0;
-	            let bitPointer = 0;
-	            while (!(bin[ind] & (1 << 7)))
-	            {
-	                ret |= bin[ind++] << bitPointer;
-	                bitPointer += 7;
-	                if (bitPointer > 32) // (bitPointer > 28)
-	                    throw "JSOBin Decode: Unexpected vint length";
-	            }
-	            ret |= (bin[ind++] & ((1 << 7) - 1)) << bitPointer;
-	            return ret;
-	        };
-
-	        /**
-	         * 获取一个字符串(带有表示长度的vint)
-	         * @returns {string}
-	         */
-	        const getStr = () =>
-	        {
-	            let len = getVInt();
-	            let str = textDecoder$1.decode(bin.subarray(ind, ind + len));
-	            ind += len;
-	            return str;
-	        };
-
-	        let referenceIndList = [];
-
-	        /**
-	         * 遍历处理对象
-	         * @param {number} [presetTypeId]
-	         * @returns {object | number | string}
-	         */
-	        const tr = (presetTypeId) =>
-	        {
-	            if (ind >= bin.length)
-	                throw "JSOBin Decode: Wrong format";
-	            let typeId = (presetTypeId === undefined ? bin[ind++] : presetTypeId);
-	            switch (typeId)
-	            {
-	                case 1: { // 变长型整数
-	                    let num = getVInt();
-	                    referenceIndList.push(num);
-	                    return num;
-	                }
-
-	                case 2: { // 浮点数
-	                    let num = dataView.getFloat64(ind, true);
-	                    referenceIndList.push(num);
-	                    ind += 8;
-	                    return num;
-	                }
-
-	                case 3: { // 字符串
-	                    let str = getStr();
-	                    referenceIndList.push(str);
-	                    return str;
-	                }
-
-	                case 4: { // 对象
-	                    let ret = {};
-	                    let childCount = getVInt();
-	                    referenceIndList.push(ret);
-	                    for (let i = 0; i < childCount; i++)
-	                    {
-	                        let key = getStr();
-	                        ret[key] = tr();
-	                    }
-	                    return ret;
-	                }
-
-	                case 5: { // 数组
-	                    let ret = [];
-	                    referenceIndList.push(ret);
-	                    while (bin[ind])
-	                        ret.push(tr());
-	                    ind++;
-	                    return ret;
-	                }
-
-	                case 6: { // 类
-	                    let className = getStr();
-	                    let classConstructor = this.nameToClass.get(className);
-	                    if (classConstructor == undefined)
-	                        throw `JSOBin Decode: (class) "${className}" is unregistered class in the current context in the parsing jsobin`;
-	                    if (classConstructor?.[deserializationFunctionSymbol$1]) // 存在自定义反序列化函数
-	                    {
-	                        let dataObj = Object.create(classConstructor.prototype);
-	                        let childCount = getVInt();
-	                        referenceIndList.push(dataObj);
-	                        for (let i = 0; i < childCount; i++)
-	                        {
-	                            let key = getStr();
-	                            dataObj[key] = tr();
-	                        }
-	                        return classConstructor[deserializationFunctionSymbol$1](dataObj);
-	                    }
-	                    else // 自定义类默认序列化方案
-	                    {
-	                        let ret = Object.create(classConstructor.prototype);
-	                        let childCount = getVInt();
-	                        referenceIndList.push(ret);
-	                        for (let i = 0; i < childCount; i++)
-	                        {
-	                            let key = getStr();
-	                            ret[key] = tr();
-	                        }
-	                        return ret;
-	                    }
-	                }
-
-	                case 7: { // 未定义(undefined)
-	                    referenceIndList.push(undefined);
-	                    return undefined;
-	                }
-
-	                case 8: { // 布尔值假
-	                    referenceIndList.push(false);
-	                    return false;
-	                }
-
-	                case 9: { // 布尔值真
-	                    referenceIndList.push(true);
-	                    return true;
-	                }
-
-	                case 10: { // symbol类型
-	                    let symbol = Symbol(getStr());
-	                    referenceIndList.push(symbol);
-	                    return symbol;
-	                }
-
-	                case 11: { // 无效对象(null)
-	                    referenceIndList.push(null);
-	                    return null;
-	                }
-
-	                case 12: { // bigint类型(正数)
-	                    let len = getVInt();
-	                    let num = JSOBin.readBigInt(bin, ind, len);
-	                    referenceIndList.push(num);
-	                    ind += len;
-	                    return num;
-	                }
-
-	                case 13: { // bigint类型(负数)
-	                    let len = getVInt();
-	                    let num = JSOBin.readBigInt(bin, ind, len);
-	                    referenceIndList.push(num);
-	                    ind += len;
-	                    return -num;
-	                }
-
-	                case 14: { // 引用
-	                    let referenceInd = getVInt();
-	                    let ret = referenceIndList[referenceInd];
-	                    referenceIndList.push(ret);
-	                    return ret;
-	                }
-
-	                case 15: { // js内置类
-	                    let builtInClassId = getVInt();
-	                    switch (builtInClassId)
-	                    {
-	                        case 1: { // Map类
-	                            let ret = new Map();
-	                            let childCount = getVInt();
-	                            referenceIndList.push(ret);
-	                            for (let i = 0; i < childCount; i++)
-	                            {
-	                                let key = tr();
-	                                ret.set(key, tr());
-	                            }
-	                            return ret;
-	                        }
-	                        case 2: { // Set类
-	                            let ret = new Set();
-	                            referenceIndList.push(ret);
-	                            while (bin[ind])
-	                                ret.add(tr());
-	                            ind++;
-	                            return ret;
-	                        }
-	                        default:
-	                            throw "JSOBin Decode: Unsupported js built-in class type.";
-	                    }
-	                }
-
-	                case 16: { // 函数 目前不支持
-	                    throw "JSOBin Decode: Function is not supported in the current version";
-	                }
-
-	                case 17: { // 安全函数
-	                    let func = this.nameToSFunction.get(getStr());
-	                    referenceIndList.push(func);
-	                    return func;
-	                }
-
-	                default:
-	                    throw "JSOBin Decode: Wrong format";
-	            }
-	        };
-	        return tr();
-	    }
-
-
-
-	    /**
-	     * 序列化一个bigint
-	     * @param {bigint} num
-	     * @returns {Uint8Array}
-	     */
-	    static writeBigint(num)
-	    {
-	        let buf = [];
-	        while (true)
-	        {
-	            buf.push(Number(num & BigInt((1 << 8) - 1)));
-	            num >>= 8n;
-	            if (num == 0n)
-	                return new Uint8Array(buf);
-	        }
-	    }
-
-	    /**
-	     * 反序列化一个Bigint
-	     * @param {Uint8Array} buf
-	     * @param {number} startInd
-	     * @param {number} len
-	     * @returns {bigint}
-	     */
-	    static readBigInt(buf, startInd, len)
-	    {
-	        let ret = 0n;
-	        for (let ptr = startInd + len - 1; ptr >= startInd; ptr--)
-	        {
-	            ret <<= 8n;
-	            ret += BigInt(buf[ptr]);
-	        }
-	        return ret;
-	    }
-	};
-
-	const jsob = new JSOBin$1();
-
-	/**
-	 * 读取forge数据包
-	 * @param {string} dataStr
-	 * @returns {Object}
-	 */
-	function readForgePacket(dataStr)
-	{
-	    if (dataStr.startsWith("iiroseForge:") && dataStr.endsWith(":end"))
-	    {
-	        let data = dataStr.slice(12, -4);
-	        try
-	        {
-	            let commaInd = data.indexOf(",");
-	            let len = Number.parseInt(data.slice(0, commaInd), 36);
-	            if (Number.isNaN(len) || len < 0 || len > 8192)
-	                return undefined;
-	            data = data.slice(commaInd + 1);
-	            let dataBase64 = data.slice(0, len);
-	            if (dataBase64.length != len)
-	                return undefined;
-	            let metaArr = data.slice(len).split(",");
-	            if ((!metaArr[1]) || metaArr[1] == "single")
-	                return jsob.decode(base64ToUint8(dataBase64));
-	        }
-	        catch (err)
-	        {
-	            console.log(err);
-	            return undefined;
-	        }
-	    }
-	    else
-	        return undefined;
-	}
-
-	/**
-	 * 写入forge数据包
-	 * @param {Object} obj
-	 * @returns {string}
-	 */
-	function writeForgePacket(obj)
-	{
-	    try
-	    {
-	        let dataBase64 = uint8ToBase64(jsob.encode(obj));
-	        let metaArr = ["", "single"];
-	        return `iiroseForge:${dataBase64.length.toString(36)},${dataBase64}${metaArr.join(",")}:end`;
-	    }
-	    catch (err)
-	    {
-	        return undefined;
-	    }
-	}
-
-	/**
-	 * uint8数组转base64
-	 * @param {Uint8Array} data
-	 * @returns {string}
-	 */
-	function uint8ToBase64(data)
-	{
-	    let binaryString = Array.from(data).map(o => String.fromCharCode(o)).join("");
-	    return window.btoa(binaryString);
-	}
-
-	/**
-	 * base64数组转uint8
-	 * @param {string} base64
-	 * @returns {Uint8Array}
-	 */
-	function base64ToUint8(base64)
-	{
-	    let binaryString = window.atob(base64);
-	    let ret = new Uint8Array(binaryString.length);
-	    for (let i = 0; i < binaryString.length; i++)
-	    {
-	        ret[i] = binaryString.charCodeAt(i);
-	    }
-	    return ret;
-	}
-
-	/**
 	 * 正向遍历数组
 	 * 在回调中返回不为false或void的值主动结束遍历
 	 * 主动结束遍历 返回true
@@ -2453,6 +1719,1261 @@
 	});
 
 	/**
+	 * 异步延迟
+	 * 将创建一个Promise并在指定延迟时间后解决
+	 * @param {number} time 单位:毫秒
+	 * @returns {Promise<void>}
+	 */
+	function delayPromise(time)
+	{
+	    return (new Promise((resolve, reject) =>
+	    {
+	        setTimeout(() =>
+	        {
+	            resolve();
+	        }, time);
+	    }));
+	}
+
+	/**
+	 * 事件处理器
+	 * 可以定多个事件响应函数
+	 * @template {*} T
+	 */
+	let EventHandler$2 = class EventHandler
+	{
+	    /**
+	     * 回调列表
+	     * @type {Array<function(T): void>}
+	     */
+	    cbList = [];
+	    /**
+	     * 单次回调列表
+	     * @type {Array<function(T): void>}
+	     */
+	    onceCbList = [];
+	    /**
+	     * 单次触发Promise复用
+	     * @type {Promise<T>}
+	     */
+	    #oncePromiseReuse = null;
+
+	    /**
+	     * 添加响应函数
+	     * @param {function(T): void} cb
+	     */
+	    add(cb)
+	    {
+	        this.cbList.push(cb);
+	    }
+
+	    /**
+	     * 添加单次响应函数
+	     * 触发一次事件后将不再响应
+	     * @param {function(T): void} cb
+	     */
+	    addOnce(cb)
+	    {
+	        this.onceCbList.push(cb);
+	    }
+
+	    /**
+	     * 返回一个Primise
+	     * 下次响应时此primise将解决
+	     * @returns {Promise<T>}
+	     */
+	    oncePromise()
+	    {
+	        if (!this.#oncePromiseReuse)
+	        {
+	            this.#oncePromiseReuse = new Promise(resolve =>
+	            {
+	                this.addOnce(e => {
+	                    this.#oncePromiseReuse = null;
+	                    resolve(e);
+	                });
+	            });
+	        }
+	        return this.#oncePromiseReuse;
+	    }
+
+	    /**
+	     * 移除响应函数
+	     * @param {function(T): void} cb
+	     */
+	    remove(cb)
+	    {
+	        let ind = this.cbList.indexOf(cb);
+	        if (ind > -1)
+	        {
+	            this.cbList.splice(ind, 1);
+	        }
+	        else
+	        {
+	            ind = this.onceCbList.indexOf(cb);
+	            if (ind > -1)
+	            {
+	                this.onceCbList.splice(ind, 1);
+	            }
+	        }
+	    }
+
+	    /**
+	     * 移除所有响应函数
+	     */
+	    removeAll()
+	    {
+	        this.cbList = [];
+	        this.onceCbList = [];
+	    }
+
+	    /**
+	     * 触发事件
+	     * @param {T} e
+	     */
+	    trigger(e)
+	    {
+	        this.cbList.forEach(async (o) => { o(e); });
+	        this.onceCbList.forEach(async (o) => { o(e); });
+	        this.onceCbList = [];
+	    }
+
+	    /**
+	     * 存在监听器
+	     * @returns {boolean}
+	     */
+	    existListener()
+	    {
+	        return (this.cbList.length > 0 || this.onceCbList.length > 0);
+	    }
+	};
+
+	/**
+	 * 主iframe的上下文
+	 */
+	let iframeContext = {
+	    /**
+	     * @type {Window | Object}
+	     */
+	    iframeWindow: null,
+	    /**
+	     * @type {Document}
+	     */
+	    iframeDocument: null,
+	    /**
+	     * @type {WebSocket | Object}
+	     */
+	    socket: null,
+	    /**
+	     * @type {import("../../lib/qwqframe").NElement<HTMLBodyElement>}
+	     */
+	    iframeBody: null,
+
+	    socketApi: {
+	        /**
+	         * @type {(data: string) => void}
+	         */
+	        send: () => { }
+	    }
+	};
+
+	/**
+	 * 在 蔷薇终端 中运行命令
+	 * @param {string} command
+	 */
+	function runTerminalCommand(command)
+	{
+	    if (iframeContext.iframeWindow?.["Probe"]?.init?.shellHolder)
+	        iframeContext.iframeWindow?.["Init"]?.movePanel(6);
+	    let inputBox = /** @type {HTMLInputElement} */(domPath(iframeContext.iframeDocument.getElementById("shellHolder"), [2, 0, -1, 0]));
+	    let old = inputBox.value;
+	    inputBox.value = command;
+	    inputBox.oninput(null);
+	    inputBox.dispatchEvent(new KeyboardEvent("keydown", { keyCode: 13 }));
+	    inputBox.value = old;
+	}
+
+	/**
+	 * 使用当前页面中的输入框发送消息
+	 * @param {string} content
+	 */
+	function sendMessageOnCurrentPage(content)
+	{
+	    var inputBox = /** @type {HTMLInputElement} */(document.getElementById("moveinput"));
+	    var old = inputBox.value;
+	    inputBox.value = content;
+	    inputBox.oninput(null);
+	    (/** @type {HTMLElement} */(document.getElementsByClassName("moveinputSendBtn")[0]))?.onclick(null);
+	    inputBox.value = old;
+	}
+
+	/**
+	 * 状态
+	 */
+	let State$1 = class State
+	{
+	    /**
+	     * 类映射
+	     * 类名字符串标识 到 类(构造函数)
+	     * @package
+	     * @type {Map<string, object>}
+	     */
+	    nameToClass = new Map();
+
+	    /**
+	     * 类映射
+	     * 类(构造函数) 到 类名字符串标识
+	     * @package
+	     * @type {Map<object, string>}
+	     */
+	    classToName = new Map();
+
+	    /**
+	     * 安全函数映射
+	     * 安全函数字符串标识 到 函数
+	     * @package
+	     * @type {Map<string, function>}
+	     */
+	    nameToSafetyFunction = new Map();
+
+	    /**
+	     * 安全函数映射
+	     * 函数 到 安全函数字符串标识
+	     * @package
+	     * @type {Map<function, string>}
+	     */
+	    safetyFunctionToName = new Map();
+	};
+
+	/**
+	 * 自定义序列化函数
+	 */
+	const serializationFunctionSymbol$1 = Symbol("serialization function");
+	/**
+	 * 自定义反序列化函数
+	 */
+	const deserializationFunctionSymbol$1 = Symbol("deserialization function");
+
+	const textEncoder$1 = new TextEncoder();
+
+	/**
+	 * JSOBin编码器
+	 */
+	let Encoder$1 = class Encoder
+	{
+	    /**
+	     * @type {State}
+	     */
+	    #state = null;
+
+	    /**
+	     * 缓冲区
+	     * @type {Uint8Array}
+	     */
+	    #buffer = new Uint8Array(128);
+	    /**
+	     * 缓冲区结束索引
+	     * 不包括该值
+	     * @type {number}
+	     */
+	    #endInd = 0;
+
+	    /**
+	     * 引用索引计数
+	     * @type {number}
+	     */
+	    #referenceIndCount = -1;
+	    /**
+	     * 引用的值 到 引用索引 映射
+	     * @type {Map<any, number>}
+	     */
+	    #referenceIndMap = new Map();
+	    /**
+	     * 允许引用字符串
+	     * 开启时对于有相同字符串的内容将降低大小
+	     * @type {boolean}
+	     */
+	    #enableReferenceString = false;
+
+
+	    /**
+	     * @param {State} state
+	     * @param {boolean} enableReferenceString
+	     */
+	    constructor(state, enableReferenceString)
+	    {
+	        this.#state = state;
+	        this.#enableReferenceString = enableReferenceString;
+	    }
+
+	    /**
+	     * 向缓冲区加入单个值
+	     * @param {number} c
+	     */
+	    push(c)
+	    {
+	        if (this.#endInd >= this.#buffer.length)
+	        {
+	            let old = this.#buffer;
+	            this.#buffer = new Uint8Array(this.#buffer.length * 2);
+	            this.#buffer.set(old);
+	        }
+	        this.#buffer[this.#endInd++] = c;
+	    }
+
+	    /**
+	     * 向缓冲区加入数组
+	     * @param {Uint8Array} a 
+	     */
+	    pushArr(a)
+	    {
+	        if (this.#endInd + a.length > this.#buffer.length)
+	        {
+	            let old = this.#buffer;
+	            let newLen = old.length * 2;
+	            while (this.#endInd + a.length > newLen)
+	                newLen *= 2;
+	            this.#buffer = new Uint8Array(newLen);
+	            this.#buffer.set(old);
+	        }
+	        this.#buffer.set(a, this.#endInd);
+	        this.#endInd += a.length;
+	    }
+
+	    /**
+	     * 序列化一个vint
+	     * @param {number} num
+	     */
+	    pushVint(num)
+	    {
+	        while (true)
+	        {
+	            let c = (num & ((1 << 7) - 1));
+	            num >>>= 7;
+	            if (!num)
+	            {
+	                this.push(c | (1 << 7));
+	                return;
+	            }
+	            this.push(c);
+	        }
+	    }
+
+	    /**
+	     * 写入字符串
+	     * @param {string} str
+	     */
+	    pushStr(str)
+	    {
+	        let strBin = textEncoder$1.encode(str);
+	        this.pushVint(strBin.byteLength);
+	        this.pushArr(strBin);
+	    }
+
+	    /**
+	     * 遍历编码
+	     * @param {object | number | string} now
+	     */
+	    traversal(now)
+	    {
+	        ++this.#referenceIndCount;
+	        if (!this.#referenceIndMap.has(now))
+	            this.#referenceIndMap.set(now, this.#referenceIndCount);
+	        switch (typeof (now))
+	        {
+	            case "number": { // 数值型(整数或小数)
+	                if (Number.isInteger(now) && now >= -2147483648 && now <= 2147483647) // 整数
+	                {
+	                    this.push(1);
+	                    this.pushVint(now);
+	                }
+	                else // 浮点数
+	                {
+	                    this.push(2);
+	                    this.pushArr(new Uint8Array(new Float64Array([now]).buffer));
+	                }
+	                break;
+	            }
+
+	            case "string": { // 字符串
+	                let refInd = 0;
+	                if (
+	                    this.#enableReferenceString &&
+	                    now.length >= 2 &&
+	                    this.#referenceIndCount > (refInd = this.#referenceIndMap.get(now))
+	                ) // 引用字符串
+	                {
+	                    this.push(14);
+	                    this.pushVint(refInd);
+	                }
+	                else
+	                {
+	                    this.push(3);
+	                    this.pushStr(now);
+	                }
+	                break;
+	            }
+
+	            case "object": { // 对象 数组 类 null
+	                if (now == null) // null
+	                    this.push(11);
+	                else if (this.#referenceIndMap.get(now) < this.#referenceIndCount) // 需要引用的对象
+	                {
+	                    this.push(14);
+	                    this.pushVint(this.#referenceIndMap.get(now));
+	                }
+	                else if (Array.isArray(now)) // 数组
+	                {
+	                    this.push(5);
+	                    now.forEach(o =>
+	                    {
+	                        this.traversal(o);
+	                    });
+	                    this.push(0);
+	                }
+	                else if (this.#state.classToName.has(Object.getPrototypeOf(now)?.constructor)) // 类(自定义类)
+	                { // TODO 类的自定义处理需要大改版 目前无法在自定义序列化下使用循环引用
+	                    this.push(6);
+	                    this.pushStr(this.#state.classToName.get(Object.getPrototypeOf(now)?.constructor));
+	                    let obj = now[serializationFunctionSymbol$1] ? now[serializationFunctionSymbol$1].call(now) : now; // 处理自定义序列化函数
+	                    let keys = Object.getOwnPropertyNames(obj);
+	                    this.pushVint(keys.length);
+	                    keys.forEach(key =>
+	                    {
+	                        this.pushStr(key);
+	                        this.traversal(obj[key]);
+	                    });
+	                }
+	                else if (builtInClassConstructorMap$1.has(Object.getPrototypeOf(now)?.constructor)) // js内置类
+	                {
+	                    this.push(15);
+	                    let classInfo = builtInClassConstructorMap$1.get(Object.getPrototypeOf(now)?.constructor);
+	                    this.pushVint(classInfo.typeId);
+	                    classInfo.encode(this, now);
+	                }
+	                else // 对象
+	                {
+	                    this.push(4);
+	                    let keys = Object.keys(now);
+	                    this.pushVint(keys.length);
+	                    keys.forEach(key =>
+	                    {
+	                        this.pushStr(key);
+	                        this.traversal(now[key]);
+	                    });
+	                }
+	                break;
+	            }
+
+	            case "undefined": { // 未定义(undefined)
+	                this.push(7);
+	                break;
+	            }
+
+	            case "boolean": { // 布尔值
+	                this.push(now ? 9 : 8);
+	                break;
+	            }
+
+	            case "bigint": { // bigint类型
+	                /** @type {Uint8Array} */
+	                let bigintBuf = null;
+	                if (now >= 0n) // bigint正数和0
+	                {
+	                    this.push(12);
+	                    if (now == 0n) // bigint 0
+	                        bigintBuf = new Uint8Array(0);
+	                    else // bigint 正数
+	                        bigintBuf = Encoder.writeBigint(now);
+	                }
+	                else // bigint负数
+	                {
+	                    this.push(13);
+	                    bigintBuf = Encoder.writeBigint(-(/** @type {bigint} */(now)));
+	                }
+	                this.pushVint(bigintBuf.byteLength);
+	                this.pushArr(bigintBuf);
+	                break;
+	            }
+
+	            case "symbol": { // symbol类型
+	                if (this.#referenceIndMap.get(now) < this.#referenceIndCount) // 需要引用的symbol
+	                {
+	                    this.push(14);
+	                    this.pushVint(this.#referenceIndMap.get(now));
+	                }
+	                else // 新的symbol
+	                {
+	                    this.push(10);
+	                    this.pushStr(now.description ? now.description : "");
+	                }
+	                break;
+	            }
+
+	            case "function": { // 函数
+	                if (this.#state.safetyFunctionToName.has(now)) // 安全函数
+	                {
+	                    this.push(17);
+	                    this.pushStr(this.#state.safetyFunctionToName.get(now));
+	                }
+	                else
+	                    this.push(7); // 目前不处理其他函数
+	                break;
+	            }
+
+	            default:
+	                throw "JSObin(encode): The type of value that cannot be processed.";
+	        }
+	    }
+
+	    /**
+	     * 获取最终缓冲区
+	     * @returns {Uint8Array}
+	     */
+	    getFinalBuffer()
+	    {
+	        return this.#buffer.slice(0, this.#endInd);
+	    }
+
+	    /**
+	     * 编码
+	     * @param {object | number | string} obj
+	     */
+	    encode(obj)
+	    {
+	        this.traversal(obj);
+	        return this.getFinalBuffer();
+	    }
+
+	    /**
+	     * 序列化一个bigint
+	     * @param {bigint} num 一个正数
+	     * @returns {Uint8Array}
+	     */
+	    static writeBigint(num)
+	    {
+	        let buf = [];
+	        while (true)
+	        {
+	            buf.push(Number(num & 255n));
+	            num >>= 8n;
+	            if (num == 0n)
+	                return new Uint8Array(buf);
+	        }
+	    }
+	};
+
+	/**
+	 * js内置类映射
+	 * 内置类构造函数 到 内置类id和编码处理函数
+	 * @type {Map<Function, {
+	 *  typeId: number,
+	 *  encode: (encoder: Encoder, obj: Object) => void
+	 * }>}
+	 */
+	const builtInClassConstructorMap$1 = new Map();
+	/**
+	 * js内置类映射
+	 * 内置类id 到 解码处理函数
+	 * 解码处理函数需要处理引用索引数组
+	 * @type {Map<number, (decoder: Decoder) => any>}
+	 */
+	const builtInClassTypeIdMap$1 = new Map();
+
+	([
+	    {
+	        constructor: Map,
+	        typeId: 1,
+	        encode: (/** @type {Encoder} */ encoder, /** @type {Map} */ obj) =>
+	        {
+	            encoder.pushVint(obj.size);
+	            obj.forEach((value, key) =>
+	            {
+	                encoder.traversal(key);
+	                encoder.traversal(value);
+	            });
+	        },
+	        decode: (/** @type {Decoder} */decoder) =>
+	        {
+	            let ret = new Map();
+	            let childCount = decoder.getVInt();
+	            decoder.referenceIndList.push(ret);
+	            for (let i = 0; i < childCount; i++)
+	            {
+	                let key = decoder.traversal();
+	                ret.set(key, decoder.traversal());
+	            }
+	            return ret;
+	        }
+	    },
+	    {
+	        constructor: Set,
+	        typeId: 2,
+	        encode: (/** @type {Encoder} */ encoder, /** @type {Set} */ obj) =>
+	        {
+	            obj.forEach(o =>
+	            {
+	                encoder.traversal(o);
+	            });
+	            encoder.push(0);
+	        },
+	        decode: (/** @type {Decoder} */decoder) =>
+	        {
+	            let ret = new Set();
+	            decoder.referenceIndList.push(ret);
+	            while (decoder.peekByte() != 0)
+	                ret.add(decoder.traversal());
+	            decoder.index++;
+	            return ret;
+	        }
+	    },
+	    {
+	        constructor: ArrayBuffer,
+	        typeId: 20,
+	        encode: (/** @type {Encoder} */ encoder, /** @type {ArrayBuffer} */ obj) =>
+	        {
+	            encoder.pushVint(obj.byteLength);
+	            encoder.pushArr(new Uint8Array(obj));
+	        },
+	        decode: (/** @type {Decoder} */decoder) =>
+	        {
+	            let length = decoder.getVInt();
+	            let ret = decoder.buffer.buffer.slice(decoder.index, decoder.index + length);
+	            decoder.referenceIndList.push(ret);
+	            decoder.index += length;
+	            return ret;
+	        }
+	    },
+	]).forEach(o =>
+	{
+	    builtInClassConstructorMap$1.set(o.constructor, {
+	        typeId: o.typeId,
+	        encode: o.encode
+	    });
+	    builtInClassTypeIdMap$1.set(o.typeId, o.decode);
+	});
+
+	([
+	    {
+	        constructor: Int8Array,
+	        typeId: 10
+	    },
+	    {
+	        constructor: Uint8Array,
+	        typeId: 11
+	    },
+	    {
+	        constructor: Int16Array,
+	        typeId: 12
+	    },
+	    {
+	        constructor: Uint16Array,
+	        typeId: 13
+	    },
+	    {
+	        constructor: Int32Array,
+	        typeId: 14
+	    },
+	    {
+	        constructor: Uint32Array,
+	        typeId: 15
+	    },
+	    {
+	        constructor: BigInt64Array,
+	        typeId: 16
+	    },
+	    {
+	        constructor: BigUint64Array,
+	        typeId: 17
+	    },
+	    {
+	        constructor: Float32Array,
+	        typeId: 18
+	    },
+	    {
+	        constructor: Float64Array,
+	        typeId: 19
+	    }
+	]).forEach(o =>
+	{
+	    builtInClassConstructorMap$1.set(o.constructor, {
+	        typeId: o.typeId,
+	        encode: (encoder, /** @type {InstanceType<typeof o.constructor>} */obj) =>
+	        {
+	            let buffer = obj.buffer;
+	            let byteOffset = obj.byteOffset;
+	            let length = obj.length;
+	            encoder.pushVint(byteOffset);
+	            encoder.pushVint(length);
+	            encoder.traversal(buffer);
+	        }
+	    });
+	    builtInClassTypeIdMap$1.set(o.typeId, decode =>
+	    {
+	        let refInd = decode.referenceIndList.length;
+	        decode.referenceIndList.push(null);
+
+	        let byteOffset = decode.getVInt();
+	        let length = decode.getVInt();
+	        let buffer = decode.traversal();
+
+	        let ret = new o.constructor(buffer, byteOffset, length);
+	        decode.referenceIndList[refInd] = ret;
+	        return ret;
+	    });
+	});
+
+	const textDecoder$1 = new TextDecoder("utf-8");
+
+	/**
+	 * JSOBin解码器
+	 */
+	let Decoder$1 = class Decoder
+	{
+	    /**
+	     * @type {State}
+	     */
+	    #state = null;
+
+	    /**
+	     * 缓冲区
+	     * @type {Uint8Array}
+	     */
+	    buffer = null;
+	    /**
+	     * 缓冲区对应的DataView
+	     * @type {DataView}
+	     */
+	    dataView = null;
+	    /**
+	     * 当前读取到的位置
+	     */
+	    index = 0;
+
+	    /**
+	     * 引用列表
+	     * 用于记录引用索引对应的内容
+	     * @type {Array}
+	     */
+	    referenceIndList = [];
+
+	    /**
+	     * @param {State} state
+	     * @param {Uint8Array} buffer
+	     */
+	    constructor(state, buffer)
+	    {
+	        this.#state = state;
+	        this.buffer = buffer;
+	        this.dataView = new DataView(buffer.buffer);
+	    }
+
+	    /**
+	     * 获取当前位置的byte
+	     * @returns {number}
+	     */
+	    peekByte()
+	    {
+	        return this.buffer[this.index];
+	    }
+
+	    /**
+	     * 弹出当前位置的byte
+	     * 将移动索引位置
+	     * @returns {number}
+	     */
+	    popByte()
+	    {
+	        return this.buffer[this.index++];
+	    }
+
+	    /**
+	     * 读一个vint
+	     * @returns {number}
+	     */
+	    getVInt()
+	    {
+	        let ret = 0;
+	        let bitPointer = 0;
+	        while (!(this.peekByte() & (1 << 7)))
+	        {
+	            ret |= this.popByte() << bitPointer;
+	            bitPointer += 7;
+	            if (bitPointer > 32) // (bitPointer > 28)
+	                throw "JSOBin Decode: Unexpected vint length";
+	        }
+	        ret |= (this.popByte() & ((1 << 7) - 1)) << bitPointer;
+	        return ret;
+	    }
+
+	    /**
+	    * 获取一个字符串(带有表示长度的vint)
+	    * @returns {string}
+	    */
+	    getStr()
+	    {
+	        let len = this.getVInt();
+	        let str = textDecoder$1.decode(this.buffer.subarray(this.index, this.index + len));
+	        this.index += len;
+	        return str;
+	    }
+
+	    /**
+	     * 遍历解码
+	     * @returns {any}
+	     */
+	    traversal()
+	    {
+	        if (this.index >= this.buffer.length)
+	            throw "JSOBin Decode: Wrong format";
+	        let typeId = this.popByte();
+	        switch (typeId)
+	        {
+	            case 1: { // 变长型整数
+	                let num = this.getVInt();
+	                this.referenceIndList.push(num);
+	                return num;
+	            }
+
+	            case 2: { // 浮点数
+	                let num = this.dataView.getFloat64(this.index, true);
+	                this.referenceIndList.push(num);
+	                this.index += 8;
+	                return num;
+	            }
+
+	            case 3: { // 字符串
+	                let str = this.getStr();
+	                this.referenceIndList.push(str);
+	                return str;
+	            }
+
+	            case 4: { // 对象
+	                let ret = {};
+	                let childCount = this.getVInt();
+	                this.referenceIndList.push(ret);
+	                for (let i = 0; i < childCount; i++)
+	                {
+	                    let key = this.getStr();
+	                    ret[key] = this.traversal();
+	                }
+	                return ret;
+	            }
+
+	            case 5: { // 数组
+	                let ret = [];
+	                this.referenceIndList.push(ret);
+	                while (this.peekByte())
+	                    ret.push(this.traversal());
+	                this.index++;
+	                return ret;
+	            }
+
+	            case 6: { // 类
+	                let className = this.getStr();
+	                let classConstructor = this.#state.nameToClass.get(className);
+	                if (classConstructor == undefined)
+	                    throw `JSOBin Decode: (class) "${className}" is unregistered class in the current context in the parsing jsobin`;
+	                if (classConstructor?.[deserializationFunctionSymbol$1]) // 存在自定义反序列化函数
+	                { // TODO 类的自定义处理需要大改版 目前无法在自定义序列化下使用循环引用
+	                    let dataObj = {};
+	                    let childCount = this.getVInt();
+	                    let refInd = this.referenceIndList.length;
+	                    this.referenceIndList.push(dataObj);
+	                    for (let i = 0; i < childCount; i++)
+	                    {
+	                        let key = this.getStr();
+	                        dataObj[key] = this.traversal();
+	                    }
+	                    let ret = classConstructor[deserializationFunctionSymbol$1](dataObj);
+	                    this.referenceIndList[refInd] = ret;
+	                    return ret;
+	                }
+	                else // 自定义类默认序列化方案
+	                {
+	                    let ret = Object.create(classConstructor.prototype);
+	                    let childCount = this.getVInt();
+	                    this.referenceIndList.push(ret);
+	                    for (let i = 0; i < childCount; i++)
+	                    {
+	                        let key = this.getStr();
+	                        ret[key] = this.traversal();
+	                    }
+	                    return ret;
+	                }
+	            }
+
+	            case 7: { // 未定义(undefined)
+	                this.referenceIndList.push(undefined);
+	                return undefined;
+	            }
+
+	            case 8: { // 布尔值假
+	                this.referenceIndList.push(false);
+	                return false;
+	            }
+
+	            case 9: { // 布尔值真
+	                this.referenceIndList.push(true);
+	                return true;
+	            }
+
+	            case 10: { // symbol类型
+	                let symbol = Symbol(this.getStr());
+	                this.referenceIndList.push(symbol);
+	                return symbol;
+	            }
+
+	            case 11: { // 无效对象(null)
+	                this.referenceIndList.push(null);
+	                return null;
+	            }
+
+	            case 12: { // bigint类型(正数)
+	                let len = this.getVInt();
+	                let num = this.readBigInt(len);
+	                this.referenceIndList.push(num);
+	                return num;
+	            }
+
+	            case 13: { // bigint类型(负数)
+	                let len = this.getVInt();
+	                let num = this.readBigInt(len);
+	                this.referenceIndList.push(num);
+	                return -num;
+	            }
+
+	            case 14: { // 引用
+	                let referenceInd = this.getVInt();
+	                let ret = this.referenceIndList[referenceInd];
+	                this.referenceIndList.push(ret);
+	                return ret;
+	            }
+
+	            case 15: { // js内置类
+	                let builtInClassId = this.getVInt();
+	                let decodeFunction = builtInClassTypeIdMap$1.get(builtInClassId);
+	                if (decodeFunction)
+	                    return decodeFunction(this);
+	                else
+	                    throw "JSOBin Decode: Unsupported js built-in class type.";
+	            }
+
+	            case 16: { // 函数 目前不支持
+	                throw "JSOBin Decode: Function is not supported in the current version";
+	            }
+
+	            case 17: { // 安全函数
+	                let func = this.#state.nameToSafetyFunction.get(this.getStr());
+	                this.referenceIndList.push(func);
+	                return func;
+	            }
+
+	            default:
+	                throw "JSOBin Decode: Wrong format";
+	        }
+	    }
+
+	    /**
+	     * 解码
+	     * @returns {object | number | string}
+	     */
+	    decode()
+	    {
+	        return this.traversal();
+	    }
+
+	    /**
+	     * 反序列化一个Bigint
+	     * @param {number} len
+	     * @returns {bigint} 正数bigint 或 负数bigint的相反数
+	     */
+	    readBigInt(len)
+	    {
+	        let ret = 0n;
+	        for (let ptr = this.index + len - 1; ptr >= this.index; ptr--)
+	        {
+	            ret <<= 8n;
+	            ret += BigInt(this.buffer[ptr]);
+	        }
+	        this.index += len;
+	        return ret;
+	    }
+	};
+
+	/**
+	 * JSOBin操作上下文
+	 */
+	let JSOBin$1 = class JSOBin
+	{
+	    /**
+	     * @type {State}
+	     */
+	    #state = new State$1();
+
+	    /**
+	     * 添加类到上下文
+	     * 注册标识符和类(构造器)的相互映射
+	     * @param {string} identifier 类标识符
+	     * @param {function} classConstructor 类的构造器
+	     */
+	    addClass(identifier, classConstructor)
+	    {
+	        this.#state.nameToClass.set(identifier, classConstructor);
+	        this.#state.classToName.set(classConstructor, identifier);
+	    }
+
+	    /**
+	     * 添加安全函数到上下文
+	     * 允许确保安全的函数注册标识符和函数的相互映射
+	     * @param {string} identifier 安全函数标识符
+	     * @param {function} safetyFunction 函数
+	     */
+	    addSafetyFunction(identifier, safetyFunction)
+	    {
+	        this.#state.nameToSafetyFunction.set(identifier, safetyFunction);
+	        this.#state.safetyFunctionToName.set(safetyFunction, identifier);
+	    }
+
+	    /**
+	     * 编码
+	     * @param {object | number | string} obj
+	     * @param {{
+	     *  referenceString?: boolean
+	     * }} [config]
+	     * @returns {Uint8Array}
+	     */
+	    encode(obj, config)
+	    {
+	        config = Object.assign({
+	            referenceString: false
+	        }, config);
+	        return (new Encoder$1(this.#state, config.referenceString)).encode(obj);
+	    }
+
+	    /**
+	     * 解码
+	     * @param {Uint8Array} bin
+	     * @returns {object | number | string}
+	     */
+	    decode(bin)
+	    {
+	        return (new Decoder$1(this.#state, bin)).decode();
+	    }
+	};
+
+	/**
+	 * 生成唯一字符串
+	 * 基于毫秒级时间和随机数
+	 * 不保证安全性
+	 * @param {number} [randomSection] 随机节数量
+	 * @returns {string}
+	 */
+	function uniqueIdentifierString$2(randomSection = 2)
+	{
+	    var ret = Math.floor(Date.now()).toString(36);
+	    for (let i = 0; i < randomSection; i++)
+	        ret += "-" + Math.floor(Math.random() * 2.82e12).toString(36);
+	    return ret;
+	}
+
+	const jsob = new JSOBin$1();
+
+	/**
+	 * forge分片数据包
+	 * 数据包id 到 分片信息 映射
+	 * @type {Map<string, {
+	 *  slices: Array<string>,
+	 *  createTime: number,
+	 *  updateTime: number,
+	 *  packetTime: number,
+	 *  creator: string,
+	 *  totalCount: number
+	 *  hasCount: number
+	 * }>}
+	 */
+	let forgeSliceMap = new Map();
+
+	/**
+	 * 未完成的分片符号
+	 */
+	const unfinishedSliceSymbol = Symbol("unfinishedSliceSymbol");
+
+	setInterval(() =>
+	{
+	    let nowTime = Date.now();
+	    forgeSliceMap.forEach((o, id) =>
+	    {
+	        if (o.updateTime < nowTime - 15 * 1000)
+	            forgeSliceMap.delete(id);
+	    });
+	}, 5000);
+
+	/**
+	 * 读取forge数据包
+	 * @param {string} dataStr
+	 * @param {string} creatorId
+	 * @returns {Object | unfinishedSliceSymbol}
+	 */
+	function readForgePacket(dataStr, creatorId)
+	{
+	    if (dataStr.startsWith("iiroseForge:") && dataStr.endsWith(":end"))
+	    {
+	        let data = dataStr.slice(12, -4);
+	        try
+	        {
+	            let commaIndex = data.indexOf(",");
+	            let len = Number.parseInt(data.slice(0, commaIndex), 36);
+	            if (Number.isNaN(len) || len < 0 || len > 8192)
+	                return undefined;
+	            data = data.slice(commaIndex + 1);
+	            let dataBase64 = data.slice(0, len);
+	            if (dataBase64.length != len)
+	                return undefined;
+
+	            let metaArr = data.slice(len).split(",");
+
+	            if (metaArr[1] == "single") // 单包数据
+	            {
+	                if (metaArr.length < 2)
+	                    return undefined;
+	                return jsob.decode(base64ToUint8(dataBase64));
+	            }
+	            else if (metaArr[1] == "slice") // 分片数据
+	            {
+	                if (metaArr.length < 5)
+	                    return undefined;
+	                let nowTime = Date.now();
+	                let packetId = metaArr[0];
+	                let sliceIndex = Number.parseInt(metaArr[2], 36);
+	                let sliceCount = Number.parseInt(metaArr[3], 36);
+	                let packetTime = Number.parseInt(metaArr[4], 36);
+	                if (
+	                    Number.isNaN(sliceIndex) ||
+	                    Number.isNaN(sliceCount) ||
+	                    Number.isNaN(packetTime) ||
+	                    sliceCount > 50 ||
+	                    sliceIndex < 0 ||
+	                    sliceIndex >= sliceCount ||
+	                    packetTime > nowTime + 15 * 1000 ||
+	                    packetTime < nowTime - 60 * 1000 ||
+	                    packetId == ""
+	                )
+	                    return undefined;
+	                let sliceInfo = forgeSliceMap.get(packetId);
+	                if (!sliceInfo)
+	                {
+	                    sliceInfo = {
+	                        slices: Array(sliceCount),
+	                        createTime: nowTime,
+	                        updateTime: nowTime,
+	                        packetTime: packetTime,
+	                        creator: creatorId,
+	                        hasCount: 0,
+	                        totalCount: sliceCount
+	                    };
+	                    forgeSliceMap.set(packetId, sliceInfo);
+	                }
+	                if (
+	                    sliceInfo.creator != creatorId ||
+	                    sliceInfo.packetTime != packetTime ||
+	                    sliceInfo.totalCount != sliceCount ||
+	                    sliceInfo.slices[sliceIndex] != undefined
+	                )
+	                    return undefined;
+	                sliceInfo.updateTime = nowTime;
+	                sliceInfo.hasCount++;
+	                sliceInfo.slices[sliceIndex] = dataBase64;
+	                if (sliceInfo.hasCount < sliceCount)
+	                    return unfinishedSliceSymbol;
+	                else
+	                {
+	                    forgeSliceMap.delete(packetId);
+	                    return jsob.decode(base64ToUint8(sliceInfo.slices.join("")));
+	                }
+	            }
+	        }
+	        catch (err)
+	        {
+	            console.log(err);
+	            return undefined;
+	        }
+	    }
+	    else
+	        return undefined;
+	}
+
+	/**
+	 * 写入forge数据包
+	 * @param {Object} obj
+	 * @returns {string | Array<string>}
+	 */
+	function writeForgePacket(obj)
+	{
+	    const maxBodyLength = 8192;
+	    try
+	    {
+	        let dataBase64 = uint8ToBase64(jsob.encode(obj));
+	        if (dataBase64.length <= maxBodyLength)
+	        {
+	            let metaArr = ["", "single"];
+	            return `iiroseForge:${dataBase64.length.toString(36)},${dataBase64}${metaArr.join(",")}:end`;
+	        }
+	        else
+	        {
+	            let packetTime = Date.now();
+	            let packetTimeStr = packetTime.toString(36);
+	            let packetId = uniqueIdentifierString$2();
+	            let sliceCount = Math.ceil(dataBase64.length / maxBodyLength);
+	            let sliceCountStr = sliceCount.toString(36);
+	            return Array(sliceCount).fill(0).map((_, i) =>
+	            {
+	                let dataSlice = dataBase64.slice(i * maxBodyLength, (i + 1) * maxBodyLength);
+	                let metaArr = [
+	                    packetId,
+	                    "slice",
+	                    i.toString(36),
+	                    sliceCountStr,
+	                    packetTimeStr
+	                ];
+	                return `iiroseForge:${dataSlice.length.toString(36)},${dataSlice}${metaArr.join(",")}:end`;
+	            });
+	        }
+	    }
+	    catch (err)
+	    {
+	        return undefined;
+	    }
+	}
+
+	/**
+	 * uint8数组转base64
+	 * @param {Uint8Array} data
+	 * @returns {string}
+	 */
+	function uint8ToBase64(data)
+	{
+	    let binaryString = Array.from(data).map(o => String.fromCharCode(o)).join("");
+	    return window.btoa(binaryString);
+	}
+
+	/**
+	 * base64数组转uint8
+	 * @param {string} base64
+	 * @returns {Uint8Array}
+	 */
+	function base64ToUint8(base64)
+	{
+	    let binaryString = window.atob(base64);
+	    let ret = new Uint8Array(binaryString.length);
+	    for (let i = 0; i < binaryString.length; i++)
+	    {
+	        ret[i] = binaryString.charCodeAt(i);
+	    }
+	    return ret;
+	}
+
+	/**
 	 * document.body的NElement封装
 	 */
 	let body = getNElement(document.body);
@@ -2710,6 +3231,13 @@
 	    }
 	};
 
+	const forgeOccupyPlugNameSet = new Set([
+	    "forge",
+	    "iiroseForge",
+	    "forgeFrame",
+	    "iiroseForgeFrame",
+	]);
+
 	/**
 	 * 暴露的forge接口
 	 */
@@ -2813,12 +3341,63 @@
 	        },
 
 	        /**
-	         * 在用户所在房间发送消息
+	         * 在用户所在房间发送forge包消息
 	         * @param {Object} obj
 	         */
 	        sendRoomForgePacket: (obj) =>
 	        {
-	            forgeApi.operation.sendRoomMessage(writeForgePacket(obj));
+	            if (
+	                typeof (obj) != "object" ||
+	                (forgeApi.state.plug && forgeOccupyPlugNameSet.has(obj.plug))
+	            )
+	                return;
+	            let forgePacket = writeForgePacket(obj);
+	            if (typeof (forgePacket) == "string")
+	                forgeApi.operation.sendRoomMessage(forgePacket);
+	            else
+	                (async () =>
+	                {
+	                    for (let i = 0; i < forgePacket.length; i++)
+	                    {
+	                        forgeApi.operation.sendRoomMessage(forgePacket[i]);
+	                        await delayPromise(100);
+	                    }
+	                })();
+	        },
+
+	        /**
+	         * 私聊发送forge包消息
+	         * @param {string} targetUid
+	         * @param {Object} obj
+	         */
+	        sendPrivateForgePacket: (targetUid, obj) =>
+	        {
+	            if (
+	                typeof (obj) != "object" ||
+	                (forgeApi.state.plug && forgeOccupyPlugNameSet.has(obj.plug))
+	            )
+	                return;
+	            let forgePacket = writeForgePacket(obj);
+	            if (typeof (forgePacket) == "string")
+	                forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket);
+	            else
+	                (async () =>
+	                {
+	                    for (let i = 0; i < forgePacket.length; i++)
+	                    {
+	                        forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket[i]);
+	                        await delayPromise(100);
+	                    }
+	                })();
+	        },
+
+	        /**
+	         * 给自己私聊发送forge包消息
+	         * @param {Object} obj
+	         */
+	        sendSelfPrivateForgePacket: (obj) =>
+	        {
+	            forgeApi.operation.sendPrivateForgePacket(forgeApi.operation.getUserUid(), obj);
 	        },
 
 	        /**
@@ -2948,7 +3527,17 @@
 	         * 接收到房间的forge数据包
 	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
 	         */
-	        roomForgePacket: new EventHandler$1()
+	        roomForgePacket: new EventHandler$1(),
+	        /**
+	         * 接收到私聊的forge数据包
+	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
+	         */
+	        privateForgePacket: new EventHandler$1(),
+	        /**
+	         * 接收到自己发给自己的forge数据包
+	         * @type {EventHandler<{ content: Object }>}
+	         */
+	        selfPrivateForgePacket: new EventHandler$1(),
 	    }
 	};
 
@@ -2984,7 +3573,7 @@
 	    receive: (packet) =>
 	    {
 	        iframeContext.socket._onmessage(packet);
-	    }
+	    },
 	};
 
 	/**
@@ -3112,14 +3701,14 @@
 	    }
 	};
 
-	function storageRead()
+	/**
+	 * 设置储存
+	 * @param {Object} storageObj
+	 */
+	function storageSet(storageObj)
 	{
 	    try
 	    {
-	        let storageJson = localStorage.getItem("iiroseForge");
-	        if (!storageJson)
-	            return;
-	        let storageObj = JSON.parse(storageJson);
 	        Object.keys(storageObj).forEach(key =>
 	        {
 	            storageContext.iiroseForge[key] = storageObj[key];
@@ -3132,6 +3721,22 @@
 	            )
 	                storageContext.iiroseForge[key] = createHookObj(storageContext.iiroseForge[key]);
 	        });
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法设置储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
+	function storageRead()
+	{
+	    try
+	    {
+	        let storageJson = localStorage.getItem("iiroseForge");
+	        if (!storageJson)
+	            return;
+	        let storageObj = JSON.parse(storageJson);
+	        storageSet(storageObj);
 	    }
 	    catch (err)
 	    {
@@ -3668,6 +4273,29 @@
 	    }
 	}
 
+	let protocolEvent = {
+	    /**
+	     * forge事件
+	     */
+	    forge: {
+	        /**
+	         * 接收到房间的由forge本身发送的forge数据包
+	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
+	         */
+	        roomForgePacket: new EventHandler$2(),
+	        /**
+	         * 接收到私聊的由forge本身发送的forge数据包
+	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
+	         */
+	        privateForgePacket: new EventHandler$2(),
+	        /**
+	         * 接收到自己发给自己的由forge本身发送的forge数据包
+	         * @type {EventHandler<{ content: Object }>}
+	         */
+	        selfPrivateForgePacket: new EventHandler$2(),
+	    }
+	};
+
 	let toServerTrie = new Trie();
 	let toClientTrie = new Trie();
 	/**
@@ -3677,27 +4305,39 @@
 	 */
 	let packageData = [""];
 
-	toClientTrie.addPath(`"`, (data) =>
+	toClientTrie.addPath(`"`, (data) => // 房间消息
 	{
 	    packageData[0] = `"` + data.split("<").reverse().map(data =>
 	    {
 	        let part = data.split(">");
 	        // console.log(part);
+
 	        if (part[4] != "s" && part[3][0] != `'`)
 	        {
 	            let senderId = part[8];
 	            let senderName = part[2];
 	            let content = part[3];
 
-	            let forgePacket = readForgePacket(content);
+	            let forgePacket = readForgePacket(content, senderId);
 	            if (forgePacket != undefined)
 	            {
-	                forgeApi.event.roomForgePacket.trigger({
-	                    senderId: senderId,
-	                    senderName: senderName,
-	                    content: forgePacket
-	                });
-	                // console.log("forgePacket", senderId, senderName, forgePacket);
+	                if (forgePacket != unfinishedSliceSymbol)
+	                {
+	                    if (typeof (forgePacket) != "object")
+	                        return undefined;
+	                    if (forgeOccupyPlugNameSet.has(forgePacket.plug))
+	                        protocolEvent.forge.roomForgePacket.trigger({
+	                            senderId: senderId,
+	                            senderName: senderName,
+	                            content: forgePacket
+	                        });
+	                    else
+	                        forgeApi.event.roomForgePacket.trigger({
+	                            senderId: senderId,
+	                            senderName: senderName,
+	                            content: forgePacket
+	                        });
+	                }
 	                return undefined;
 	            }
 	            else
@@ -3711,7 +4351,7 @@
 	    }).filter(o => o != undefined).reverse().join("<");
 	});
 
-	toClientTrie.addPath(`""`, (data) =>
+	toClientTrie.addPath(`""`, (data) => // 私聊消息
 	{
 	    let userId = forgeApi.operation.getUserUid();
 	    packageData[0] = `""` + data.split("<").map(data =>
@@ -3725,17 +4365,59 @@
 
 	            if (part[1] != userId)
 	            {
-	                forgeApi.event.privateMessage.trigger({
-	                    senderId: senderId,
-	                    senderName: senderName,
-	                    content: content
-	                });
+	                let forgePacket = readForgePacket(content, senderId);
+	                if (forgePacket != undefined)
+	                {
+	                    if (forgePacket != unfinishedSliceSymbol)
+	                    {
+	                        if (typeof (forgePacket) != "object")
+	                            return undefined;
+	                        if (forgeOccupyPlugNameSet.has(forgePacket.plug))
+	                            protocolEvent.forge.privateForgePacket.trigger({
+	                                senderId: senderId,
+	                                senderName: senderName,
+	                                content: forgePacket
+	                            });
+	                        else
+	                            forgeApi.event.privateForgePacket.trigger({
+	                                senderId: senderId,
+	                                senderName: senderName,
+	                                content: forgePacket
+	                            });
+	                    }
+	                    return undefined;
+	                }
+	                else
+	                    forgeApi.event.privateMessage.trigger({
+	                        senderId: senderId,
+	                        senderName: senderName,
+	                        content: content
+	                    });
 	            }
 	            else if (part[1] == userId && part[11] == userId)
 	            {
-	                forgeApi.event.selfPrivateMessage.trigger({
-	                    content: part[4]
-	                });
+	                let forgePacket = readForgePacket(content, senderId);
+	                if (forgePacket != undefined)
+	                {
+	                    if (forgePacket != unfinishedSliceSymbol)
+	                    {
+	                        if (typeof (forgePacket) != "object")
+	                            return undefined;
+	                        if (forgeOccupyPlugNameSet.has(forgePacket.plug))
+	                            protocolEvent.forge.selfPrivateForgePacket.trigger({
+	                                content: forgePacket
+	                            });
+	                        else
+	                            forgeApi.event.selfPrivateForgePacket.trigger({
+	                                content: forgePacket
+	                            });
+	                    }
+	                    return undefined;
+	                }
+	                else
+	                    forgeApi.event.selfPrivateMessage.trigger({
+	                        content: part[4]
+	                    });
 	            }
 	        }
 	        return data;
@@ -5125,8 +5807,75 @@
 	    }
 	}
 
+	let waitForId = "";
+
+	/**
+	 * 启用配置同步功能
+	 */
+	function trySyncConfig()
+	{
+	    let requestId = uniqueIdentifierString$2();
+	    forgeApi.operation.sendSelfPrivateForgePacket({
+	        plug: "forge",
+	        type: "syncConfigRQ",
+	        id: requestId
+	    });
+	    waitForId = requestId;
+	}
+
+	let registedReturnConfig = false;
+	/**
+	 * 启用配置同步
+	 */
+	function enableSyncConfig()
+	{
+	    if (registedReturnConfig)
+	        return;
+	    registedReturnConfig = true;
+	    protocolEvent.forge.selfPrivateForgePacket.add(e =>
+	    {
+	        if (waitForId)
+	        {
+	            if (e.content?.type == "syncConfigCB" && e.content?.id == waitForId)
+	            {
+	                waitForId = "";
+	                /**
+	                 * @type {typeof storageContext.iiroseForge}
+	                 */
+	                let storageObj = e.content?.storageObject;
+	                if (storageObj)
+	                {
+	                    if (storageObj?.userRemark)
+	                    { // 覆盖备注配置
+	                        Object.keys(storageContext.iiroseForge.userRemark).forEach(userId =>
+	                        {
+	                            if (!storageObj.userRemark[userId])
+	                                storageObj.userRemark[userId] = storageContext.iiroseForge.userRemark[userId];
+	                        });
+	                    }
+	                    storageSet(storageObj);
+	                    storageSave();
+	                    showNotice("配置同步", "拉取配置成功");
+	                }
+	            }
+	        }
+
+	        if (e.content?.type == "syncConfigRQ")
+	        {
+	            let requestId = e.content?.id;
+	            forgeApi.operation.sendSelfPrivateForgePacket({
+	                plug: "forge",
+	                type: "syncConfigCB",
+	                id: requestId,
+	                storageObject: storageContext.iiroseForge
+	            });
+	            showNotice("配置同步", "其他设备正在拉取本机配置");
+	        }
+	    });
+	}
+
 	const versionInfo = {
-	    version: "alpha v1.2.2"
+	    version: "alpha v1.3.0"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -6274,7 +7023,7 @@
 	            createNStyle("overflow", "auto"),
 
 	            [
-	                ...([
+	                ...([ // 菜单列表项
 	                    {
 	                        title: "管理插件",
 	                        text: "管理插件",
@@ -6434,6 +7183,15 @@
 
 	                            plugStone.windowElement.setDisplay("block");
 	                            plugStone.windowElement.setStyle("pointerEvents", "auto");
+	                        }
+	                    },
+	                    {
+	                        title: "拉取配置",
+	                        text: "获取您此账号其他在线设备的配置",
+	                        icon: "sync",
+	                        onClick: async () =>
+	                        {
+	                            trySyncConfig();
 	                        }
 	                    },
 	                    {
@@ -6729,10 +7487,11 @@
 	                showNotice("iiroseForge plug-in", `已在iframe内侧侧载 ${scriptCount} 个js脚本`);
 	        })();
 
-	        // 补丁功能
+	        // 附加功能
 	        try
 	        {
 	            enableUserRemark();
+	            enableSyncConfig();
 	        }
 	        catch (err)
 	        {

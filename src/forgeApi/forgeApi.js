@@ -1,10 +1,18 @@
 import { domPath } from "../../lib/plugToolsLib.js";
+import { delayPromise } from "../../lib/qwqframe.js";
 import { runTerminalCommand } from "../feature/runCommand.js";
 import { sendMessageOnCurrentPage } from "../feature/sendMessage.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
 import { writeForgePacket } from "../protocol/forgePacket.js";
 import { showNotice } from "../ui/notice.js";
 import { EventHandler } from "../util/EventHandler.js";
+
+export const forgeOccupyPlugNameSet = new Set([
+    "forge",
+    "iiroseForge",
+    "forgeFrame",
+    "iiroseForgeFrame",
+]);
 
 /**
  * 暴露的forge接口
@@ -109,12 +117,63 @@ export const forgeApi = {
         },
 
         /**
-         * 在用户所在房间发送消息
+         * 在用户所在房间发送forge包消息
          * @param {Object} obj
          */
         sendRoomForgePacket: (obj) =>
         {
-            forgeApi.operation.sendRoomMessage(writeForgePacket(obj));
+            if (
+                typeof (obj) != "object" ||
+                (forgeApi.state.plug && forgeOccupyPlugNameSet.has(obj.plug))
+            )
+                return;
+            let forgePacket = writeForgePacket(obj);
+            if (typeof (forgePacket) == "string")
+                forgeApi.operation.sendRoomMessage(forgePacket);
+            else
+                (async () =>
+                {
+                    for (let i = 0; i < forgePacket.length; i++)
+                    {
+                        forgeApi.operation.sendRoomMessage(forgePacket[i]);
+                        await delayPromise(100);
+                    }
+                })();
+        },
+
+        /**
+         * 私聊发送forge包消息
+         * @param {string} targetUid
+         * @param {Object} obj
+         */
+        sendPrivateForgePacket: (targetUid, obj) =>
+        {
+            if (
+                typeof (obj) != "object" ||
+                (forgeApi.state.plug && forgeOccupyPlugNameSet.has(obj.plug))
+            )
+                return;
+            let forgePacket = writeForgePacket(obj);
+            if (typeof (forgePacket) == "string")
+                forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket);
+            else
+                (async () =>
+                {
+                    for (let i = 0; i < forgePacket.length; i++)
+                    {
+                        forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket[i]);
+                        await delayPromise(100);
+                    }
+                })();
+        },
+
+        /**
+         * 给自己私聊发送forge包消息
+         * @param {Object} obj
+         */
+        sendSelfPrivateForgePacket: (obj) =>
+        {
+            forgeApi.operation.sendPrivateForgePacket(forgeApi.operation.getUserUid(), obj);
         },
 
         /**
@@ -244,7 +303,17 @@ export const forgeApi = {
          * 接收到房间的forge数据包
          * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
          */
-        roomForgePacket: new EventHandler()
+        roomForgePacket: new EventHandler(),
+        /**
+         * 接收到私聊的forge数据包
+         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
+         */
+        privateForgePacket: new EventHandler(),
+        /**
+         * 接收到自己发给自己的forge数据包
+         * @type {EventHandler<{ content: Object }>}
+         */
+        selfPrivateForgePacket: new EventHandler(),
     }
 };
 

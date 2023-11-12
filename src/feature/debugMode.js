@@ -27,7 +27,7 @@ export let debugModeContext = {
     receive: (packet) =>
     {
         iframeContext.socket._onmessage(packet);
-    }
+    },
 };
 
 /**

@@ -1,5 +1,6 @@
 import { RcoCcontext } from "../../lib/jsRco.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
+import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
 import { plugList } from "../plug/plugList.js";
@@ -89,7 +90,7 @@ export function getForgeMenu()
             style("overflow", "auto"),
 
             [
-                ...([
+                ...([ // 菜单列表项
                     {
                         title: "管理插件",
                         text: "管理插件",
@@ -255,6 +256,15 @@ export function getForgeMenu()
 
                             plugStone.windowElement.setDisplay("block");
                             plugStone.windowElement.setStyle("pointerEvents", "auto");
+                        }
+                    },
+                    {
+                        title: "拉取配置",
+                        text: "获取您此账号其他在线设备的配置",
+                        icon: "sync",
+                        onClick: async () =>
+                        {
+                            trySyncConfig();
                         }
                     },
                     {
