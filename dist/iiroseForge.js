@@ -3702,7 +3702,8 @@
 	    local: {
 	        enableSyncChatRecord: false,
 	        enableUserRemark: true,
-	        lastCloseTime: 0
+	        lastCloseTime: 0,
+	        syncChatRecordTo: 0
 	    }
 	};
 
@@ -5908,7 +5909,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.4.0"
+	    version: "alpha v1.4.1"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -7469,7 +7470,8 @@
 	        id: requestId,
 	        startTime: Math.max(
 	            Date.now() - 3 * 24 * 60 * 60 * 1000,
-	            storageContext.local.lastCloseTime - 30 * 60 * 60 * 1000
+	            storageContext.local.lastCloseTime - 30 * 60 * 60 * 1000,
+	            storageContext.local.syncChatRecordTo - 30 * 60 * 60 * 1000
 	        ),
 	        endTime: Date.now() + 30 * 1000
 	    });
@@ -7502,8 +7504,10 @@
 	                    // console.log(e.content.content);
 	                    if (diffCount == 0)
 	                        return;
-	                    showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并到当前设备`, undefined, () =>
+	                    showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并记录到当前设备`, undefined, () =>
 	                    {
+	                        storageContext.local.syncChatRecordTo = Math.min(Date.now(), e.content.endTime);
+	                        storageLocalSave();
 	                        mergeRecordToLocal(e.content.content, e.content.startTime);
 	                    });
 	                }
@@ -7942,6 +7946,45 @@
 	                storageContext.local.lastCloseTime = Date.now();
 	                storageLocalSave();
 	            });
+	            let cannotLoad = 0;
+	            let showHelpNotice = false;
+	            setInterval(() =>
+	            {
+	                if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
+	                {
+	                    if (cannotLoad >= 2)
+	                    {
+	                        if (!showHelpNotice)
+	                        {
+	                            showHelpNotice = true;
+	                            showNotice(
+	                                "无法连接",
+	                                ([
+	                                    `检测到连接到iirose服务器的速度过慢`,
+	                                    `正在连接: ${mainIframe.contentWindow?.["socket"]?.url}`,
+	                                    `可能是当前尝试连接的服务器出现了问题`,
+	                                    `点击以尝试连接其他候选服务器`
+	                                ]).join("\n"),
+	                                undefined,
+	                                () =>
+	                                {
+	                                    cannotLoad = 0;
+	                                    showHelpNotice = false;
+	                                    if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
+	                                        mainIframe.contentWindow?.["socket"]?.onerror?.();
+	                                }
+	                            );
+	                        }
+	                    }
+	                    else
+	                        cannotLoad++;
+	                }
+	                else
+	                {
+	                    cannotLoad = 0;
+	                    showHelpNotice = false;
+	                }
+	            }, 3000);
 
 	            (async () =>
 	            { // 侧载在外侧执行的脚本

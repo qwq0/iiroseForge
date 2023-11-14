@@ -27,7 +27,8 @@ export const storageContext = {
     local: {
         enableSyncChatRecord: false,
         enableUserRemark: true,
-        lastCloseTime: 0
+        lastCloseTime: 0,
+        syncChatRecordTo: 0
     }
 };
 

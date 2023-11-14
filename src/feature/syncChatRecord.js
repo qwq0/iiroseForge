@@ -1,7 +1,7 @@
 import { forgeApi } from "../forgeApi/forgeApi.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
 import { protocolEvent } from "../protocol/protocolEvent.js";
-import { storageContext } from "../storage/storage.js";
+import { storageContext, storageLocalSave } from "../storage/storage.js";
 import { showNotice } from "../ui/notice.js";
 import { htmlSpecialChars } from "../util/htmlSpecialChars.js";
 import { uniqueIdentifierString } from "../util/uniqueIdentifier.js";
@@ -21,7 +21,8 @@ export function trySyncChatRecord()
         id: requestId,
         startTime: Math.max(
             Date.now() - 3 * 24 * 60 * 60 * 1000,
-            storageContext.local.lastCloseTime - 30 * 60 * 60 * 1000
+            storageContext.local.lastCloseTime - 30 * 60 * 60 * 1000,
+            storageContext.local.syncChatRecordTo - 30 * 60 * 60 * 1000
         ),
         endTime: Date.now() + 30 * 1000
     });
@@ -54,8 +55,10 @@ export function enableSyncChatRecord()
                     // console.log(e.content.content);
                     if (diffCount == 0)
                         return;
-                    showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并到当前设备`, undefined, () =>
+                    showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并记录到当前设备`, undefined, () =>
                     {
+                        storageContext.local.syncChatRecordTo = Math.min(Date.now(), e.content.endTime);
+                        storageLocalSave();
                         mergeRecordToLocal(e.content.content, e.content.startTime);
                     });
                 }

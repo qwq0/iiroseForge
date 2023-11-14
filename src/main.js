@@ -38,6 +38,45 @@ if (location.host == "iirose.com")
                 storageContext.local.lastCloseTime = Date.now();
                 storageLocalSave();
             });
+            let cannotLoad = 0;
+            let showHelpNotice = false;
+            setInterval(() =>
+            {
+                if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
+                {
+                    if (cannotLoad >= 2)
+                    {
+                        if (!showHelpNotice)
+                        {
+                            showHelpNotice = true;
+                            showNotice(
+                                "无法连接",
+                                ([
+                                    `检测到连接到iirose服务器的速度过慢`,
+                                    `正在连接: ${mainIframe.contentWindow?.["socket"]?.url}`,
+                                    `可能是当前尝试连接的服务器出现了问题`,
+                                    `点击以尝试连接其他候选服务器`
+                                ]).join("\n"),
+                                undefined,
+                                () =>
+                                {
+                                    cannotLoad = 0;
+                                    showHelpNotice = false;
+                                    if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
+                                        mainIframe.contentWindow?.["socket"]?.onerror?.();
+                                }
+                            );
+                        }
+                    }
+                    else
+                        cannotLoad++;
+                }
+                else
+                {
+                    cannotLoad = 0;
+                    showHelpNotice = false;
+                }
+            }, 3000);
 
             (async () =>
             { // 侧载在外侧执行的脚本
