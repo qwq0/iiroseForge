@@ -3681,7 +3681,7 @@
 	 * 将使用json进行序列化
 	 */
 	const storageContext = {
-	    iiroseForge: {
+	    roaming: {
 	        /**
 	         * 插件信息
 	         * @type {Array<[string, string, Array<string>, Array<string>]>}
@@ -3698,6 +3698,11 @@
 	         * @type {Object<string, string>}
 	         */
 	        userRemark: {}
+	    },
+	    local: {
+	        enableSyncChatRecord: false,
+	        enableUserRemark: true,
+	        lastCloseTime: 0
 	    }
 	};
 
@@ -3705,21 +3710,21 @@
 	 * 设置储存
 	 * @param {Object} storageObj
 	 */
-	function storageSet(storageObj)
+	function storageRoamingSet(storageObj)
 	{
 	    try
 	    {
 	        Object.keys(storageObj).forEach(key =>
 	        {
-	            storageContext.iiroseForge[key] = storageObj[key];
+	            storageContext.roaming[key] = storageObj[key];
 	        });
-	        Object.keys(storageContext.iiroseForge).forEach(key =>
+	        Object.keys(storageContext.roaming).forEach(key =>
 	        {
 	            if (
-	                typeof (storageContext.iiroseForge[key]) == "object" &&
-	                !Array.isArray(storageContext.iiroseForge[key])
+	                typeof (storageContext.roaming[key]) == "object" &&
+	                !Array.isArray(storageContext.roaming[key])
 	            )
-	                storageContext.iiroseForge[key] = createHookObj(storageContext.iiroseForge[key]);
+	                storageContext.roaming[key] = createHookObj(storageContext.roaming[key]);
 	        });
 	    }
 	    catch (err)
@@ -3728,15 +3733,13 @@
 	    }
 	}
 
-	function storageRead()
+	function storageRoamingRead()
 	{
 	    try
 	    {
 	        let storageJson = localStorage.getItem("iiroseForge");
-	        if (!storageJson)
-	            return;
-	        let storageObj = JSON.parse(storageJson);
-	        storageSet(storageObj);
+	        let storageObj = (storageJson ? JSON.parse(storageJson) : {});
+	        storageRoamingSet(storageObj);
 	    }
 	    catch (err)
 	    {
@@ -3744,16 +3747,46 @@
 	    }
 	}
 
-	function storageSave()
+	function storageRoamingSave()
 	{
 	    try
 	    {
-	        let storageJson = JSON.stringify(storageContext.iiroseForge);
+	        let storageJson = JSON.stringify(storageContext.roaming);
 	        localStorage.setItem("iiroseForge", storageJson);
 	    }
 	    catch (err)
 	    {
 	        showNotice("错误", "无法写入储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
+	function storageLocalRead()
+	{
+	    try
+	    {
+	        let storageJson = localStorage.getItem("iiroseForgeLocal");
+	        let storageObj = (storageJson ? JSON.parse(storageJson) : {});
+	        Object.keys(storageObj).forEach(key =>
+	        {
+	            storageContext.local[key] = storageObj[key];
+	        });
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法读入本地储存 这可能导致iiroseForge配置丢失");
+	    }
+	}
+
+	function storageLocalSave()
+	{
+	    try
+	    {
+	        let storageJson = JSON.stringify(storageContext.local);
+	        localStorage.setItem("iiroseForgeLocal", storageJson);
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法写入本地储存 这可能导致iiroseForge配置丢失");
 	    }
 	}
 
@@ -4010,7 +4043,7 @@
 	                srcFunction(...param);
 
 	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-	                let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                let oldRemarkName = storageContext.roaming.userRemark[uid];
 	                selectHolderBox.appendChild(
 	                    createIiroseMenuElement(
 	                        "mdi-account-cog",
@@ -4021,12 +4054,12 @@
 
 
 
-	                            let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                            let oldRemarkName = storageContext.roaming.userRemark[uid];
 	                            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
 	                            if (newRemark != undefined)
 	                            {
-	                                storageContext.iiroseForge.userRemark[uid] = newRemark;
-	                                storageSave();
+	                                storageContext.roaming.userRemark[uid] = newRemark;
+	                                storageRoamingSave();
 	                            }
 	                        }
 	                    ).element
@@ -4055,7 +4088,7 @@
 	                srcFunction(...param);
 
 	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-	                let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                let oldRemarkName = storageContext.roaming.userRemark[uid];
 	                selectHolderBox.appendChild(
 	                    createIiroseMenuElement(
 	                        "mdi-account-cog",
@@ -4066,12 +4099,12 @@
 
 
 
-	                            let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+	                            let oldRemarkName = storageContext.roaming.userRemark[uid];
 	                            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
 	                            if (newRemark != undefined)
 	                            {
-	                                storageContext.iiroseForge.userRemark[uid] = newRemark;
-	                                storageSave();
+	                                storageContext.roaming.userRemark[uid] = newRemark;
+	                                storageRoamingSave();
 	                            }
 	                        }
 	                    ).element
@@ -4143,7 +4176,7 @@
 	                    bottom: "42px"
 	                }),
 	                bindValue(
-	                    storageContext.iiroseForge.userRemark,
+	                    storageContext.roaming.userRemark,
 	                    uid,
 	                    remarkName => (remarkName ? remarkName : "")
 	                )
@@ -4172,7 +4205,7 @@
 	                    marginLeft: "3px"
 	                }),
 	                bindValue(
-	                    storageContext.iiroseForge.userRemark,
+	                    storageContext.roaming.userRemark,
 	                    uid,
 	                    remarkName => (remarkName ? `(${remarkName})` : "")
 	                )
@@ -5807,10 +5840,10 @@
 	    }
 	}
 
-	let waitForId = "";
+	let waitForId$1 = "";
 
 	/**
-	 * 启用配置同步功能
+	 * 尝试同步配置
 	 */
 	function trySyncConfig()
 	{
@@ -5820,7 +5853,7 @@
 	        type: "syncConfigRQ",
 	        id: requestId
 	    });
-	    waitForId = requestId;
+	    waitForId$1 = requestId;
 	}
 
 	let registedReturnConfig = false;
@@ -5834,40 +5867,40 @@
 	    registedReturnConfig = true;
 	    protocolEvent.forge.selfPrivateForgePacket.add(e =>
 	    {
-	        if (waitForId)
+	        if (waitForId$1)
 	        {
-	            if (e.content?.type == "syncConfigCB" && e.content?.id == waitForId)
+	            if (e.content.type == "syncConfigCB" && e.content.id == waitForId$1)
 	            {
-	                waitForId = "";
+	                waitForId$1 = "";
 	                /**
-	                 * @type {typeof storageContext.iiroseForge}
+	                 * @type {typeof storageContext.roaming}
 	                 */
-	                let storageObj = e.content?.storageObject;
+	                let storageObj = e.content.storageObject;
 	                if (storageObj)
 	                {
 	                    if (storageObj?.userRemark)
 	                    { // 覆盖备注配置
-	                        Object.keys(storageContext.iiroseForge.userRemark).forEach(userId =>
+	                        Object.keys(storageContext.roaming.userRemark).forEach(userId =>
 	                        {
 	                            if (!storageObj.userRemark[userId])
-	                                storageObj.userRemark[userId] = storageContext.iiroseForge.userRemark[userId];
+	                                storageObj.userRemark[userId] = storageContext.roaming.userRemark[userId];
 	                        });
 	                    }
-	                    storageSet(storageObj);
-	                    storageSave();
+	                    storageRoamingSet(storageObj);
+	                    storageRoamingSave();
 	                    showNotice("配置同步", "拉取配置成功");
 	                }
 	            }
 	        }
 
-	        if (e.content?.type == "syncConfigRQ")
+	        if (e.content.type == "syncConfigRQ")
 	        {
-	            let requestId = e.content?.id;
+	            let requestId = e.content.id;
 	            forgeApi.operation.sendSelfPrivateForgePacket({
 	                plug: "forge",
 	                type: "syncConfigCB",
 	                id: requestId,
-	                storageObject: storageContext.iiroseForge
+	                storageObject: storageContext.roaming
 	            });
 	            showNotice("配置同步", "其他设备正在拉取本机配置");
 	        }
@@ -5875,7 +5908,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.3.0"
+	    version: "alpha v1.4.0"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -6794,8 +6827,8 @@
 	                Array.from(o.eventPermissionSet.values())
 	            ]);
 	        });
-	        storageContext.iiroseForge.plugInfo = plugInfo;
-	        storageSave();
+	        storageContext.roaming.plugInfo = plugInfo;
+	        storageRoamingSave();
 	    }
 
 	    /**
@@ -6805,7 +6838,7 @@
 	    {
 	        try
 	        {
-	            let plugInfo = storageContext.iiroseForge.plugInfo;
+	            let plugInfo = storageContext.roaming.plugInfo;
 	            if (plugInfo.length > 0)
 	            {
 	                plugInfo.forEach(([name, url, operationPermissionList, eventPermissionList]) =>
@@ -7092,8 +7125,8 @@
 	                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随forge启动运行", true);
 	                                        if (scriptUrl != undefined)
 	                                        {
-	                                            storageContext.iiroseForge.sideLoadedScript.push([scriptUrl, scriptUrl, false]);
-	                                            storageSave();
+	                                            storageContext.roaming.sideLoadedScript.push([scriptUrl, scriptUrl, false]);
+	                                            storageRoamingSave();
 	                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启时生效");
 	                                        }
 	                                    }),
@@ -7105,13 +7138,13 @@
 	                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随iframe重载运行", true);
 	                                        if (scriptUrl != undefined)
 	                                        {
-	                                            storageContext.iiroseForge.sideLoadedScript.push([scriptUrl, scriptUrl, true]);
-	                                            storageSave();
+	                                            storageContext.roaming.sideLoadedScript.push([scriptUrl, scriptUrl, true]);
+	                                            storageRoamingSave();
 	                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启或iframe重载时生效");
 	                                        }
 	                                    }),
 	                                ]),
-	                                ...(storageContext.iiroseForge.sideLoadedScript.map(([name, url, insideIframe], ind) => NList.getElement([
+	                                ...(storageContext.roaming.sideLoadedScript.map(([name, url, insideIframe], ind) => NList.getElement([
 	                                    `${insideIframe ? "内" : "外"} | ${name}`,
 	                                    new NEvent("click", async () =>
 	                                    {
@@ -7120,8 +7153,8 @@
 	                                                "移除插件",
 	                                                new NEvent("click", () =>
 	                                                {
-	                                                    storageContext.iiroseForge.sideLoadedScript.splice(ind, 1);
-	                                                    storageSave();
+	                                                    storageContext.roaming.sideLoadedScript.splice(ind, 1);
+	                                                    storageRoamingSave();
 	                                                    showNotice("删除侧载脚本", "已将脚本从侧载列表移除\n将在下次重启时生效");
 	                                                })
 	                                            ])
@@ -7192,6 +7225,38 @@
 	                        onClick: async () =>
 	                        {
 	                            trySyncConfig();
+	                        }
+	                    },
+	                    {
+	                        title: "设置功能",
+	                        text: "启用或关闭附加功能",
+	                        icon: "cog",
+	                        onClick: async () =>
+	                        {
+	                            showMenu([
+	                                ...([
+	                                    {
+	                                        name: "用户备注",
+	                                        storageKey: "enableUserRemark"
+	                                    },
+	                                    {
+	                                        name: "聊天记录同步(测试)",
+	                                        storageKey: "enableSyncChatRecord"
+	                                    }
+	                                ]).map(o => NList.getElement([
+	                                    `(${storageContext.local[o.storageKey] ? "已启用" : "已禁用"}) ${o.name}`,
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        let targetState = !storageContext.local[o.storageKey];
+	                                        let confirm = showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+	                                        if (confirm)
+	                                        {
+	                                            storageContext.local[o.storageKey] = targetState;
+	                                            storageLocalSave();
+	                                        }
+	                                    }),
+	                                ]))
+	                            ]);
 	                        }
 	                    },
 	                    {
@@ -7389,6 +7454,310 @@
 	    return button;
 	}
 
+	let waitForId = "";
+	let waitStartTime = 0;
+
+	/**
+	 * 尝试同步聊天记录
+	 */
+	function trySyncChatRecord()
+	{
+	    let requestId = uniqueIdentifierString$2();
+	    forgeApi.operation.sendSelfPrivateForgePacket({
+	        plug: "forge",
+	        type: "syncPrivateChatRecordRQ",
+	        id: requestId,
+	        startTime: Math.max(
+	            Date.now() - 3 * 24 * 60 * 60 * 1000,
+	            storageContext.local.lastCloseTime - 30 * 60 * 60 * 1000
+	        ),
+	        endTime: Date.now() + 30 * 1000
+	    });
+	    waitForId = requestId;
+	    waitStartTime = Date.now();
+	}
+
+	let registedReturnChatRecord = false;
+	/**
+	 * 启用聊天记录同步
+	 */
+	function enableSyncChatRecord()
+	{
+	    if (registedReturnChatRecord)
+	        return;
+	    registedReturnChatRecord = true;
+	    protocolEvent.forge.selfPrivateForgePacket.add(e =>
+	    {
+	        if (waitForId)
+	        {
+	            if (
+	                e.content.type == "syncPrivateChatRecordCB" &&
+	                e.content.id == waitForId &&
+	                waitStartTime + 35 * 1000 >= Date.now()
+	            ) // 收到请求回调
+	            {
+	                if (e.content.content)
+	                {
+	                    let diffCount = checkRecordDiff(e.content.content, e.content.startTime);
+	                    // console.log(e.content.content);
+	                    if (diffCount == 0)
+	                        return;
+	                    showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并到当前设备`, undefined, () =>
+	                    {
+	                        mergeRecordToLocal(e.content.content, e.content.startTime);
+	                    });
+	                }
+	            }
+	        }
+
+	        if (e.content.type == "syncPrivateChatRecordRQ")
+	        { // 收到同步请求
+	            let startTime = Number(e.content.startTime);
+	            let endTime = Number(e.content.endTime);
+	            if (
+	                Number.isNaN(startTime) ||
+	                Number.isNaN(endTime) ||
+	                !(startTime < endTime)
+	            )
+	                return;
+
+	            let recordList = getLocalRecordList();
+
+	            let callbackContent = [];
+
+	            recordList.forEach(o =>
+	            {
+	                if (
+	                    o.records.length == 0 ||
+	                    !(processSingleRecord(o.records.at(-1))[1] >= startTime)
+	                )
+	                    return;
+
+	                let needSendRecords = [];
+	                for (let i = o.records.length - 1; i >= 0; i--)
+	                {
+	                    let nowRecord = processSingleRecord(o.records[i]);
+	                    let time = nowRecord[1];
+	                    if (time < startTime)
+	                        break;
+	                    if (time < endTime)
+	                        needSendRecords.push(nowRecord);
+	                }
+	                needSendRecords.sort((a, b) => a[1] - b[1]);
+	                if (needSendRecords.length > 0)
+	                    callbackContent.push({
+	                        name: o.name,
+	                        info: o.info,
+	                        uid: o.uid,
+	                        otherInfo: o.otherInfo,
+	                        records: needSendRecords
+	                    });
+	            });
+
+	            let requestId = e.content.id;
+	            forgeApi.operation.sendSelfPrivateForgePacket({
+	                plug: "forge",
+	                type: "syncPrivateChatRecordCB",
+	                id: requestId,
+	                content: callbackContent,
+	                startTime: startTime,
+	                endTime: endTime
+	            });
+	            showNotice("聊天记录同步", "其他设备正在拉取本机聊天记录");
+	        }
+	    });
+	}
+
+	/**
+	 * 获取本地记录
+	 * @returns {Array<{
+	 *  uid: string,
+	 *  name: string,
+	 *  info: Array<string>,
+	 *  records: Array<string | [boolean, number, ...Array<string>]>,
+	 *  otherInfo: Array<string>
+	 * }>}
+	 */
+	function getLocalRecordList()
+	{
+	    iframeContext.iframeWindow["Utils"]?.service?.saveStatus?.(7, 1);
+	    let rawRecordStr = localStorage.getItem(`pmLog_${forgeApi.operation.getUserUid()}`);
+	    if (rawRecordStr)
+	        return rawRecordStr.split("<").map(o =>
+	        {
+	            let part = o.split(`"`).map(o => o.split(`>`));
+	            return {
+	                uid: part[0]?.[0],
+	                name: part[1]?.[2],
+	                info: part[1],
+	                records: part[2],
+	                otherInfo: part[3]
+	            };
+	        });
+	    else
+	        return [];
+	}
+
+	/**
+	 * 设置本地记录
+	 * @param {ReturnType<typeof getLocalRecordList>} recordList 
+	 */
+	function setLocalRecordList(recordList)
+	{
+	    let rawRecordStr = recordList.map(o =>
+	        ([
+	            o.uid,
+	            o.info.join(`>`),
+
+	            o.records.map(o =>
+	            {
+	                if (typeof (o) == "string")
+	                    return o;
+	                else
+	                    return [
+	                        (o[0] ? "1" : ""),
+	                        Math.floor(o[1] / 1000).toString(10),
+	                        ...o.slice(2)
+	                    ].join(`'`);
+	            }).join(`>`),
+
+	            o.records.length.toString(10)
+	            // o.otherInfo.join(`>`)
+	        ]).join(`"`)
+	    ).join("<");
+	    localStorage.setItem(`pmLog_${forgeApi.operation.getUserUid()}`, rawRecordStr);
+	}
+
+	/**
+	 * 处理单条记录
+	 * @param {string | [boolean, number, ...Array<string>]} record
+	 * @returns {[boolean, number, ...Array<string>]}
+	 */
+	function processSingleRecord(record)
+	{
+	    if (typeof (record) == "string")
+	    {
+	        let part = record.split(`'`);
+
+	        let time = Number(part[1]) * 1000;
+	        let sendBySelf = (part[0] == "1");
+
+	        return [
+	            sendBySelf,
+	            time,
+	            ...part.slice(2)
+	        ];
+	    }
+	    else
+	        return record;
+	}
+
+	/**
+	 * 检查本地记录中不存在的记录
+	 * @param {ReturnType<typeof getLocalRecordList>} remoteRecordList
+	 * @param {number} startTime
+	 * @returns {number}
+	 */
+	function checkRecordDiff(remoteRecordList, startTime)
+	{
+	    let diffCount = 0;
+
+	    let localRecordList = getLocalRecordList();
+	    let localRecordMap = new Map(localRecordList.map(o => [o.uid, o]));
+
+	    remoteRecordList.forEach(o =>
+	    {
+	        let localRecordInfo = localRecordMap.get(o.uid);
+	        if (localRecordInfo)
+	        {
+	            let localRecordMessageMap = new Map();
+	            for (let i = localRecordInfo.records.length - 1; i >= 0; i--)
+	            {
+	                let nowRecord = processSingleRecord(localRecordInfo.records[i]);
+	                let time = nowRecord[1];
+	                let messageId = nowRecord[3];
+	                if (time < startTime - 60 * 1000)
+	                    break;
+	                localRecordMessageMap.set(messageId, nowRecord);
+	            }
+
+	            o.records.forEach(o =>
+	            {
+	                let nowRecord = processSingleRecord(o);
+	                let messageId = nowRecord[3];
+	                if (!localRecordMessageMap.has(messageId))
+	                    diffCount++;
+	            });
+	        }
+	        else
+	            diffCount += o.records.length;
+	    });
+
+	    return diffCount;
+	}
+
+	/**
+	 * 合并记录到本地
+	 * 将刷新内侧iframe
+	 * @param {ReturnType<typeof getLocalRecordList>} remoteRecordList
+	 * @param {number} startTime
+	 */
+	function mergeRecordToLocal(remoteRecordList, startTime)
+	{
+	    let localRecordList = getLocalRecordList();
+	    let localRecordMap = new Map(localRecordList.map(o => [o.uid, o]));
+
+	    remoteRecordList.forEach(o =>
+	    {
+	        let localRecordInfo = localRecordMap.get(o.uid);
+	        if (localRecordInfo)
+	        {
+	            let localRecordMessageMap = new Map();
+	            for (let i = localRecordInfo.records.length - 1; i >= 0; i--)
+	            {
+	                let nowRecord = processSingleRecord(localRecordInfo.records[i]);
+	                let time = nowRecord[1];
+	                let messageId = nowRecord[3];
+	                if (time < startTime - 5 * 60 * 1000)
+	                    break;
+	                localRecordMessageMap.set(messageId, nowRecord);
+	            }
+
+	            let localRecordIndex = localRecordInfo.records.length;
+	            for (let i = o.records.length - 1; i >= 0; i--)
+	            {
+	                let nowRecord = processSingleRecord(o.records[i]);
+	                let time = nowRecord[1];
+	                let messageId = nowRecord[3];
+	                if (!localRecordMessageMap.has(messageId))
+	                {
+	                    if (
+	                        localRecordIndex > 0 &&
+	                        processSingleRecord(localRecordInfo.records[localRecordIndex - 1])[1] > time
+	                    )
+	                        localRecordIndex--;
+	                    localRecordInfo.records.splice(localRecordIndex, 0, nowRecord);
+	                }
+	            }        }
+	        else
+	        {
+	            localRecordList.push(o);
+	        }
+	    });
+
+	    setLocalRecordList(localRecordList);
+
+	    let oldSaveState = (iframeContext.iframeWindow["Utils"].service.saveStatus).bind(iframeContext.iframeWindow["Utils"].service);
+	    iframeContext.iframeWindow["Utils"].service.saveStatus = () =>
+	    {
+	        for (let i = 0; i <= 11; i++)
+	            if (i != 7)
+	                oldSaveState(i, 1);
+	    };
+
+	    iframeContext.iframeWindow.location.reload();
+	}
+
 	/**
 	 * 初始化注入iframe元素
 	 */
@@ -7473,7 +7842,7 @@
 	        (async () =>
 	        { // 侧载在内侧执行的脚本
 	            let scriptCount = 0;
-	            storageContext.iiroseForge.sideLoadedScript.forEach(([name, url, insideIframe]) =>
+	            storageContext.roaming.sideLoadedScript.forEach(([name, url, insideIframe]) =>
 	            {
 	                if (insideIframe)
 	                {
@@ -7490,8 +7859,13 @@
 	        // 附加功能
 	        try
 	        {
-	            enableUserRemark();
 	            enableSyncConfig();
+	            enableSyncChatRecord();
+	            
+	            if (storageContext.local.enableUserRemark)
+	                enableUserRemark();
+	            if (storageContext.local.enableSyncChatRecord)
+	                trySyncChatRecord();
 	        }
 	        catch (err)
 	        {
@@ -7549,7 +7923,9 @@
 
 	            window["enableForgeDebugMode"] = enableForgeDebugMode;
 
-	            storageRead();
+	            storageRoamingRead();
+	            storageLocalRead();
+
 	            plugList.readPlugList();
 
 
@@ -7561,11 +7937,16 @@
 	            });
 	            console.log("[iiroseForge] 正在将iiroseForge注入iframe");
 	            initInjectIframe();
+	            window.addEventListener("beforeunload", () =>
+	            {
+	                storageContext.local.lastCloseTime = Date.now();
+	                storageLocalSave();
+	            });
 
 	            (async () =>
 	            { // 侧载在外侧执行的脚本
 	                let scriptCount = 0;
-	                storageContext.iiroseForge.sideLoadedScript.forEach(([name, url, insideIframe]) =>
+	                storageContext.roaming.sideLoadedScript.forEach(([name, url, insideIframe]) =>
 	                {
 	                    if (!insideIframe)
 	                    {

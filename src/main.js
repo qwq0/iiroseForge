@@ -3,7 +3,7 @@ import { initInjectIframe } from "./injectIframe/initInjectIframe.js";
 import { iiroseForgeLoaderUrl } from "./injectCache/injectCache.js";
 import { showNotice } from "./ui/notice.js";
 import { plugList } from "./plug/plugList.js";
-import { storageContext, storageRead } from "./storage/storage.js";
+import { storageContext, storageLocalRead, storageLocalSave, storageRoamingRead } from "./storage/storage.js";
 import { enableForgeDebugMode } from "./feature/debugMode.js";
 
 
@@ -19,7 +19,9 @@ if (location.host == "iirose.com")
 
             window["enableForgeDebugMode"] = enableForgeDebugMode;
 
-            storageRead();
+            storageRoamingRead();
+            storageLocalRead();
+
             plugList.readPlugList();
 
 
@@ -31,11 +33,16 @@ if (location.host == "iirose.com")
             });
             console.log("[iiroseForge] 正在将iiroseForge注入iframe");
             initInjectIframe();
+            window.addEventListener("beforeunload", () =>
+            {
+                storageContext.local.lastCloseTime = Date.now();
+                storageLocalSave();
+            });
 
             (async () =>
             { // 侧载在外侧执行的脚本
                 let scriptCount = 0;
-                storageContext.iiroseForge.sideLoadedScript.forEach(([name, url, insideIframe]) =>
+                storageContext.roaming.sideLoadedScript.forEach(([name, url, insideIframe]) =>
                 {
                     if (!insideIframe)
                     {

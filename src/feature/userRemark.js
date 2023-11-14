@@ -2,7 +2,7 @@ import { domPath, proxyFunction } from "../../lib/plugToolsLib.js";
 import { NElement, NEvent, NList, bindValue } from "../../lib/qwqframe.js";
 import { createNStyleList as styles } from "../../lib/qwqframe.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
-import { storageContext, storageSave } from "../storage/storage.js";
+import { storageContext, storageRoamingSave } from "../storage/storage.js";
 import { className } from "../ui/className.js";
 import { showInputBox } from "../ui/infobox.js";
 
@@ -82,7 +82,7 @@ export function enableUserRemark()
                 srcFunction(...param);
 
                 let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-                let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+                let oldRemarkName = storageContext.roaming.userRemark[uid];
                 selectHolderBox.appendChild(
                     createIiroseMenuElement(
                         "mdi-account-cog",
@@ -93,12 +93,12 @@ export function enableUserRemark()
 
 
 
-                            let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+                            let oldRemarkName = storageContext.roaming.userRemark[uid];
                             let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
                             if (newRemark != undefined)
                             {
-                                storageContext.iiroseForge.userRemark[uid] = newRemark;
-                                storageSave();
+                                storageContext.roaming.userRemark[uid] = newRemark;
+                                storageRoamingSave();
                             }
                         }
                     ).element
@@ -127,7 +127,7 @@ export function enableUserRemark()
                 srcFunction(...param);
 
                 let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-                let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+                let oldRemarkName = storageContext.roaming.userRemark[uid];
                 selectHolderBox.appendChild(
                     createIiroseMenuElement(
                         "mdi-account-cog",
@@ -138,12 +138,12 @@ export function enableUserRemark()
 
 
 
-                            let oldRemarkName = storageContext.iiroseForge.userRemark[uid];
+                            let oldRemarkName = storageContext.roaming.userRemark[uid];
                             let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
                             if (newRemark != undefined)
                             {
-                                storageContext.iiroseForge.userRemark[uid] = newRemark;
-                                storageSave();
+                                storageContext.roaming.userRemark[uid] = newRemark;
+                                storageRoamingSave();
                             }
                         }
                     ).element
@@ -215,7 +215,7 @@ function processingMessageElement(messageElement)
                     bottom: "42px"
                 }),
                 bindValue(
-                    storageContext.iiroseForge.userRemark,
+                    storageContext.roaming.userRemark,
                     uid,
                     remarkName => (remarkName ? remarkName : "")
                 )
@@ -244,7 +244,7 @@ function processingPrivateChatTabElement(privateChatTabElement)
                     marginLeft: "3px"
                 }),
                 bindValue(
-                    storageContext.iiroseForge.userRemark,
+                    storageContext.roaming.userRemark,
                     uid,
                     remarkName => (remarkName ? `(${remarkName})` : "")
                 )

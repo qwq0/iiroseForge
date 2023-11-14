@@ -1,6 +1,6 @@
 import { SandboxContext } from "../../lib/iframeSandbox.js";
 import { NElement } from "../../lib/qwqframe.js";
-import { storageContext, storageSave } from "../storage/storage.js";
+import { storageContext, storageRoamingSave } from "../storage/storage.js";
 import { showNotice } from "../ui/notice.js";
 import { loadPlugIn } from "./plug.js";
 
@@ -71,8 +71,8 @@ class PlugList
                 Array.from(o.eventPermissionSet.values())
             ]);
         });
-        storageContext.iiroseForge.plugInfo = plugInfo;
-        storageSave();
+        storageContext.roaming.plugInfo = plugInfo;
+        storageRoamingSave();
     }
 
     /**
@@ -82,7 +82,7 @@ class PlugList
     {
         try
         {
-            let plugInfo = storageContext.iiroseForge.plugInfo;
+            let plugInfo = storageContext.roaming.plugInfo;
             if (plugInfo.length > 0)
             {
                 plugInfo.forEach(([name, url, operationPermissionList, eventPermissionList]) =>

@@ -11,6 +11,7 @@ import { showNotice } from "../ui/notice.js";
 import { iframeContext } from "./iframeContext.js";
 import { getMenuButton } from "./menuButton.js";
 import { enableSyncConfig } from "../feature/syncConfig.js";
+import { enableSyncChatRecord, trySyncChatRecord } from "../feature/syncChatRecord.js";
 
 
 
@@ -98,7 +99,7 @@ export function initInjectIframe()
         (async () =>
         { // 侧载在内侧执行的脚本
             let scriptCount = 0;
-            storageContext.iiroseForge.sideLoadedScript.forEach(([name, url, insideIframe]) =>
+            storageContext.roaming.sideLoadedScript.forEach(([name, url, insideIframe]) =>
             {
                 if (insideIframe)
                 {
@@ -115,8 +116,13 @@ export function initInjectIframe()
         // 附加功能
         try
         {
-            enableUserRemark();
             enableSyncConfig();
+            enableSyncChatRecord();
+            
+            if (storageContext.local.enableUserRemark)
+                enableUserRemark();
+            if (storageContext.local.enableSyncChatRecord)
+                trySyncChatRecord();
         }
         catch (err)
         {

@@ -5,7 +5,7 @@ import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
 import { plugList } from "../plug/plugList.js";
 import { createPlugWindow } from "../plug/plugWindow.js";
-import { storageContext, storageSave } from "../storage/storage.js";
+import { storageContext, storageLocalSave, storageRoamingSave } from "../storage/storage.js";
 import { className } from "../ui/className.js";
 import { showInfoBox, showInputBox } from "../ui/infobox.js";
 import { showMenu } from "../ui/menu.js";
@@ -159,8 +159,8 @@ export function getForgeMenu()
                                         let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随forge启动运行", true);
                                         if (scriptUrl != undefined)
                                         {
-                                            storageContext.iiroseForge.sideLoadedScript.push([scriptUrl, scriptUrl, false]);
-                                            storageSave();
+                                            storageContext.roaming.sideLoadedScript.push([scriptUrl, scriptUrl, false]);
+                                            storageRoamingSave();
                                             showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启时生效");
                                         }
                                     }),
@@ -172,13 +172,13 @@ export function getForgeMenu()
                                         let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随iframe重载运行", true);
                                         if (scriptUrl != undefined)
                                         {
-                                            storageContext.iiroseForge.sideLoadedScript.push([scriptUrl, scriptUrl, true]);
-                                            storageSave();
+                                            storageContext.roaming.sideLoadedScript.push([scriptUrl, scriptUrl, true]);
+                                            storageRoamingSave();
                                             showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启或iframe重载时生效");
                                         }
                                     }),
                                 ]),
-                                ...(storageContext.iiroseForge.sideLoadedScript.map(([name, url, insideIframe], ind) => NList.getElement([
+                                ...(storageContext.roaming.sideLoadedScript.map(([name, url, insideIframe], ind) => NList.getElement([
                                     `${insideIframe ? "内" : "外"} | ${name}`,
                                     new NEvent("click", async () =>
                                     {
@@ -187,8 +187,8 @@ export function getForgeMenu()
                                                 "移除插件",
                                                 new NEvent("click", () =>
                                                 {
-                                                    storageContext.iiroseForge.sideLoadedScript.splice(ind, 1);
-                                                    storageSave();
+                                                    storageContext.roaming.sideLoadedScript.splice(ind, 1);
+                                                    storageRoamingSave();
                                                     showNotice("删除侧载脚本", "已将脚本从侧载列表移除\n将在下次重启时生效");
                                                 })
                                             ])
@@ -265,6 +265,38 @@ export function getForgeMenu()
                         onClick: async () =>
                         {
                             trySyncConfig();
+                        }
+                    },
+                    {
+                        title: "设置功能",
+                        text: "启用或关闭附加功能",
+                        icon: "cog",
+                        onClick: async () =>
+                        {
+                            showMenu([
+                                ...([
+                                    {
+                                        name: "用户备注",
+                                        storageKey: "enableUserRemark"
+                                    },
+                                    {
+                                        name: "聊天记录同步(测试)",
+                                        storageKey: "enableSyncChatRecord"
+                                    }
+                                ]).map(o => NList.getElement([
+                                    `(${storageContext.local[o.storageKey] ? "已启用" : "已禁用"}) ${o.name}`,
+                                    new NEvent("click", async () =>
+                                    {
+                                        let targetState = !storageContext.local[o.storageKey];
+                                        let confirm = showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+                                        if (confirm)
+                                        {
+                                            storageContext.local[o.storageKey] = targetState;
+                                            storageLocalSave();
+                                        }
+                                    }),
+                                ]))
+                            ]);
                         }
                     },
                     {
