@@ -136,7 +136,7 @@ export const forgeApi = {
                     for (let i = 0; i < forgePacket.length; i++)
                     {
                         forgeApi.operation.sendRoomMessage(forgePacket[i]);
-                        await delayPromise(100);
+                        await delayPromise(60);
                     }
                 })();
         },
@@ -162,7 +162,7 @@ export const forgeApi = {
                     for (let i = 0; i < forgePacket.length; i++)
                     {
                         forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket[i]);
-                        await delayPromise(100);
+                        await delayPromise(60);
                     }
                 })();
         },

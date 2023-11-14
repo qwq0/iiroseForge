@@ -2852,14 +2852,14 @@
 	                    Number.isNaN(sliceIndex) ||
 	                    Number.isNaN(sliceCount) ||
 	                    Number.isNaN(packetTime) ||
-	                    sliceCount > 50 ||
+	                    sliceCount > 64 ||
 	                    sliceIndex < 0 ||
 	                    sliceIndex >= sliceCount ||
 	                    packetTime > nowTime + 15 * 1000 ||
 	                    packetTime < nowTime - 60 * 1000 ||
 	                    packetId == ""
 	                )
-	                    return undefined;
+	                    return unfinishedSliceSymbol;
 	                let sliceInfo = forgeSliceMap.get(packetId);
 	                if (!sliceInfo)
 	                {
@@ -2880,7 +2880,7 @@
 	                    sliceInfo.totalCount != sliceCount ||
 	                    sliceInfo.slices[sliceIndex] != undefined
 	                )
-	                    return undefined;
+	                    return unfinishedSliceSymbol;
 	                sliceInfo.updateTime = nowTime;
 	                sliceInfo.hasCount++;
 	                sliceInfo.slices[sliceIndex] = dataBase64;
@@ -2913,7 +2913,7 @@
 	    const maxBodyLength = 8192;
 	    try
 	    {
-	        let dataBase64 = uint8ToBase64(jsob.encode(obj));
+	        let dataBase64 = uint8ToBase64(jsob.encode(obj, { referenceString: true }));
 	        if (dataBase64.length <= maxBodyLength)
 	        {
 	            let metaArr = ["", "single"];
@@ -3360,7 +3360,7 @@
 	                    for (let i = 0; i < forgePacket.length; i++)
 	                    {
 	                        forgeApi.operation.sendRoomMessage(forgePacket[i]);
-	                        await delayPromise(100);
+	                        await delayPromise(60);
 	                    }
 	                })();
 	        },
@@ -3386,7 +3386,7 @@
 	                    for (let i = 0; i < forgePacket.length; i++)
 	                    {
 	                        forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket[i]);
-	                        await delayPromise(100);
+	                        await delayPromise(60);
 	                    }
 	                })();
 	        },
@@ -5909,7 +5909,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.4.1"
+	    version: "alpha v1.4.3"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -7507,6 +7507,8 @@
 	                    showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并记录到当前设备`, undefined, () =>
 	                    {
 	                        storageContext.local.syncChatRecordTo = Math.min(Date.now(), e.content.endTime);
+	                        if (Number.isNaN(storageContext.local.syncChatRecordTo))
+	                            storageContext.local.syncChatRecordTo = Date.now();
 	                        storageLocalSave();
 	                        mergeRecordToLocal(e.content.content, e.content.startTime);
 	                    });
@@ -7544,11 +7546,12 @@
 	                    let time = nowRecord[1];
 	                    if (time < startTime)
 	                        break;
-	                    if (time < endTime)
+	                    if (time < startTime && time < endTime)
 	                        needSendRecords.push(nowRecord);
 	                }
-	                needSendRecords.sort((a, b) => a[1] - b[1]);
 	                if (needSendRecords.length > 0)
+	                {
+	                    needSendRecords.sort((a, b) => a[1] - b[1]);
 	                    callbackContent.push({
 	                        name: o.name,
 	                        info: o.info,
@@ -7556,6 +7559,7 @@
 	                        otherInfo: o.otherInfo,
 	                        records: needSendRecords
 	                    });
+	                }
 	            });
 
 	            let requestId = e.content.id;
@@ -7611,7 +7615,12 @@
 	    let rawRecordStr = recordList.map(o =>
 	        ([
 	            o.uid,
-	            o.info.join(`>`),
+	            o.info.map((e, ind) =>
+	            {
+	                if ((ind == 7 || ind == 8) && o.records.length > 0)
+	                    return processSingleRecord(o.records.at(-1))[3];
+	                return e;
+	            }).join(`>`),
 
 	            o.records.map(o =>
 	            {

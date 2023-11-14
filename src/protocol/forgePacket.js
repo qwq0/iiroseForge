@@ -76,14 +76,14 @@ export function readForgePacket(dataStr, creatorId)
                     Number.isNaN(sliceIndex) ||
                     Number.isNaN(sliceCount) ||
                     Number.isNaN(packetTime) ||
-                    sliceCount > 50 ||
+                    sliceCount > 64 ||
                     sliceIndex < 0 ||
                     sliceIndex >= sliceCount ||
                     packetTime > nowTime + 15 * 1000 ||
                     packetTime < nowTime - 60 * 1000 ||
                     packetId == ""
                 )
-                    return undefined;
+                    return unfinishedSliceSymbol;
                 let sliceInfo = forgeSliceMap.get(packetId);
                 if (!sliceInfo)
                 {
@@ -104,7 +104,7 @@ export function readForgePacket(dataStr, creatorId)
                     sliceInfo.totalCount != sliceCount ||
                     sliceInfo.slices[sliceIndex] != undefined
                 )
-                    return undefined;
+                    return unfinishedSliceSymbol;
                 sliceInfo.updateTime = nowTime;
                 sliceInfo.hasCount++;
                 sliceInfo.slices[sliceIndex] = dataBase64;
@@ -137,7 +137,7 @@ export function writeForgePacket(obj)
     const maxBodyLength = 8192;
     try
     {
-        let dataBase64 = uint8ToBase64(jsob.encode(obj));
+        let dataBase64 = uint8ToBase64(jsob.encode(obj, { referenceString: true }));
         if (dataBase64.length <= maxBodyLength)
         {
             let metaArr = ["", "single"];

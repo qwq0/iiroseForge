@@ -58,6 +58,8 @@ export function enableSyncChatRecord()
                     showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并记录到当前设备`, undefined, () =>
                     {
                         storageContext.local.syncChatRecordTo = Math.min(Date.now(), e.content.endTime);
+                        if (Number.isNaN(storageContext.local.syncChatRecordTo))
+                            storageContext.local.syncChatRecordTo = Date.now();
                         storageLocalSave();
                         mergeRecordToLocal(e.content.content, e.content.startTime);
                     });
@@ -95,11 +97,12 @@ export function enableSyncChatRecord()
                     let time = nowRecord[1];
                     if (time < startTime)
                         break;
-                    if (time < endTime)
+                    if (time < startTime && time < endTime)
                         needSendRecords.push(nowRecord);
                 }
-                needSendRecords.sort((a, b) => a[1] - b[1]);
                 if (needSendRecords.length > 0)
+                {
+                    needSendRecords.sort((a, b) => a[1] - b[1]);
                     callbackContent.push({
                         name: o.name,
                         info: o.info,
@@ -107,6 +110,7 @@ export function enableSyncChatRecord()
                         otherInfo: o.otherInfo,
                         records: needSendRecords
                     });
+                }
             });
 
             let requestId = e.content.id;
@@ -162,7 +166,12 @@ function setLocalRecordList(recordList)
     let rawRecordStr = recordList.map(o =>
         ([
             o.uid,
-            o.info.join(`>`),
+            o.info.map((e, ind) =>
+            {
+                if ((ind == 7 || ind == 8) && o.records.length > 0)
+                    return processSingleRecord(o.records.at(-1))[3];
+                return e;
+            }).join(`>`),
 
             o.records.map(o =>
             {
