@@ -97,7 +97,7 @@ export function enableSyncChatRecord()
                     let time = nowRecord[1];
                     if (time < startTime)
                         break;
-                    if (time < startTime && time < endTime)
+                    if (startTime <= time && time < endTime)
                         needSendRecords.push(nowRecord);
                 }
                 if (needSendRecords.length > 0)
