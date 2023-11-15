@@ -5909,7 +5909,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.4.4"
+	    version: "alpha v1.4.5"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -7055,8 +7055,12 @@
 	            createNStyle("top", "40px"),
 	            createNStyle("bottom", "40px"),
 	            createNStyle("overflow", "auto"),
-
+	            
 	            [
+	                createNStyleList({
+	                    display: "grid",
+	                    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))"
+	                }),
 	                ...([ // 菜单列表项
 	                    {
 	                        title: "管理插件",
@@ -7282,16 +7286,16 @@
 	                            showInfoBox("卸载iiroseForge", "已完成");
 	                        }
 	                    }
-	                ]).map(o => [
+	                ]).map(o => [ // 菜单列表项元素
 	                    className("commonBox"),
 	                    createNStyle("maxWidth", "calc(100% - 24px)"),
 	                    createNStyle("minWidth", "355.2px"),
 	                    createNStyle("minHeight", "200px"),
-	                    createNStyle("float", "left"),
+	                    createNStyle("float", "none"),
 	                    createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
 	                    createNStyle("margin", "24px 12px 0px 12px"),
 	                    createNStyle("position", "relative"),
-	                    [
+	                    [ // 元素标题行
 	                        className("commonBoxHead"),
 	                        createNStyle("backgroundColor", "rgba(255,255,255,0.2)"),
 	                        createNStyle("color", "rgba(0,0,0,0.4)"),
@@ -7301,7 +7305,7 @@
 	                        createNStyle("justifyContent", "center"),
 	                        createNStyle("padding", "0 24px"),
 	                        createNStyle("boxSizing", "border-box"),
-	                        [
+	                        [ // 图标
 	                            className("mdi-" + o.icon),
 	                            createNStyle("lineHeight", "100px"),
 	                            createNStyle("fontSize", "30px"),
@@ -7311,7 +7315,7 @@
 	                            createNStyle("height", "100%"),
 	                            createNStyle("opacity", "0.7"),
 	                        ],
-	                        [
+	                        [ // 标题文本
 	                            createNStyle("lineHeight", "100px"),
 	                            createNStyle("fontSize", "20px"),
 	                            createNStyle("display", "inline-block"),
@@ -7326,7 +7330,7 @@
 	                            o.title
 	                        ]
 	                    ],
-	                    [
+	                    [ // 元素正文
 	                        className("textColor"),
 	                        createNStyle("width", "100%"),
 	                        createNStyle("minHeight", "100px"),
@@ -7349,7 +7353,13 @@
 	                    ],
 
 	                    new NEvent("click", o.onClick)
-	                ])
+	                ]),
+
+	            ],
+	            [ // 菜单主体下方的填充
+	                createNStyleList({
+	                    height: "25px"
+	                })
 	            ]
 	        ],
 

@@ -88,8 +88,12 @@ export function getForgeMenu()
             style("top", "40px"),
             style("bottom", "40px"),
             style("overflow", "auto"),
-
+            
             [
+                styles({
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))"
+                }),
                 ...([ // 菜单列表项
                     {
                         title: "管理插件",
@@ -321,16 +325,16 @@ export function getForgeMenu()
                             showInfoBox("卸载iiroseForge", "已完成");
                         }
                     }
-                ]).map(o => [
+                ]).map(o => [ // 菜单列表项元素
                     className("commonBox"),
                     style("maxWidth", "calc(100% - 24px)"),
                     style("minWidth", "355.2px"),
                     style("minHeight", "200px"),
-                    style("float", "left"),
+                    style("float", "none"),
                     style("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
                     style("margin", "24px 12px 0px 12px"),
                     style("position", "relative"),
-                    [
+                    [ // 元素标题行
                         className("commonBoxHead"),
                         style("backgroundColor", "rgba(255,255,255,0.2)"),
                         style("color", "rgba(0,0,0,0.4)"),
@@ -340,7 +344,7 @@ export function getForgeMenu()
                         style("justifyContent", "center"),
                         style("padding", "0 24px"),
                         style("boxSizing", "border-box"),
-                        [
+                        [ // 图标
                             className("mdi-" + o.icon),
                             style("lineHeight", "100px"),
                             style("fontSize", "30px"),
@@ -350,7 +354,7 @@ export function getForgeMenu()
                             style("height", "100%"),
                             style("opacity", "0.7"),
                         ],
-                        [
+                        [ // 标题文本
                             style("lineHeight", "100px"),
                             style("fontSize", "20px"),
                             style("display", "inline-block"),
@@ -365,7 +369,7 @@ export function getForgeMenu()
                             o.title
                         ]
                     ],
-                    [
+                    [ // 元素正文
                         className("textColor"),
                         style("width", "100%"),
                         style("minHeight", "100px"),
@@ -388,7 +392,13 @@ export function getForgeMenu()
                     ],
 
                     new NEvent("click", o.onClick)
-                ])
+                ]),
+
+            ],
+            [ // 菜单主体下方的填充
+                styles({
+                    height: "25px"
+                })
             ]
         ],
 
