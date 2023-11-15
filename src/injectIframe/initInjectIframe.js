@@ -26,8 +26,13 @@ export function initInjectIframe()
          * @type {HTMLIFrameElement}
          */
         let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
+        
         let iframeWindow = mainIframe.contentWindow;
         let iframeDocument = mainIframe.contentDocument;
+        iframeContext.iframeDocument = iframeDocument;
+        iframeContext.iframeWindow = iframeWindow;
+        iframeContext.iframeBody = getNElement(/** @type {HTMLBodyElement} */(iframeDocument.body));
+
         if (iframeWindow["iiroseForgeInjected"]) // 已经注入iframe
             return;
         if (iframeWindow["socket"].__onmessage != undefined || iframeWindow["socket"]._onmessage == undefined || iframeWindow["socket"]._send == undefined) // 目前无法注入
@@ -42,10 +47,6 @@ export function initInjectIframe()
 
             functionHolder.insChild(button, 1); // 添加菜单到左侧菜单栏第二个按钮前
         })();
-
-        iframeContext.iframeDocument = iframeDocument;
-        iframeContext.iframeWindow = iframeWindow;
-        iframeContext.iframeBody = getNElement(/** @type {HTMLBodyElement} */(iframeDocument.body));
 
         iframeContext.socket = iframeWindow["socket"];
 

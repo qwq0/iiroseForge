@@ -7422,13 +7422,18 @@
 	 */
 	function getMenuButton()
 	{
+	    let referElement = iframeContext.iframeDocument?.querySelector("div#functionHolder div.functionButton.functionButtonGroup");
+
+	    let buttonBackgroundColor = (referElement ? getComputedStyle(referElement).backgroundColor : "rgb(255, 255, 255)");
+	    let buttonTextColor = (referElement ? getComputedStyle(referElement).color : "rgb(33, 33, 33)");
+
 	    let button = NList.getElement([
-	        createNStyle("background", "#fff"),
+	        createNStyle("backgroundColor", buttonBackgroundColor),
 	        createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
 	        createNStyle("position", "relative"),
 	        createNStyle("zIndex", "1"),
 
-	        createNStyle("color", "#212121"),
+	        createNStyle("color", buttonTextColor),
 	        createNStyle("paddingLeft", "16px"),
 	        createNStyle("paddingRight", "56px"),
 	        createNStyle("transition", "background-color 0.1s ease 0s, color 0.1s ease 0s"),
@@ -7443,6 +7448,23 @@
 	        {
 	            iframeContext.iframeWindow?.["functionHolderDarker"]?.click();
 	            iframeContext.iframeBody.addChild(getForgeMenu());
+	        }),
+
+	        new NEvent("mouseenter", (_e, ele) =>
+	        {
+	            ele.setStyle("backgroundColor", (
+	                (
+	                    buttonBackgroundColor == "#202020" ||
+	                    buttonBackgroundColor == "rgb(32, 32, 32)"
+	                ) ?
+	                    "rgb(42, 42, 42)" :
+	                    "rgb(245, 245, 245)"
+	            ));
+	            iframeContext.iframeWindow?.["Utils"]?.Sound?.play?.(0);
+	        }),
+	        new NEvent("mouseleave", (_e, ele) =>
+	        {
+	            ele.setStyle("backgroundColor", buttonBackgroundColor);
 	        }),
 
 	        [
@@ -7792,8 +7814,13 @@
 	         * @type {HTMLIFrameElement}
 	         */
 	        let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
+	        
 	        let iframeWindow = mainIframe.contentWindow;
 	        let iframeDocument = mainIframe.contentDocument;
+	        iframeContext.iframeDocument = iframeDocument;
+	        iframeContext.iframeWindow = iframeWindow;
+	        iframeContext.iframeBody = getNElement(/** @type {HTMLBodyElement} */(iframeDocument.body));
+
 	        if (iframeWindow["iiroseForgeInjected"]) // 已经注入iframe
 	            return;
 	        if (iframeWindow["socket"].__onmessage != undefined || iframeWindow["socket"]._onmessage == undefined || iframeWindow["socket"]._send == undefined) // 目前无法注入
@@ -7808,10 +7835,6 @@
 
 	            functionHolder.insChild(button, 1); // 添加菜单到左侧菜单栏第二个按钮前
 	        })();
-
-	        iframeContext.iframeDocument = iframeDocument;
-	        iframeContext.iframeWindow = iframeWindow;
-	        iframeContext.iframeBody = getNElement(/** @type {HTMLBodyElement} */(iframeDocument.body));
 
 	        iframeContext.socket = iframeWindow["socket"];
 

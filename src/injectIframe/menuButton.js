@@ -9,13 +9,18 @@ import { iframeContext } from "./iframeContext.js";
  */
 export function getMenuButton()
 {
+    let referElement = iframeContext.iframeDocument?.querySelector("div#functionHolder div.functionButton.functionButtonGroup");
+
+    let buttonBackgroundColor = (referElement ? getComputedStyle(referElement).backgroundColor : "rgb(255, 255, 255)");
+    let buttonTextColor = (referElement ? getComputedStyle(referElement).color : "rgb(33, 33, 33)");
+
     let button = NList.getElement([
-        style("background", "#fff"),
+        style("backgroundColor", buttonBackgroundColor),
         style("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
         style("position", "relative"),
         style("zIndex", "1"),
 
-        style("color", "#212121"),
+        style("color", buttonTextColor),
         style("paddingLeft", "16px"),
         style("paddingRight", "56px"),
         style("transition", "background-color 0.1s ease 0s, color 0.1s ease 0s"),
@@ -30,6 +35,23 @@ export function getMenuButton()
         {
             iframeContext.iframeWindow?.["functionHolderDarker"]?.click();
             iframeContext.iframeBody.addChild(getForgeMenu());
+        }),
+
+        new NEvent("mouseenter", (_e, ele) =>
+        {
+            ele.setStyle("backgroundColor", (
+                (
+                    buttonBackgroundColor == "#202020" ||
+                    buttonBackgroundColor == "rgb(32, 32, 32)"
+                ) ?
+                    "rgb(42, 42, 42)" :
+                    "rgb(245, 245, 245)"
+            ));
+            iframeContext.iframeWindow?.["Utils"]?.Sound?.play?.(0);
+        }),
+        new NEvent("mouseleave", (_e, ele) =>
+        {
+            ele.setStyle("backgroundColor", buttonBackgroundColor);
         }),
 
         [
