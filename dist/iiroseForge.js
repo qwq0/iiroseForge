@@ -5916,7 +5916,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.5.1"
+	    version: "alpha v1.5.2"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -7917,17 +7917,17 @@
 	        if (supperMenuDisplay)
 	            return;
 	        supperMenu.menuPointerReset();
-	        iframeContext.iframeWindow.addEventListener("mousemove", mouseMove);
 	        supperMenuDisplayTimeOutId = setTimeout(() =>
 	        {
 	            supperMenuDisplay = true;
 	            supperMenuDisplayTimeOutId = null;
 	            refreshListItem();
 	            supperMenu.show();
+	            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
 	            supperMenu.menuElement.element.requestPointerLock({
-	                unadjustedMovement: false
+	                unadjustedMovement: true
 	            });
-	        }, 135);
+	        }, 125);
 	    }, true);
 	    iframeContext.iframeWindow.addEventListener("mouseup", e =>
 	    {
@@ -7940,7 +7940,7 @@
 	        }
 	        if (!supperMenuDisplay)
 	            return;
-	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove);
+	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
 	        supperMenu.triggerCurrent();
 
 	        document.exitPointerLock();
@@ -8075,12 +8075,48 @@
 	     */
 	    draw()
 	    {
-	        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / 335);
+	        const sizeX = 335;
+	        const sizeY = 85;
+
+
+	        let minX = -(this.startColumnIndex + 0.5) * sizeX;
+	        let maxX = (this.menuList.length - this.startColumnIndex - 0.5) * sizeX;
+	        if (this.menuPointerX >= maxX)
+	            this.menuPointerX = maxX - 1;
+	        else if (this.menuPointerX < minX)
+	            this.menuPointerX = minX;
+
+	        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / sizeX);
 	        this.setCurrentColumn(columnIndex);
 
+
+
 	        let nowColumn = this.menuList[this.currentColumnIndex];
-	        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / 85);
+
+	        let minY = -(nowColumn.startRowIndex + 0.5) * sizeY;
+	        let maxY = (nowColumn.list.length - nowColumn.startRowIndex - 0.5) * sizeY;
+	        if (this.menuPointerY >= maxY)
+	            this.menuPointerY = maxY - 1;
+	        else if (this.menuPointerY < minY)
+	            this.menuPointerY = minY;
+
+	        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / sizeY);
 	        nowColumn.setCurrentRow(rowIndex);
+
+	        let verticalRemainderPercentage = (this.menuPointerY / sizeY) - Math.round(this.menuPointerY / sizeY) + 0.5;
+	        let horizontalRemainderPercentage = (this.menuPointerX / sizeX) - Math.round(this.menuPointerX / sizeX) + 0.5;
+
+	        if (this.cursorIndicator.visible)
+	        {
+	            this.cursorIndicator.element.setStyle(
+	                "borderImage",
+	                `linear-gradient(0deg, rgb(170, 170, 170), rgb(255, 255, 255) ${((1 - verticalRemainderPercentage) * 100).toFixed(1)}%, rgb(170, 170, 170)) 30`
+	            );
+	        }
+	        this.menuElement.setStyle(
+	            "backgroundImage",
+	            `linear-gradient(90deg, rgba(170, 170, 170, 0.5), rgba(235, 235, 235, 0.6) ${(horizontalRemainderPercentage * 100).toFixed(1)}%, rgba(170, 170, 170, 0.5))`
+	        );
 	    }
 
 	    show()

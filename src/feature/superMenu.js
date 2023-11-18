@@ -69,17 +69,17 @@ export function enableSuperMenu()
         if (supperMenuDisplay)
             return;
         supperMenu.menuPointerReset();
-        iframeContext.iframeWindow.addEventListener("mousemove", mouseMove);
         supperMenuDisplayTimeOutId = setTimeout(() =>
         {
             supperMenuDisplay = true;
             supperMenuDisplayTimeOutId = null;
             refreshListItem();
             supperMenu.show();
+            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
             supperMenu.menuElement.element.requestPointerLock({
-                unadjustedMovement: false
+                unadjustedMovement: true
             });
-        }, 135);
+        }, 125);
     }, true);
     iframeContext.iframeWindow.addEventListener("mouseup", e =>
     {
@@ -92,7 +92,7 @@ export function enableSuperMenu()
         }
         if (!supperMenuDisplay)
             return;
-        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove);
+        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
         supperMenu.triggerCurrent();
 
         document.exitPointerLock();
@@ -227,12 +227,48 @@ class ForgeSuperMenu
      */
     draw()
     {
-        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / 335);
+        const sizeX = 335;
+        const sizeY = 85;
+
+
+        let minX = -(this.startColumnIndex + 0.5) * sizeX;
+        let maxX = (this.menuList.length - this.startColumnIndex - 0.5) * sizeX;
+        if (this.menuPointerX >= maxX)
+            this.menuPointerX = maxX - 1;
+        else if (this.menuPointerX < minX)
+            this.menuPointerX = minX;
+
+        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / sizeX);
         this.setCurrentColumn(columnIndex);
 
+
+
         let nowColumn = this.menuList[this.currentColumnIndex];
-        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / 85);
+
+        let minY = -(nowColumn.startRowIndex + 0.5) * sizeY;
+        let maxY = (nowColumn.list.length - nowColumn.startRowIndex - 0.5) * sizeY;
+        if (this.menuPointerY >= maxY)
+            this.menuPointerY = maxY - 1;
+        else if (this.menuPointerY < minY)
+            this.menuPointerY = minY;
+
+        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / sizeY);
         nowColumn.setCurrentRow(rowIndex);
+
+        let verticalRemainderPercentage = (this.menuPointerY / sizeY) - Math.round(this.menuPointerY / sizeY) + 0.5;
+        let horizontalRemainderPercentage = (this.menuPointerX / sizeX) - Math.round(this.menuPointerX / sizeX) + 0.5;
+
+        if (this.cursorIndicator.visible)
+        {
+            this.cursorIndicator.element.setStyle(
+                "borderImage",
+                `linear-gradient(0deg, rgb(170, 170, 170), rgb(255, 255, 255) ${((1 - verticalRemainderPercentage) * 100).toFixed(1)}%, rgb(170, 170, 170)) 30`
+            );
+        }
+        this.menuElement.setStyle(
+            "backgroundImage",
+            `linear-gradient(90deg, rgba(170, 170, 170, 0.5), rgba(235, 235, 235, 0.6) ${(horizontalRemainderPercentage * 100).toFixed(1)}%, rgba(170, 170, 170, 0.5))`
+        );
     }
 
     show()
