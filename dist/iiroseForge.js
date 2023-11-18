@@ -5916,7 +5916,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.5.0"
+	    version: "alpha v1.5.1"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -7879,6 +7879,8 @@
 	    function refreshListItem()
 	    {
 	        midColumn.clearChild();
+	        let currentIndex = 0;
+	        let nowIndex = 0;
 	        Array.from(
 	            iframeContext.iframeDocument.querySelector("div#sessionHolder > div.sessionHolderPmTaskBox")?.children
 	        ).forEach(o =>
@@ -7894,8 +7896,13 @@
 	                {
 	                    onClick.call(o, new MouseEvent(""));
 	                });
+
+	                if ((/** @type {HTMLElement} */(domPath(o, [-1]))).style.display != "none")
+	                    currentIndex = nowIndex;
+	                nowIndex++;
 	            }
 	        });
+	        midColumn.currentRowIndex = currentIndex;
 	    }
 
 	    let mouseMove = (/** @type {MouseEvent} */ e) =>
@@ -7917,10 +7924,15 @@
 	            supperMenuDisplayTimeOutId = null;
 	            refreshListItem();
 	            supperMenu.show();
+	            supperMenu.menuElement.element.requestPointerLock({
+	                unadjustedMovement: false
+	            });
 	        }, 135);
 	    }, true);
-	    iframeContext.iframeWindow.addEventListener("mouseup", () =>
+	    iframeContext.iframeWindow.addEventListener("mouseup", e =>
 	    {
+	        if (e.button != 2)
+	            return;
 	        if (supperMenuDisplayTimeOutId != null)
 	        {
 	            clearTimeout(supperMenuDisplayTimeOutId);
@@ -7930,6 +7942,10 @@
 	            return;
 	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove);
 	        supperMenu.triggerCurrent();
+
+	        document.exitPointerLock();
+	        iframeContext.iframeDocument.exitPointerLock();
+
 	        setTimeout(() =>
 	        {
 	            supperMenuDisplay = false;
@@ -8004,7 +8020,7 @@
 	                left: "0",
 	                position: "fixed",
 	                backgroundColor: "rgba(230, 230, 230, 0.5)",
-	                zIndex: "100000",
+	                zIndex: "10000000",
 	            }),
 
 	            this.cursorIndicator.element = NList.getElement([
@@ -8059,11 +8075,11 @@
 	     */
 	    draw()
 	    {
-	        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / 245);
+	        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / 335);
 	        this.setCurrentColumn(columnIndex);
 
 	        let nowColumn = this.menuList[this.currentColumnIndex];
-	        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / 65);
+	        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / 85);
 	        nowColumn.setCurrentRow(rowIndex);
 	    }
 
@@ -8116,6 +8132,7 @@
 	    menuPointerReset()
 	    {
 	        this.startColumnIndex = this.currentColumnIndex;
+	        this.menuList.forEach(o => o.startRowIndex = o.currentRowIndex);
 	        this.menuPointerX = 0;
 	        this.menuPointerY = 0;
 	    }
@@ -8135,11 +8152,12 @@
 	    {
 	        if (rect)
 	        {
+	            const eps = 0.001;
 	            if (
-	                rect.x != this.cursorIndicator.x ||
-	                rect.y != this.cursorIndicator.y ||
-	                rect.width != this.cursorIndicator.width ||
-	                rect.height != this.cursorIndicator.height ||
+	                Math.abs(rect.x - this.cursorIndicator.x) >= eps ||
+	                Math.abs(rect.y - this.cursorIndicator.y) >= eps ||
+	                Math.abs(rect.width - this.cursorIndicator.width) >= eps ||
+	                Math.abs(rect.height - this.cursorIndicator.height) >= eps ||
 	                !this.cursorIndicator.visible
 	            )
 	            {
@@ -8154,13 +8172,13 @@
 	                    {
 	                    },
 	                    {
-	                        left: this.cursorIndicator.x + "px",
-	                        top: this.cursorIndicator.y + "px",
-	                        width: this.cursorIndicator.width + "px",
-	                        height: this.cursorIndicator.height + "px",
+	                        left: this.cursorIndicator.x.toFixed(3) + "px",
+	                        top: this.cursorIndicator.y.toFixed(3) + "px",
+	                        width: this.cursorIndicator.width.toFixed(3) + "px",
+	                        height: this.cursorIndicator.height.toFixed(3) + "px",
 	                    }
 	                ], {
-	                    duration: 100,
+	                    duration: 120,
 	                    easing: "cubic-bezier(0.33, 1, 0.68, 1)",
 	                    fill: "forwards"
 	                });
@@ -8335,7 +8353,8 @@
 
 	    triggerCurrent()
 	    {
-	        this.list[this.currentRowIndex]?.execute();
+	        if (this.currentRowIndex != this.startRowIndex)
+	            this.list[this.currentRowIndex]?.execute();
 	    }
 	}
 

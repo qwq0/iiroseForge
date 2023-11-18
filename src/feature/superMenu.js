@@ -1,6 +1,7 @@
 import { iframeContext } from "../injectIframe/iframeContext.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles, cssG, mouseBind } from "../../lib/qwqframe.js";
 import { registAnimationFrame } from "../util/registAnimationFrame.js";
+import { domPath } from "../../lib/plugToolsLib.js";
 
 /**
  * 启用超级菜单
@@ -30,6 +31,8 @@ export function enableSuperMenu()
     function refreshListItem()
     {
         midColumn.clearChild();
+        let currentIndex = 0;
+        let nowIndex = 0;
         Array.from(
             iframeContext.iframeDocument.querySelector("div#sessionHolder > div.sessionHolderPmTaskBox")?.children
         ).forEach(o =>
@@ -45,8 +48,13 @@ export function enableSuperMenu()
                 {
                     onClick.call(o, new MouseEvent(""));
                 });
+
+                if ((/** @type {HTMLElement} */(domPath(o, [-1]))).style.display != "none")
+                    currentIndex = nowIndex;
+                nowIndex++;
             }
         });
+        midColumn.currentRowIndex = currentIndex;
     }
 
     let mouseMove = (/** @type {MouseEvent} */ e) =>
@@ -68,10 +76,15 @@ export function enableSuperMenu()
             supperMenuDisplayTimeOutId = null;
             refreshListItem();
             supperMenu.show();
+            supperMenu.menuElement.element.requestPointerLock({
+                unadjustedMovement: false
+            });
         }, 135);
     }, true);
-    iframeContext.iframeWindow.addEventListener("mouseup", () =>
+    iframeContext.iframeWindow.addEventListener("mouseup", e =>
     {
+        if (e.button != 2)
+            return;
         if (supperMenuDisplayTimeOutId != null)
         {
             clearTimeout(supperMenuDisplayTimeOutId);
@@ -81,6 +94,10 @@ export function enableSuperMenu()
             return;
         iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove);
         supperMenu.triggerCurrent();
+
+        document.exitPointerLock();
+        iframeContext.iframeDocument.exitPointerLock();
+
         setTimeout(() =>
         {
             supperMenuDisplay = false;
@@ -155,7 +172,7 @@ class ForgeSuperMenu
                 left: "0",
                 position: "fixed",
                 backgroundColor: "rgba(230, 230, 230, 0.5)",
-                zIndex: "100000",
+                zIndex: "10000000",
             }),
 
             this.cursorIndicator.element = NList.getElement([
@@ -210,11 +227,11 @@ class ForgeSuperMenu
      */
     draw()
     {
-        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / 245);
+        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / 335);
         this.setCurrentColumn(columnIndex);
 
         let nowColumn = this.menuList[this.currentColumnIndex];
-        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / 65);
+        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / 85);
         nowColumn.setCurrentRow(rowIndex);
     }
 
@@ -267,6 +284,7 @@ class ForgeSuperMenu
     menuPointerReset()
     {
         this.startColumnIndex = this.currentColumnIndex;
+        this.menuList.forEach(o => o.startRowIndex = o.currentRowIndex);
         this.menuPointerX = 0;
         this.menuPointerY = 0;
     }
@@ -286,11 +304,12 @@ class ForgeSuperMenu
     {
         if (rect)
         {
+            const eps = 0.001;
             if (
-                rect.x != this.cursorIndicator.x ||
-                rect.y != this.cursorIndicator.y ||
-                rect.width != this.cursorIndicator.width ||
-                rect.height != this.cursorIndicator.height ||
+                Math.abs(rect.x - this.cursorIndicator.x) >= eps ||
+                Math.abs(rect.y - this.cursorIndicator.y) >= eps ||
+                Math.abs(rect.width - this.cursorIndicator.width) >= eps ||
+                Math.abs(rect.height - this.cursorIndicator.height) >= eps ||
                 !this.cursorIndicator.visible
             )
             {
@@ -305,13 +324,13 @@ class ForgeSuperMenu
                     {
                     },
                     {
-                        left: this.cursorIndicator.x + "px",
-                        top: this.cursorIndicator.y + "px",
-                        width: this.cursorIndicator.width + "px",
-                        height: this.cursorIndicator.height + "px",
+                        left: this.cursorIndicator.x.toFixed(3) + "px",
+                        top: this.cursorIndicator.y.toFixed(3) + "px",
+                        width: this.cursorIndicator.width.toFixed(3) + "px",
+                        height: this.cursorIndicator.height.toFixed(3) + "px",
                     }
                 ], {
-                    duration: 100,
+                    duration: 120,
                     easing: "cubic-bezier(0.33, 1, 0.68, 1)",
                     fill: "forwards"
                 });
@@ -486,6 +505,7 @@ class ForgeSuperMenuColumn
 
     triggerCurrent()
     {
-        this.list[this.currentRowIndex]?.execute();
+        if (this.currentRowIndex != this.startRowIndex)
+            this.list[this.currentRowIndex]?.execute();
     }
 }
