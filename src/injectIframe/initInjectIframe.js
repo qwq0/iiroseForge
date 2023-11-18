@@ -12,6 +12,7 @@ import { iframeContext } from "./iframeContext.js";
 import { getMenuButton } from "./menuButton.js";
 import { enableSyncConfig } from "../feature/syncConfig.js";
 import { enableSyncChatRecord, trySyncChatRecord } from "../feature/syncChatRecord.js";
+import { enableSuperMenu } from "../feature/superMenu.js";
 
 
 
@@ -26,7 +27,7 @@ export function initInjectIframe()
          * @type {HTMLIFrameElement}
          */
         let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
-        
+
         let iframeWindow = mainIframe.contentWindow;
         let iframeDocument = mainIframe.contentDocument;
         iframeContext.iframeDocument = iframeDocument;
@@ -119,11 +120,13 @@ export function initInjectIframe()
         {
             enableSyncConfig();
             enableSyncChatRecord();
-            
+
             if (storageContext.local.enableUserRemark)
                 enableUserRemark();
             if (storageContext.local.enableSyncChatRecord)
                 trySyncChatRecord();
+            if (storageContext.local.enableSuperMenu)
+                enableSuperMenu();
         }
         catch (err)
         {

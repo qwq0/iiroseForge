@@ -11,6 +11,7 @@ let waitForId = "";
  */
 export function trySyncConfig()
 {
+    showNotice("配置同步", "正在尝试获取配置");
     let requestId = uniqueIdentifierString();
     forgeApi.operation.sendSelfPrivateForgePacket({
         plug: "forge",

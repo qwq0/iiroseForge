@@ -1853,7 +1853,7 @@
 	 */
 	let iframeContext = {
 	    /**
-	     * @type {Window | Object}
+	     * @type {Window}
 	     */
 	    iframeWindow: null,
 	    /**
@@ -3030,7 +3030,8 @@
 	{
 	    let notice = expandElement({
 	        style: {
-	            backgroundColor: cssG.rgb(255, 255, 255, 0.95),
+	            backgroundColor: cssG.rgb(255, 255, 255, 0.5),
+	            backdropFilter: "blur(2px)",
 	            marginRight: "1em",
 	            marginTop: "1em",
 	            marginLeft: "1em",
@@ -3041,7 +3042,7 @@
 	            boxSizing: "border-box",
 	            minWidth: "180px",
 	            borderRadius: "0.2em",
-	            boxShadow: `${cssG.rgb(0, 0, 0, 0.5)} 5px 5px 10px`
+	            boxShadow: `${cssG.rgb(0, 0, 0, 0.35)} 5px 5px 10px`
 	        },
 	        position: "relative",
 	        child: [{ // 通知图标
@@ -3052,10 +3053,14 @@
 	            style: {
 	                fontSize: "1.2em",
 	                lineHeight: "1.5em",
-	                fontWeight: "bolder"
+	                fontWeight: "bolder",
+	                textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
 	            }
 	        }, { // 通知正文
-	            text: text
+	            text: text,
+	            style: {
+	                textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
+	            }
 	        }, { // 通知附加内容
 	            text: additional,
 	            style: {
@@ -3136,7 +3141,7 @@
 	    setTimeout(() =>
 	    {
 	        closeThisNotice();
-	    }, 3900 + Math.min(10000, text.length * 115));
+	    }, 2500 + Math.min(15 * 1000, text.length * 255));
 
 	    if (callback)
 	    {
@@ -3702,6 +3707,7 @@
 	    local: {
 	        enableSyncChatRecord: false,
 	        enableUserRemark: true,
+	        enableSuperMenu: false,
 	        lastCloseTime: 0,
 	        syncChatRecordTo: 0
 	    }
@@ -5848,6 +5854,7 @@
 	 */
 	function trySyncConfig()
 	{
+	    showNotice("配置同步", "正在尝试获取配置");
 	    let requestId = uniqueIdentifierString$2();
 	    forgeApi.operation.sendSelfPrivateForgePacket({
 	        plug: "forge",
@@ -5909,7 +5916,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.4.5"
+	    version: "alpha v1.5.0"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -6662,7 +6669,7 @@
 	{
 	    let plugWindow = createPlugWindow(false);
 	    return ({
-	        windowElement: plugWindow.iframe,
+	        windowElement: plugWindow.windowElement,
 	        sandbox: plugWindow.sandbox
 	    });
 	}
@@ -7247,13 +7254,17 @@
 	                                    {
 	                                        name: "聊天记录同步(测试)",
 	                                        storageKey: "enableSyncChatRecord"
+	                                    },
+	                                    {
+	                                        name: "右键超级菜单",
+	                                        storageKey: "enableSuperMenu"
 	                                    }
 	                                ]).map(o => NList.getElement([
 	                                    `(${storageContext.local[o.storageKey] ? "已启用" : "已禁用"}) ${o.name}`,
 	                                    new NEvent("click", async () =>
 	                                    {
 	                                        let targetState = !storageContext.local[o.storageKey];
-	                                        let confirm = showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+	                                        let confirm = await showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
 	                                        if (confirm)
 	                                        {
 	                                            storageContext.local[o.storageKey] = targetState;
@@ -7495,6 +7506,7 @@
 	 */
 	function trySyncChatRecord()
 	{
+	    showNotice("聊天记录同步", "正在尝试获取聊天记录");
 	    let requestId = uniqueIdentifierString$2();
 	    forgeApi.operation.sendSelfPrivateForgePacket({
 	        plug: "forge",
@@ -7535,15 +7547,16 @@
 	                    let diffCount = checkRecordDiff(e.content.content, e.content.startTime);
 	                    // console.log(e.content.content);
 	                    if (diffCount == 0)
-	                        return;
-	                    showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并记录到当前设备`, undefined, () =>
-	                    {
-	                        storageContext.local.syncChatRecordTo = Math.min(Date.now(), e.content.endTime);
-	                        if (Number.isNaN(storageContext.local.syncChatRecordTo))
-	                            storageContext.local.syncChatRecordTo = Date.now();
-	                        storageLocalSave();
-	                        mergeRecordToLocal(e.content.content, e.content.startTime);
-	                    });
+	                        showNotice("聊天记录同步", "本地聊天记录已为最新");
+	                    else
+	                        showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并记录到当前设备`, undefined, () =>
+	                        {
+	                            storageContext.local.syncChatRecordTo = Math.min(Date.now(), e.content.endTime);
+	                            if (Number.isNaN(storageContext.local.syncChatRecordTo))
+	                                storageContext.local.syncChatRecordTo = Date.now();
+	                            storageLocalSave();
+	                            mergeRecordToLocal(e.content.content, e.content.startTime);
+	                        });
 	                }
 	            }
 	        }
@@ -7804,6 +7817,529 @@
 	}
 
 	/**
+	 * 注册动画帧
+	 * 每帧调用回调直到动画停止
+	 * @param {(time: number, timeOffset: number) => boolean | void} callback 返回true时停止动画
+	 * @returns {() => void} 执行此函数停止动画
+	 */
+	function registAnimationFrame(callback)
+	{
+	    let stopped = false;
+	    let id = 0;
+	    let startTime = performance.now();
+	    let lastTime = startTime;
+	    let loop = () =>
+	    {
+	        id = 0;
+	        let time = performance.now();
+	        if ((!stopped) && callback(time - startTime, time - lastTime) != true)
+	        {
+	            lastTime = time;
+	            id = requestAnimationFrame(loop);
+	        }
+	    };
+	    id = requestAnimationFrame(loop);
+	    return (() =>
+	    {
+	        if (!stopped)
+	        {
+	            if (id != 0)
+	                cancelAnimationFrame(id);
+	            id = 0;
+	            stopped = true;
+	        }
+	    });
+	}
+
+	/**
+	 * 启用超级菜单
+	 */
+	function enableSuperMenu()
+	{
+	    let supperMenuDisplay = false;
+	    /**
+	     * @type {null | number | NodeJS.Timeout}
+	     */
+	    let supperMenuDisplayTimeOutId = null;
+
+	    let supperMenu = new ForgeSuperMenu();
+
+	    let leftColumn = new ForgeSuperMenuColumn();
+	    let midColumn = new ForgeSuperMenuColumn();
+	    let rightColumn = new ForgeSuperMenuColumn();
+
+	    supperMenu.addColumn(leftColumn);
+	    supperMenu.addColumn(midColumn);
+	    supperMenu.addColumn(rightColumn);
+	    supperMenu.setCurrentColumn(1);
+
+	    /**
+	     * 刷新列表项
+	     */
+	    function refreshListItem()
+	    {
+	        midColumn.clearChild();
+	        Array.from(
+	            iframeContext.iframeDocument.querySelector("div#sessionHolder > div.sessionHolderPmTaskBox")?.children
+	        ).forEach(o =>
+	        {
+	            if (o.classList.contains("sessionHolderPmTaskBoxItem"))
+	            {
+	                let copyElement = /** @type {HTMLElement} */(o.cloneNode(true));
+	                copyElement.classList.remove("whoisTouch2");
+	                let onClick = copyElement.onclick;
+	                copyElement.onclick = null;
+	                copyElement.oncontextmenu = null;
+	                midColumn.addChild(getNElement(copyElement), () =>
+	                {
+	                    onClick.call(o, new MouseEvent(""));
+	                });
+	            }
+	        });
+	    }
+
+	    let mouseMove = (/** @type {MouseEvent} */ e) =>
+	    {
+	        supperMenu.menuPointerMove(e.movementX, e.movementY);
+	    };
+
+	    iframeContext.iframeWindow.addEventListener("mousedown", e =>
+	    {
+	        if (e.button != 2)
+	            return;
+	        if (supperMenuDisplay)
+	            return;
+	        supperMenu.menuPointerReset();
+	        iframeContext.iframeWindow.addEventListener("mousemove", mouseMove);
+	        supperMenuDisplayTimeOutId = setTimeout(() =>
+	        {
+	            supperMenuDisplay = true;
+	            supperMenuDisplayTimeOutId = null;
+	            refreshListItem();
+	            supperMenu.show();
+	        }, 135);
+	    }, true);
+	    iframeContext.iframeWindow.addEventListener("mouseup", () =>
+	    {
+	        if (supperMenuDisplayTimeOutId != null)
+	        {
+	            clearTimeout(supperMenuDisplayTimeOutId);
+	            supperMenuDisplayTimeOutId = null;
+	        }
+	        if (!supperMenuDisplay)
+	            return;
+	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove);
+	        supperMenu.triggerCurrent();
+	        setTimeout(() =>
+	        {
+	            supperMenuDisplay = false;
+	            supperMenu.hide();
+	        }, 10);
+	    }, true);
+	}
+
+	/**
+	 * forge超级菜单
+	 */
+	class ForgeSuperMenu
+	{
+	    /**
+	     * 菜单可见
+	     * @type {boolean}
+	     */
+	    visible = false;
+	    /**
+	     * 菜单列表
+	     * @type {Array<ForgeSuperMenuColumn>}
+	    */
+	    menuList = [];
+	    /**
+	     * 菜单元素
+	     * @type {NElement}
+	     */
+	    menuElement = null;
+	    /**
+	     * 菜单指针x
+	     * x=0, y=0 表示打开菜单时的起点
+	     */
+	    menuPointerX = 0;
+	    /**
+	     * 菜单指针y
+	     * x=0, y=0 表示打开菜单时的起点
+	     */
+	    menuPointerY = 0;
+	    /**
+	     * 当前选中的列
+	     */
+	    currentColumnIndex = 0;
+	    /**
+	     * 菜单打开时选中的列
+	     */
+	    startColumnIndex = 0;
+	    /**
+	     * 光标指示器元素
+	     */
+	    cursorIndicator = {
+	        /** @type {NElement} */
+	        element: null,
+	        /** @type {boolean} */
+	        visible: false,
+	        /** @type {number} */
+	        x: 0,
+	        /** @type {number} */
+	        y: 0,
+	        /** @type {number} */
+	        width: 0,
+	        /** @type {number} */
+	        height: 0,
+	    };
+
+	    constructor()
+	    {
+	        this.menuElement = NList.getElement([
+	            createNStyleList({
+	                height: "100%",
+	                width: "100%",
+	                top: "0",
+	                left: "0",
+	                position: "fixed",
+	                backgroundColor: "rgba(230, 230, 230, 0.5)",
+	                zIndex: "100000",
+	            }),
+
+	            this.cursorIndicator.element = NList.getElement([
+	                createNStyleList({
+	                    display: "none",
+	                    position: "absolute",
+
+	                    top: "50%",
+	                    left: "50%",
+	                    width: "0px",
+	                    height: "0px",
+	                    border: "5px rgba(255, 255, 255, 0.7) solid",
+	                    boxShadow: "0px 0px 5px 0px rgb(134, 143, 168)",
+	                    boxSizing: "border-box",
+
+	                    zIndex: "100"
+	                })
+	            ])
+	        ]);
+	    }
+
+	    /**
+	     * 添加列
+	     * @param {ForgeSuperMenuColumn} column
+	     */
+	    addColumn(column)
+	    {
+	        this.menuList.push(column);
+	        column.menu = this;
+	        this.menuElement.addChild(column.element);
+	        column.setRelativePosition((this.menuList.length - 1) - this.currentColumnIndex);
+	    }
+
+	    /**
+	     * 设置当前选中的列
+	     * @param {number} index
+	     */
+	    setCurrentColumn(index)
+	    {
+	        if (index < 0)
+	            index = 0;
+	        else if (index >= this.menuList.length)
+	            index = this.menuList.length - 1;
+	        if (this.currentColumnIndex == index)
+	            return;
+	        this.currentColumnIndex = index;
+	        this.menuList.forEach((o, columnIndex) => o.setRelativePosition(columnIndex - this.currentColumnIndex));
+	    }
+
+	    /**
+	     * 菜单显示时每帧触发
+	     */
+	    draw()
+	    {
+	        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / 245);
+	        this.setCurrentColumn(columnIndex);
+
+	        let nowColumn = this.menuList[this.currentColumnIndex];
+	        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / 65);
+	        nowColumn.setCurrentRow(rowIndex);
+	    }
+
+	    show()
+	    {
+	        if (this.visible)
+	            return;
+	        this.menuElement.animate([
+	            {
+	                opacity: "0.5"
+	            },
+	            {
+	                transform: "",
+	                opacity: "1"
+	            }
+	        ], 83);
+	        this.menuElement.setDisplay("block");
+	        iframeContext.iframeDocument.body.appendChild(this.menuElement.element);
+	        this.visible = true;
+
+	        this.draw();
+	        registAnimationFrame(() =>
+	        {
+	            this.draw();
+	            return !this.visible;
+	        });
+	    }
+
+	    hide()
+	    {
+	        if (!this.visible)
+	            return;
+	        this.visible = false;
+	        this.menuElement.setDisplay("none");
+	    }
+
+	    /**
+	     * 菜单指针移动
+	     * @param {number} offsetX
+	     * @param {number} offsetY
+	     */
+	    menuPointerMove(offsetX, offsetY)
+	    {
+	        this.menuPointerX += offsetX * 1.0;
+	        this.menuPointerY += offsetY * 1.0;
+	    }
+	    /**
+	     * 菜单指针位置重置
+	     */
+	    menuPointerReset()
+	    {
+	        this.startColumnIndex = this.currentColumnIndex;
+	        this.menuPointerX = 0;
+	        this.menuPointerY = 0;
+	    }
+
+	    /**
+	     * 触发当前选择的项
+	     */
+	    triggerCurrent()
+	    {
+	        this.menuList[this.currentColumnIndex]?.triggerCurrent();
+	    }
+
+	    /**
+	     * 设置光标指示器
+	     */
+	    setCursorIndicator(rect)
+	    {
+	        if (rect)
+	        {
+	            if (
+	                rect.x != this.cursorIndicator.x ||
+	                rect.y != this.cursorIndicator.y ||
+	                rect.width != this.cursorIndicator.width ||
+	                rect.height != this.cursorIndicator.height ||
+	                !this.cursorIndicator.visible
+	            )
+	            {
+	                this.cursorIndicator.x = rect.x;
+	                this.cursorIndicator.y = rect.y;
+	                this.cursorIndicator.width = rect.width;
+	                this.cursorIndicator.height = rect.height;
+	                this.cursorIndicator.visible = true;
+
+	                this.cursorIndicator.element.setDisplay("block");
+	                this.cursorIndicator.element.animate([
+	                    {
+	                    },
+	                    {
+	                        left: this.cursorIndicator.x + "px",
+	                        top: this.cursorIndicator.y + "px",
+	                        width: this.cursorIndicator.width + "px",
+	                        height: this.cursorIndicator.height + "px",
+	                    }
+	                ], {
+	                    duration: 100,
+	                    easing: "cubic-bezier(0.33, 1, 0.68, 1)",
+	                    fill: "forwards"
+	                });
+	            }
+	        }
+	        else
+	        {
+	            if (this.cursorIndicator.visible)
+	            {
+	                this.cursorIndicator.visible = false;
+	                this.cursorIndicator.element.setDisplay("none");
+	            }
+	        }
+	    }
+	}
+
+	/**
+	 * 超级菜单的列
+	 */
+	class ForgeSuperMenuColumn
+	{
+	    /**
+	     * 此列的
+	     * @type {NElement}
+	     */
+	    element = null;
+	    /**
+	     * 此列的列表
+	     * @type {Array<{
+	     *  element: NElement,
+	     *  execute: () => void
+	     * }>}
+	     */
+	    list = [];
+	    /**
+	     * 相对位置
+	     * 0 表示 屏幕中间的列表
+	     * @type {number}
+	     */
+	    relativePosition = 0;
+	    /**
+	     * 当前选中行的
+	     * @type {number}
+	     */
+	    currentRowIndex = 0;
+	    /**
+	     * 菜单打开时选中的行
+	     * @type {number}
+	     */
+	    startRowIndex = 0;
+	    /**
+	     * 此列所在的菜单
+	     * @type {ForgeSuperMenu}
+	     */
+	    menu = null;
+
+	    constructor()
+	    {
+	        this.element = NList.getElement([
+	            createNStyleList({
+	                position: "absolute",
+	                width: "700px",
+	                maxHeight: cssG.diFull("50px"),
+	                minHeight: "700px",
+	                inset: "0 0 0 0",
+	                margin: "auto",
+	                transform: "none",
+
+	                display: "none",
+
+	                backgroundColor: "rgba(0, 0, 0, 0.1)",
+	                overflow: "hidden"
+	            })
+	        ]);
+	    }
+
+	    /**
+	     * 设置相对位置
+	     * @param {number} position 
+	     */
+	    setRelativePosition(position)
+	    {
+	        if (
+	            (-1 <= position && position <= 1) ||
+	            (-1 <= this.relativePosition && this.relativePosition <= 1)
+	        )
+	        {
+	            this.element.setDisplay("block");
+	            this.element.animate([
+	                {
+	                    transform: ForgeSuperMenuColumn.#getTransformByPosition(this.relativePosition)
+	                },
+	                {
+	                    transform: ForgeSuperMenuColumn.#getTransformByPosition(position)
+	                }
+	            ], {
+	                duration: 140,
+	                easing: "cubic-bezier(0.33, 1, 0.68, 1)",
+	                fill: "forwards"
+	            });
+	        }
+	        this.relativePosition = position;
+	    }
+
+	    /**
+	     * 通过相对位置获取转换
+	     * @param {number} position
+	     */
+	    static #getTransformByPosition(position)
+	    {
+	        if (position == 0)
+	            return "none";
+	        else
+	            return `scale(0.8) translateX(${(
+                (position > 0 ? 15 : -15) + 105 * position
+            )}%)`;
+	    }
+
+	    /**
+	     * 添加列表项
+	     * @param {NElement} element
+	     * @param {() => void} executeCB
+	     */
+	    addChild(element, executeCB)
+	    {
+	        this.list.push({
+	            element: element,
+	            execute: executeCB
+	        });
+	        this.element.addChild(element);
+	    }
+
+	    /**
+	     * 清空列表项
+	     */
+	    clearChild()
+	    {
+	        this.list.forEach(o => o.element.remove());
+	        this.list = [];
+	    }
+
+	    /**
+	     * 设置当前选中的行
+	     * @param {number} index
+	     */
+	    setCurrentRow(index)
+	    {
+	        if (this.list.length == 0)
+	        {
+	            this.menu.setCursorIndicator(null);
+	            return;
+	        }
+	        if (index < 0)
+	            index = 0;
+	        else if (index >= this.list.length)
+	            index = this.list.length - 1;
+
+	        let nowRowElement = this.list[index].element;
+	        this.currentRowIndex = index;
+
+	        if (nowRowElement.element.offsetTop < this.element.element.scrollTop)
+	        { // 自动向上滚动
+	            this.element.element.scrollTop = this.list[index].element.element.offsetTop;
+	        }
+	        else if (nowRowElement.element.offsetTop + nowRowElement.element.clientHeight > this.element.element.scrollTop + this.element.element.clientHeight)
+	        { // 自动向下滚动
+	            this.element.element.scrollTop = nowRowElement.element.offsetTop + nowRowElement.element.clientHeight - this.element.element.clientHeight;
+	        }
+
+	        this.menu.setCursorIndicator(nowRowElement.element.getBoundingClientRect());
+	    }
+
+	    triggerCurrent()
+	    {
+	        this.list[this.currentRowIndex]?.execute();
+	    }
+	}
+
+	/**
 	 * 初始化注入iframe元素
 	 */
 	function initInjectIframe()
@@ -7814,7 +8350,7 @@
 	         * @type {HTMLIFrameElement}
 	         */
 	        let mainIframe = (/** @type {HTMLIFrameElement} */(document.getElementById("mainFrame")));
-	        
+
 	        let iframeWindow = mainIframe.contentWindow;
 	        let iframeDocument = mainIframe.contentDocument;
 	        iframeContext.iframeDocument = iframeDocument;
@@ -7907,11 +8443,13 @@
 	        {
 	            enableSyncConfig();
 	            enableSyncChatRecord();
-	            
+
 	            if (storageContext.local.enableUserRemark)
 	                enableUserRemark();
 	            if (storageContext.local.enableSyncChatRecord)
 	                trySyncChatRecord();
+	            if (storageContext.local.enableSuperMenu)
+	                enableSuperMenu();
 	        }
 	        catch (err)
 	        {

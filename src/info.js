@@ -1,3 +1,3 @@
 export const versionInfo = {
-    version: "alpha v1.4.5"
+    version: "alpha v1.5.0"
 };

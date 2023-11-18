@@ -253,7 +253,7 @@ export function createPlugSandboxWithWindow()
 {
     let plugWindow = createPlugWindow(false);
     return ({
-        windowElement: plugWindow.iframe,
+        windowElement: plugWindow.windowElement,
         sandbox: plugWindow.sandbox
     });
 }

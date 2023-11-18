@@ -3,7 +3,7 @@
  */
 export let iframeContext = {
     /**
-     * @type {Window | Object}
+     * @type {Window}
      */
     iframeWindow: null,
     /**

@@ -14,6 +14,7 @@ let waitStartTime = 0;
  */
 export function trySyncChatRecord()
 {
+    showNotice("聊天记录同步", "正在尝试获取聊天记录");
     let requestId = uniqueIdentifierString();
     forgeApi.operation.sendSelfPrivateForgePacket({
         plug: "forge",
@@ -54,15 +55,16 @@ export function enableSyncChatRecord()
                     let diffCount = checkRecordDiff(e.content.content, e.content.startTime);
                     // console.log(e.content.content);
                     if (diffCount == 0)
-                        return;
-                    showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并记录到当前设备`, undefined, () =>
-                    {
-                        storageContext.local.syncChatRecordTo = Math.min(Date.now(), e.content.endTime);
-                        if (Number.isNaN(storageContext.local.syncChatRecordTo))
-                            storageContext.local.syncChatRecordTo = Date.now();
-                        storageLocalSave();
-                        mergeRecordToLocal(e.content.content, e.content.startTime);
-                    });
+                        showNotice("聊天记录同步", "本地聊天记录已为最新");
+                    else
+                        showNotice("聊天记录同步", `从其他设备获取到 ${diffCount} 条记录\n点击合并记录到当前设备`, undefined, () =>
+                        {
+                            storageContext.local.syncChatRecordTo = Math.min(Date.now(), e.content.endTime);
+                            if (Number.isNaN(storageContext.local.syncChatRecordTo))
+                                storageContext.local.syncChatRecordTo = Date.now();
+                            storageLocalSave();
+                            mergeRecordToLocal(e.content.content, e.content.startTime);
+                        });
                 }
             }
         }

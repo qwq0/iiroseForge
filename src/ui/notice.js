@@ -24,7 +24,8 @@ export function showNotice(title, text, additional = "iiroseForge", callback = n
 {
     let notice = expandElement({
         style: {
-            backgroundColor: cssG.rgb(255, 255, 255, 0.95),
+            backgroundColor: cssG.rgb(255, 255, 255, 0.5),
+            backdropFilter: "blur(2px)",
             marginRight: "1em",
             marginTop: "1em",
             marginLeft: "1em",
@@ -35,7 +36,7 @@ export function showNotice(title, text, additional = "iiroseForge", callback = n
             boxSizing: "border-box",
             minWidth: "180px",
             borderRadius: "0.2em",
-            boxShadow: `${cssG.rgb(0, 0, 0, 0.5)} 5px 5px 10px`
+            boxShadow: `${cssG.rgb(0, 0, 0, 0.35)} 5px 5px 10px`
         },
         position: "relative",
         child: [{ // 通知图标
@@ -46,10 +47,14 @@ export function showNotice(title, text, additional = "iiroseForge", callback = n
             style: {
                 fontSize: "1.2em",
                 lineHeight: "1.5em",
-                fontWeight: "bolder"
+                fontWeight: "bolder",
+                textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
             }
         }, { // 通知正文
-            text: text
+            text: text,
+            style: {
+                textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
+            }
         }, { // 通知附加内容
             text: additional,
             style: {
@@ -130,7 +135,7 @@ export function showNotice(title, text, additional = "iiroseForge", callback = n
     setTimeout(() =>
     {
         closeThisNotice();
-    }, 3900 + Math.min(10000, text.length * 115));
+    }, 2500 + Math.min(15 * 1000, text.length * 255));
 
     if (callback)
     {

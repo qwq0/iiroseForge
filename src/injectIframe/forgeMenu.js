@@ -286,13 +286,17 @@ export function getForgeMenu()
                                     {
                                         name: "聊天记录同步(测试)",
                                         storageKey: "enableSyncChatRecord"
+                                    },
+                                    {
+                                        name: "右键超级菜单",
+                                        storageKey: "enableSuperMenu"
                                     }
                                 ]).map(o => NList.getElement([
                                     `(${storageContext.local[o.storageKey] ? "已启用" : "已禁用"}) ${o.name}`,
                                     new NEvent("click", async () =>
                                     {
                                         let targetState = !storageContext.local[o.storageKey];
-                                        let confirm = showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+                                        let confirm = await showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
                                         if (confirm)
                                         {
                                             storageContext.local[o.storageKey] = targetState;
