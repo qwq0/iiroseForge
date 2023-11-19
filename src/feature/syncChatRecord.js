@@ -3,7 +3,6 @@ import { iframeContext } from "../injectIframe/iframeContext.js";
 import { protocolEvent } from "../protocol/protocolEvent.js";
 import { storageContext, storageLocalSave } from "../storage/storage.js";
 import { showNotice } from "../ui/notice.js";
-import { htmlSpecialChars } from "../util/htmlSpecialChars.js";
 import { uniqueIdentifierString } from "../util/uniqueIdentifier.js";
 
 let waitForId = "";
@@ -23,7 +22,7 @@ export function trySyncChatRecord()
         startTime: Math.max(
             Date.now() - 3 * 24 * 60 * 60 * 1000,
             storageContext.local.lastCloseTime - 30 * 60 * 60 * 1000,
-            storageContext.local.syncChatRecordTo - 30 * 60 * 60 * 1000
+            storageContext.local.syncChatRecordTo - 15 * 60 * 1000
         ),
         endTime: Date.now() + 30 * 1000
     });

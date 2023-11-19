@@ -3030,8 +3030,9 @@
 	{
 	    let notice = expandElement({
 	        style: {
-	            backgroundColor: cssG.rgb(255, 255, 255, 0.5),
-	            backdropFilter: "blur(2px)",
+	            color: cssG.rgb(255, 255, 255),
+	            backgroundColor: cssG.rgb(255, 255, 255, 0.1),
+	            backdropFilter: "blur(2px) brightness(90%)",
 	            marginRight: "1em",
 	            marginTop: "1em",
 	            marginLeft: "1em",
@@ -3042,7 +3043,7 @@
 	            boxSizing: "border-box",
 	            minWidth: "180px",
 	            borderRadius: "0.2em",
-	            boxShadow: `${cssG.rgb(0, 0, 0, 0.35)} 5px 5px 10px`
+	            boxShadow: `${cssG.rgb(0, 0, 0, 0.55)} 3px 3px 9px`
 	        },
 	        position: "relative",
 	        child: [{ // 通知图标
@@ -3054,12 +3055,12 @@
 	                fontSize: "1.2em",
 	                lineHeight: "1.5em",
 	                fontWeight: "bolder",
-	                textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
+	                // textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
 	            }
 	        }, { // 通知正文
 	            text: text,
 	            style: {
-	                textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
+	                // textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
 	            }
 	        }, { // 通知附加内容
 	            text: additional,
@@ -3236,6 +3237,30 @@
 	    }
 	};
 
+	/**
+	 * html特殊符号转义
+	 * @param {string} e 
+	 * @returns {string}
+	 */
+
+	/**
+	 * html特殊符号反转义
+	 * @param {string} e 
+	 * @returns {string}
+	 */
+	function htmlSpecialCharsDecode(e)
+	{
+	    e = e.replaceAll("&lt;", `<`);
+	    e = e.replaceAll("&gt;", `>`);
+	    e = e.replaceAll("&quot;", `"`);
+	    e = e.replaceAll("&#039;", `'`);
+	    e = e.replaceAll("&#092;", `\\`);
+
+	    e = e.replaceAll("&amp;", `&`);
+
+	    return e;
+	}
+
 	const forgeOccupyPlugNameSet = new Set([
 	    "forge",
 	    "iiroseForge",
@@ -3305,6 +3330,48 @@
 	            if (iframeContext.iframeWindow?.["roomn"])
 	                return iframeContext.iframeWindow["roomn"];
 	            return null;
+	        },
+
+	        /**
+	         * 通过房间id获取房间信息
+	         * @param {string} roomId
+	         * @returns {{
+	         *  name: string,
+	         *  roomPath: Array<string>,
+	         *  color: string,
+	         *  description: string,
+	         *  roomImage: string
+	         * }}
+	         */
+	        getRoomInfoById: (roomId) =>
+	        {
+	            roomId = String(roomId);
+	            let roomInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.Assets?.roomJson?.[roomId];
+	            if (roomInfoArray)
+	            {
+	                let imageAndDescription = htmlSpecialCharsDecode(roomInfoArray[5].split("&&")[0].split("&")[0]);
+	                let firstSpaceIndex = imageAndDescription.indexOf(" ");
+	                return {
+	                    name: roomInfoArray[1],
+	                    color: roomInfoArray[2],
+	                    roomPath: (/** @type {string} */(roomInfoArray[0])).split("_"),
+	                    description: imageAndDescription.slice(firstSpaceIndex + 1),
+	                    roomImage: imageAndDescription.slice(0, firstSpaceIndex)
+	                };
+	            }
+	            else
+	                return null;
+	        },
+
+	        /**
+	         * 切换房间
+	         * @param {string} roomId
+	         */
+	        changeRoom: (roomId) =>
+	        {
+	            roomId = String(roomId);
+	            if (roomId)
+	                iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger(roomId);
 	        },
 
 	        /**
@@ -4158,6 +4225,11 @@
 	}
 
 	/**
+	 * @type {WeakSet<HTMLElement>}
+	 */
+	let alreadyProcessedSet = new WeakSet();
+
+	/**
 	 * 处理消息元素
 	 * @param {HTMLElement} messageElement
 	 */
@@ -4165,6 +4237,10 @@
 	{
 	    if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "msg")
 	    {
+	        if (alreadyProcessedSet.has(messageElement))
+	            return;
+	        alreadyProcessedSet.add(messageElement);
+
 	        let uid = (
 	            messageElement.dataset.id ?
 	                messageElement.dataset.id.split("_")[0] :
@@ -4203,6 +4279,10 @@
 	        privateChatTabElement.classList.contains("whoisTouch2")
 	    )
 	    {
+	        if (alreadyProcessedSet.has(privateChatTabElement))
+	            return;
+	        alreadyProcessedSet.add(privateChatTabElement);
+
 	        let uid = privateChatTabElement.getAttribute("ip");
 	        let userNameElement = (/** @type {HTMLElement} */(domPath(privateChatTabElement, [1, 0, -1])));
 	        if (userNameElement)
@@ -4384,7 +4464,7 @@
 	                forgeApi.event.roomMessage.trigger({
 	                    senderId: senderId,
 	                    senderName: senderName,
-	                    content: content
+	                    content: htmlSpecialCharsDecode(content)
 	                });
 	        }
 	        return data;
@@ -4431,7 +4511,7 @@
 	                    forgeApi.event.privateMessage.trigger({
 	                        senderId: senderId,
 	                        senderName: senderName,
-	                        content: content
+	                        content: htmlSpecialCharsDecode(content)
 	                    });
 	            }
 	            else if (part[1] == userId && part[11] == userId)
@@ -4456,7 +4536,7 @@
 	                }
 	                else
 	                    forgeApi.event.selfPrivateMessage.trigger({
-	                        content: part[4]
+	                        content: htmlSpecialCharsDecode(content)
 	                    });
 	            }
 	        }
@@ -5916,7 +5996,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.5.2"
+	    version: "alpha v1.6.0"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -7515,7 +7595,7 @@
 	        startTime: Math.max(
 	            Date.now() - 3 * 24 * 60 * 60 * 1000,
 	            storageContext.local.lastCloseTime - 30 * 60 * 60 * 1000,
-	            storageContext.local.syncChatRecordTo - 30 * 60 * 60 * 1000
+	            storageContext.local.syncChatRecordTo - 15 * 60 * 1000
 	        ),
 	        endTime: Date.now() + 30 * 1000
 	    });
@@ -7852,106 +7932,165 @@
 	}
 
 	/**
-	 * 启用超级菜单
+	 * 超级菜单的列
 	 */
-	function enableSuperMenu()
+	class ForgeSuperMenuColumn
 	{
-	    let supperMenuDisplay = false;
 	    /**
-	     * @type {null | number | NodeJS.Timeout}
+	     * 此列的
+	     * @type {NElement}
 	     */
-	    let supperMenuDisplayTimeOutId = null;
-
-	    let supperMenu = new ForgeSuperMenu();
-
-	    let leftColumn = new ForgeSuperMenuColumn();
-	    let midColumn = new ForgeSuperMenuColumn();
-	    let rightColumn = new ForgeSuperMenuColumn();
-
-	    supperMenu.addColumn(leftColumn);
-	    supperMenu.addColumn(midColumn);
-	    supperMenu.addColumn(rightColumn);
-	    supperMenu.setCurrentColumn(1);
-
+	    element = null;
 	    /**
-	     * 刷新列表项
+	     * 此列的列表
+	     * @type {Array<{
+	     *  element: NElement,
+	     *  execute: () => void
+	     * }>}
 	     */
-	    function refreshListItem()
+	    list = [];
+	    /**
+	     * 相对位置
+	     * 0 表示 屏幕中间的列表
+	     * @type {number}
+	     */
+	    relativePosition = 0;
+	    /**
+	     * 当前选中行的
+	     * @type {number}
+	     */
+	    currentRowIndex = 0;
+	    /**
+	     * 菜单打开时选中的行
+	     * @type {number}
+	     */
+	    startRowIndex = 0;
+	    /**
+	     * 此列所在的菜单
+	     * @type {import("./ForgeSuperMenu").ForgeSuperMenu}
+	     */
+	    menu = null;
+
+	    constructor()
 	    {
-	        midColumn.clearChild();
-	        let currentIndex = 0;
-	        let nowIndex = 0;
-	        Array.from(
-	            iframeContext.iframeDocument.querySelector("div#sessionHolder > div.sessionHolderPmTaskBox")?.children
-	        ).forEach(o =>
-	        {
-	            if (o.classList.contains("sessionHolderPmTaskBoxItem"))
-	            {
-	                let copyElement = /** @type {HTMLElement} */(o.cloneNode(true));
-	                copyElement.classList.remove("whoisTouch2");
-	                let onClick = copyElement.onclick;
-	                copyElement.onclick = null;
-	                copyElement.oncontextmenu = null;
-	                midColumn.addChild(getNElement(copyElement), () =>
-	                {
-	                    onClick.call(o, new MouseEvent(""));
-	                });
+	        this.element = NList.getElement([
+	            createNStyleList({
+	                position: "absolute",
+	                width: "700px",
+	                maxHeight: cssG.diFull("50px"),
+	                minHeight: "700px",
+	                inset: "0 0 0 0",
+	                margin: "auto",
+	                transform: "none",
 
-	                if ((/** @type {HTMLElement} */(domPath(o, [-1]))).style.display != "none")
-	                    currentIndex = nowIndex;
-	                nowIndex++;
-	            }
-	        });
-	        midColumn.currentRowIndex = currentIndex;
+	                display: "none",
+
+	                backgroundColor: "rgba(0, 0, 0, 0.1)",
+	                overflow: "hidden"
+	            })
+	        ]);
 	    }
 
-	    let mouseMove = (/** @type {MouseEvent} */ e) =>
+	    /**
+	     * 设置相对位置
+	     * @param {number} position
+	     */
+	    setRelativePosition(position)
 	    {
-	        supperMenu.menuPointerMove(e.movementX, e.movementY);
-	    };
-
-	    iframeContext.iframeWindow.addEventListener("mousedown", e =>
-	    {
-	        if (e.button != 2)
-	            return;
-	        if (supperMenuDisplay)
-	            return;
-	        supperMenu.menuPointerReset();
-	        supperMenuDisplayTimeOutId = setTimeout(() =>
+	        if ((-1 <= position && position <= 1) ||
+	            (-1 <= this.relativePosition && this.relativePosition <= 1))
 	        {
-	            supperMenuDisplay = true;
-	            supperMenuDisplayTimeOutId = null;
-	            refreshListItem();
-	            supperMenu.show();
-	            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
-	            supperMenu.menuElement.element.requestPointerLock({
-	                unadjustedMovement: true
+	            this.element.setDisplay("block");
+	            this.element.animate([
+	                {
+	                    transform: ForgeSuperMenuColumn.#getTransformByPosition(this.relativePosition)
+	                },
+	                {
+	                    transform: ForgeSuperMenuColumn.#getTransformByPosition(position)
+	                }
+	            ], {
+	                duration: 140,
+	                easing: "cubic-bezier(0.33, 1, 0.68, 1)",
+	                fill: "forwards"
 	            });
-	        }, 125);
-	    }, true);
-	    iframeContext.iframeWindow.addEventListener("mouseup", e =>
-	    {
-	        if (e.button != 2)
-	            return;
-	        if (supperMenuDisplayTimeOutId != null)
-	        {
-	            clearTimeout(supperMenuDisplayTimeOutId);
-	            supperMenuDisplayTimeOutId = null;
 	        }
-	        if (!supperMenuDisplay)
-	            return;
-	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
-	        supperMenu.triggerCurrent();
+	        this.relativePosition = position;
+	    }
 
-	        document.exitPointerLock();
-	        iframeContext.iframeDocument.exitPointerLock();
+	    /**
+	     * 通过相对位置获取转换
+	     * @param {number} position
+	     */
+	    static #getTransformByPosition(position)
+	    {
+	        if (position == 0)
+	            return "none";
 
-	        setTimeout(() =>
+	        else
+	            return `scale(0.8) translateX(${(
+                (position > 0 ? 15 : -15) + 105 * position
+            )}%)`;
+	    }
+
+	    /**
+	     * 添加列表项
+	     * @param {NElement} element
+	     * @param {() => void} executeCB
+	     */
+	    addChild(element, executeCB)
+	    {
+	        this.list.push({
+	            element: element,
+	            execute: executeCB
+	        });
+	        this.element.addChild(element);
+	    }
+
+	    /**
+	     * 清空列表项
+	     */
+	    clearChild()
+	    {
+	        this.list.forEach(o => o.element.remove());
+	        this.list = [];
+	    }
+
+	    /**
+	     * 设置当前选中的行
+	     * @param {number} index
+	     */
+	    setCurrentRow(index)
+	    {
+	        if (this.list.length == 0)
 	        {
-	            supperMenuDisplay = false;
-	            supperMenu.hide();
-	        }, 10);
-	    }, true);
+	            this.menu.setCursorIndicator(null);
+	            return;
+	        }
+	        if (index < 0)
+	            index = 0;
+	        else if (index >= this.list.length)
+	            index = this.list.length - 1;
+
+	        let nowRowElement = this.list[index].element;
+	        this.currentRowIndex = index;
+
+	        if (nowRowElement.element.offsetTop < this.element.element.scrollTop)
+	        { // 自动向上滚动
+	            this.element.element.scrollTop = this.list[index].element.element.offsetTop;
+	        }
+	        else if (nowRowElement.element.offsetTop + nowRowElement.element.clientHeight > this.element.element.scrollTop + this.element.element.clientHeight)
+	        { // 自动向下滚动
+	            this.element.element.scrollTop = nowRowElement.element.offsetTop + nowRowElement.element.clientHeight - this.element.element.clientHeight;
+	        }
+
+	        this.menu.setCursorIndicator(nowRowElement.element.getBoundingClientRect());
+	    }
+
+	    triggerCurrent()
+	    {
+	        if (this.currentRowIndex != this.startRowIndex)
+	            this.list[this.currentRowIndex]?.execute();
+	    }
 	}
 
 	/**
@@ -8075,7 +8214,7 @@
 	     */
 	    draw()
 	    {
-	        const sizeX = 335;
+	        const sizeX = 435;
 	        const sizeY = 85;
 
 
@@ -8159,8 +8298,8 @@
 	     */
 	    menuPointerMove(offsetX, offsetY)
 	    {
-	        this.menuPointerX += offsetX * 1.0;
-	        this.menuPointerY += offsetY * 1.0;
+	        this.menuPointerX += offsetX * 1;
+	        this.menuPointerY += offsetY * 1;
 	    }
 	    /**
 	     * 菜单指针位置重置
@@ -8189,13 +8328,11 @@
 	        if (rect)
 	        {
 	            const eps = 0.001;
-	            if (
-	                Math.abs(rect.x - this.cursorIndicator.x) >= eps ||
+	            if (Math.abs(rect.x - this.cursorIndicator.x) >= eps ||
 	                Math.abs(rect.y - this.cursorIndicator.y) >= eps ||
 	                Math.abs(rect.width - this.cursorIndicator.width) >= eps ||
 	                Math.abs(rect.height - this.cursorIndicator.height) >= eps ||
-	                !this.cursorIndicator.visible
-	            )
+	                !this.cursorIndicator.visible)
 	            {
 	                this.cursorIndicator.x = rect.x;
 	                this.cursorIndicator.y = rect.y;
@@ -8205,8 +8342,7 @@
 
 	                this.cursorIndicator.element.setDisplay("block");
 	                this.cursorIndicator.element.animate([
-	                    {
-	                    },
+	                    {},
 	                    {
 	                        left: this.cursorIndicator.x.toFixed(3) + "px",
 	                        top: this.cursorIndicator.y.toFixed(3) + "px",
@@ -8220,6 +8356,7 @@
 	                });
 	            }
 	        }
+
 	        else
 	        {
 	            if (this.cursorIndicator.visible)
@@ -8232,166 +8369,258 @@
 	}
 
 	/**
-	 * 超级菜单的列
+	 * 启用超级菜单
 	 */
-	class ForgeSuperMenuColumn
+	function enableSuperMenu()
+	{
+	    let supperMenuDisplay = false;
+	    /**
+	     * @type {null | number | NodeJS.Timeout}
+	     */
+	    let supperMenuDisplayTimeOutId = null;
+
+	    let supperMenu = new ForgeSuperMenu();
+
+	    let leftColumn = new ForgeSuperMenuColumn();
+	    let midColumn = new ForgeSuperMenuColumn();
+	    let rightColumn = new ForgeSuperMenuColumn();
+
+	    supperMenu.addColumn(leftColumn);
+	    supperMenu.addColumn(midColumn);
+	    supperMenu.addColumn(rightColumn);
+	    supperMenu.setCurrentColumn(1);
+
+	    /**
+	     * 刷新列表项
+	     */
+	    function refreshListItem()
+	    {
+	        // 中间的列表
+	        {
+	            midColumn.clearChild();
+	            let currentIndex = 0;
+	            let nowIndex = 0;
+	            Array.from(
+	                iframeContext.iframeDocument.querySelector("div#sessionHolder > div.sessionHolderPmTaskBox")?.children
+	            ).forEach(o =>
+	            {
+	                if (o.classList.contains("sessionHolderPmTaskBoxItem"))
+	                {
+	                    let copyElement = /** @type {HTMLElement} */(o.cloneNode(true));
+	                    copyElement.classList.remove("whoisTouch2");
+	                    let onClick = copyElement.onclick;
+	                    copyElement.onclick = null;
+	                    copyElement.oncontextmenu = null;
+	                    midColumn.addChild(getNElement(copyElement), () =>
+	                    {
+	                        onClick.call(o, new MouseEvent(""));
+	                    });
+
+	                    let cornerMark =  /** @type {HTMLElement} */(domPath(o, [-1]));
+	                    if (cornerMark.style.display != "none" && cornerMark.innerText == "@")
+	                        currentIndex = nowIndex;
+	                    nowIndex++;
+	                }
+	            });
+	            midColumn.currentRowIndex = currentIndex;
+	        }
+	        // 右侧的列表
+	        {
+	            rightColumn.clearChild();
+
+	            let nowRoomId = forgeApi.operation.getUserRoomId();
+	            rightColumn.addChild(createRoomListItemById(nowRoomId), () => { });
+	            try
+	            {
+	                /** @type {Array<string>} */
+	                let roomHistory = JSON.parse(localStorage.getItem("database"))?.["roomHistory"]?.split?.(",");
+	                if (roomHistory)
+	                    roomHistory.forEach(o =>
+	                    {
+	                        if (o != nowRoomId)
+	                            rightColumn.addChild(createRoomListItemById(o, "历史"), () =>
+	                            {
+	                                forgeApi.operation.switchRoom(o);
+	                            });
+	                    });
+	            }
+	            catch (err)
+	            {
+	                console.error("forge supper menu:", err);
+	            }
+
+	            rightColumn.currentRowIndex = 0;
+	        }
+	        // 左侧的列表
+	        {
+	            leftColumn.clearChild();
+	            leftColumn.currentRowIndex = 0;
+	        }
+
+	        supperMenu.setCurrentColumn(1);
+	    }
+
+	    let mouseMove = (/** @type {MouseEvent} */ e) =>
+	    {
+	        supperMenu.menuPointerMove(e.movementX, e.movementY);
+	    };
+
+	    iframeContext.iframeWindow.addEventListener("mousedown", e =>
+	    {
+	        if (e.button != 2)
+	            return;
+	        if (supperMenuDisplay)
+	            return;
+	        supperMenuDisplayTimeOutId = setTimeout(() =>
+	        {
+	            supperMenuDisplay = true;
+	            supperMenuDisplayTimeOutId = null;
+	            refreshListItem();
+	            supperMenu.menuPointerReset();
+	            supperMenu.show();
+	            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
+	            supperMenu.menuElement.element.requestPointerLock({
+	                unadjustedMovement: true
+	            });
+	        }, 125);
+	    }, true);
+	    iframeContext.iframeWindow.addEventListener("mouseup", e =>
+	    {
+	        if (e.button != 2)
+	            return;
+	        if (supperMenuDisplayTimeOutId != null)
+	        {
+	            clearTimeout(supperMenuDisplayTimeOutId);
+	            supperMenuDisplayTimeOutId = null;
+	        }
+	        if (!supperMenuDisplay)
+	            return;
+	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+	        supperMenu.triggerCurrent();
+
+	        document.exitPointerLock();
+	        iframeContext.iframeDocument.exitPointerLock();
+
+	        setTimeout(() =>
+	        {
+	            supperMenuDisplay = false;
+	            supperMenu.hide();
+	        }, 10);
+	    }, true);
+	}
+
+
+	/**
+	 * 通过房间id创建列表项
+	 * @param {string} roomId 
+	 * @param {string} [addition]
+	 * @returns 
+	 */
+	function createRoomListItemById(roomId, addition = "")
+	{
+	    let roomInfo = forgeApi.operation.getRoomInfoById(roomId);
+	    return createListItem("http" + roomInfo.roomImage, roomInfo.name, roomInfo.description, "", addition, `rgba(${roomInfo.color}, 0.8)`);
+	}
+
+	/**
+	 * 创建列表项
+	 * @param {string} image
+	 * @param {string} title
+	 * @param {string} text
+	 * @param {string} [addition]
+	 * @param {string} [cornerMark]
+	 * @returns {NElement}
+	 */
+	function createListItem(image, title, text, addition = "", cornerMark = "", color = "rgba(240, 240, 240, 0.8)")
 	{
 	    /**
-	     * 此列的
-	     * @type {NElement}
+	     * 检测是亮色或暗色
+	     * @param {string} colorStr
 	     */
-	    element = null;
-	    /**
-	     * 此列的列表
-	     * @type {Array<{
-	     *  element: NElement,
-	     *  execute: () => void
-	     * }>}
-	     */
-	    list = [];
-	    /**
-	     * 相对位置
-	     * 0 表示 屏幕中间的列表
-	     * @type {number}
-	     */
-	    relativePosition = 0;
-	    /**
-	     * 当前选中行的
-	     * @type {number}
-	     */
-	    currentRowIndex = 0;
-	    /**
-	     * 菜单打开时选中的行
-	     * @type {number}
-	     */
-	    startRowIndex = 0;
-	    /**
-	     * 此列所在的菜单
-	     * @type {ForgeSuperMenu}
-	     */
-	    menu = null;
-
-	    constructor()
+	    function rgbLightOrDark(colorStr)
 	    {
-	        this.element = NList.getElement([
+	        let braceIndex = color.indexOf("(");
+	        if (braceIndex != -1)
+	            colorStr = colorStr.slice(braceIndex + 1, colorStr.lastIndexOf(")"));
+	        let part = colorStr.split(",").map(o => Number.parseInt(o));
+	        return (part[0] * 0.299 + part[1] * 0.587 + part[2] * 0.114 > 186);
+	    }
+
+	    let textColor = (rgbLightOrDark(color) ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.75)");
+	    return NList.getElement([
+	        className("sessionHolderPmTaskBoxItem whoisTouch2"),
+	        createNStyleList({
+	            backgroundColor: color,
+	            color: textColor
+	        }),
+	        [
+	            createNStyleList({
+	                height: "100px",
+	                width: "100px",
+	                position: "relative",
+	                WebkitMaskImage: "linear-gradient(to right,#000 50%,transparent)",
+	                display: (image ? "block" : "none")
+	            }),
+	            [
+	                className("bgImgBox"),
+	                [
+	                    className("bgImg"),
+	                    new NTagName("img"),
+	                    new NAttr("loading", "lazy"),
+	                    new NAttr("decoding", "async"),
+	                    new NAttr("src", image),
+	                ],
+	                [
+	                    className("fullBox")
+	                ]
+	            ]
+	        ],
+	        [
+	            createNStyleList({
+	                height: "100%",
+	                position: "absolute",
+	                top: "0",
+	                left: "100px",
+	                right: "0"
+	            }),
+	            [
+	                className("sessionHolderPmTaskBoxItemName textOverflowEllipsis"),
+	                [
+	                    createNStyleList({
+	                        fontSize: "inherit",
+	                        fontWeight: "inherit"
+	                    }),
+	                    title
+	                ]
+	            ],
+	            [
+	                className("sessionHolderPmTaskBoxItemTime textOverflowEllipsis"),
+	                addition
+	            ],
+	            [
+	                className("sessionHolderPmTaskBoxItemMsg textOverflowEllipsis"),
+	                text
+	            ]
+	        ],
+	        [
 	            createNStyleList({
 	                position: "absolute",
-	                width: "700px",
-	                maxHeight: cssG.diFull("50px"),
-	                minHeight: "700px",
-	                inset: "0 0 0 0",
-	                margin: "auto",
-	                transform: "none",
-
-	                display: "none",
-
-	                backgroundColor: "rgba(0, 0, 0, 0.1)",
-	                overflow: "hidden"
-	            })
-	        ]);
-	    }
-
-	    /**
-	     * 设置相对位置
-	     * @param {number} position 
-	     */
-	    setRelativePosition(position)
-	    {
-	        if (
-	            (-1 <= position && position <= 1) ||
-	            (-1 <= this.relativePosition && this.relativePosition <= 1)
-	        )
-	        {
-	            this.element.setDisplay("block");
-	            this.element.animate([
-	                {
-	                    transform: ForgeSuperMenuColumn.#getTransformByPosition(this.relativePosition)
-	                },
-	                {
-	                    transform: ForgeSuperMenuColumn.#getTransformByPosition(position)
-	                }
-	            ], {
-	                duration: 140,
-	                easing: "cubic-bezier(0.33, 1, 0.68, 1)",
-	                fill: "forwards"
-	            });
-	        }
-	        this.relativePosition = position;
-	    }
-
-	    /**
-	     * 通过相对位置获取转换
-	     * @param {number} position
-	     */
-	    static #getTransformByPosition(position)
-	    {
-	        if (position == 0)
-	            return "none";
-	        else
-	            return `scale(0.8) translateX(${(
-                (position > 0 ? 15 : -15) + 105 * position
-            )}%)`;
-	    }
-
-	    /**
-	     * 添加列表项
-	     * @param {NElement} element
-	     * @param {() => void} executeCB
-	     */
-	    addChild(element, executeCB)
-	    {
-	        this.list.push({
-	            element: element,
-	            execute: executeCB
-	        });
-	        this.element.addChild(element);
-	    }
-
-	    /**
-	     * 清空列表项
-	     */
-	    clearChild()
-	    {
-	        this.list.forEach(o => o.element.remove());
-	        this.list = [];
-	    }
-
-	    /**
-	     * 设置当前选中的行
-	     * @param {number} index
-	     */
-	    setCurrentRow(index)
-	    {
-	        if (this.list.length == 0)
-	        {
-	            this.menu.setCursorIndicator(null);
-	            return;
-	        }
-	        if (index < 0)
-	            index = 0;
-	        else if (index >= this.list.length)
-	            index = this.list.length - 1;
-
-	        let nowRowElement = this.list[index].element;
-	        this.currentRowIndex = index;
-
-	        if (nowRowElement.element.offsetTop < this.element.element.scrollTop)
-	        { // 自动向上滚动
-	            this.element.element.scrollTop = this.list[index].element.element.offsetTop;
-	        }
-	        else if (nowRowElement.element.offsetTop + nowRowElement.element.clientHeight > this.element.element.scrollTop + this.element.element.clientHeight)
-	        { // 自动向下滚动
-	            this.element.element.scrollTop = nowRowElement.element.offsetTop + nowRowElement.element.clientHeight - this.element.element.clientHeight;
-	        }
-
-	        this.menu.setCursorIndicator(nowRowElement.element.getBoundingClientRect());
-	    }
-
-	    triggerCurrent()
-	    {
-	        if (this.currentRowIndex != this.startRowIndex)
-	            this.list[this.currentRowIndex]?.execute();
-	    }
+	                top: "1px",
+	                right: "1px",
+	                backgroundColor: textColor,
+	                color: color,
+	                fontSize: "16px",
+	                fontWeight: "bold",
+	                padding: "0px 8px",
+	                height: "26.5px",
+	                lineHeight: "26.5px",
+	                transition: "transform 0.25s ease 0s",
+	                borderRadius: "0px 0px 0px 2px",
+	                display: (cornerMark ? "block" : "none")
+	            }),
+	            cornerMark
+	        ]
+	    ]);
 	}
 
 	/**

@@ -12,7 +12,7 @@ import { iframeContext } from "./iframeContext.js";
 import { getMenuButton } from "./menuButton.js";
 import { enableSyncConfig } from "../feature/syncConfig.js";
 import { enableSyncChatRecord, trySyncChatRecord } from "../feature/syncChatRecord.js";
-import { enableSuperMenu } from "../feature/superMenu.js";
+import { enableSuperMenu } from "../feature/superMenu/superMenu.js";
 
 
 

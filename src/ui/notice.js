@@ -24,8 +24,9 @@ export function showNotice(title, text, additional = "iiroseForge", callback = n
 {
     let notice = expandElement({
         style: {
-            backgroundColor: cssG.rgb(255, 255, 255, 0.5),
-            backdropFilter: "blur(2px)",
+            color: cssG.rgb(255, 255, 255),
+            backgroundColor: cssG.rgb(255, 255, 255, 0.1),
+            backdropFilter: "blur(2px) brightness(90%)",
             marginRight: "1em",
             marginTop: "1em",
             marginLeft: "1em",
@@ -36,7 +37,7 @@ export function showNotice(title, text, additional = "iiroseForge", callback = n
             boxSizing: "border-box",
             minWidth: "180px",
             borderRadius: "0.2em",
-            boxShadow: `${cssG.rgb(0, 0, 0, 0.35)} 5px 5px 10px`
+            boxShadow: `${cssG.rgb(0, 0, 0, 0.55)} 3px 3px 9px`
         },
         position: "relative",
         child: [{ // 通知图标
@@ -48,12 +49,12 @@ export function showNotice(title, text, additional = "iiroseForge", callback = n
                 fontSize: "1.2em",
                 lineHeight: "1.5em",
                 fontWeight: "bolder",
-                textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
+                // textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
             }
         }, { // 通知正文
             text: text,
             style: {
-                textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
+                // textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
             }
         }, { // 通知附加内容
             text: additional,

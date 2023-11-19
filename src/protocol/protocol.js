@@ -1,4 +1,5 @@
 import { forgeApi, forgeOccupyPlugNameSet } from "../forgeApi/forgeApi.js";
+import { htmlSpecialCharsDecode } from "../util/htmlSpecialChars.js";
 import { Trie } from "./Trie.js";
 import { readForgePacket, unfinishedSliceSymbol } from "./forgePacket.js";
 import { protocolEvent } from "./protocolEvent.js";
@@ -51,7 +52,7 @@ toClientTrie.addPath(`"`, (data) => // 房间消息
                 forgeApi.event.roomMessage.trigger({
                     senderId: senderId,
                     senderName: senderName,
-                    content: content
+                    content: htmlSpecialCharsDecode(content)
                 });
         }
         return data;
@@ -98,7 +99,7 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
                     forgeApi.event.privateMessage.trigger({
                         senderId: senderId,
                         senderName: senderName,
-                        content: content
+                        content: htmlSpecialCharsDecode(content)
                     });
             }
             else if (part[1] == userId && part[11] == userId)
@@ -123,7 +124,7 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
                 }
                 else
                     forgeApi.event.selfPrivateMessage.trigger({
-                        content: part[4]
+                        content: htmlSpecialCharsDecode(content)
                     });
             }
         }

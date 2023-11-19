@@ -6,6 +6,7 @@ import { iframeContext } from "../injectIframe/iframeContext.js";
 import { writeForgePacket } from "../protocol/forgePacket.js";
 import { showNotice } from "../ui/notice.js";
 import { EventHandler } from "../util/EventHandler.js";
+import { htmlSpecialCharsDecode } from "../util/htmlSpecialChars.js";
 
 export const forgeOccupyPlugNameSet = new Set([
     "forge",
@@ -76,6 +77,48 @@ export const forgeApi = {
             if (iframeContext.iframeWindow?.["roomn"])
                 return iframeContext.iframeWindow["roomn"];
             return null;
+        },
+
+        /**
+         * 通过房间id获取房间信息
+         * @param {string} roomId
+         * @returns {{
+         *  name: string,
+         *  roomPath: Array<string>,
+         *  color: string,
+         *  description: string,
+         *  roomImage: string
+         * }}
+         */
+        getRoomInfoById: (roomId) =>
+        {
+            roomId = String(roomId);
+            let roomInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.Assets?.roomJson?.[roomId];
+            if (roomInfoArray)
+            {
+                let imageAndDescription = htmlSpecialCharsDecode(roomInfoArray[5].split("&&")[0].split("&")[0]);
+                let firstSpaceIndex = imageAndDescription.indexOf(" ");
+                return {
+                    name: roomInfoArray[1],
+                    color: roomInfoArray[2],
+                    roomPath: (/** @type {string} */(roomInfoArray[0])).split("_"),
+                    description: imageAndDescription.slice(firstSpaceIndex + 1),
+                    roomImage: imageAndDescription.slice(0, firstSpaceIndex)
+                };
+            }
+            else
+                return null;
+        },
+
+        /**
+         * 切换房间
+         * @param {string} roomId
+         */
+        changeRoom: (roomId) =>
+        {
+            roomId = String(roomId);
+            if (roomId)
+                iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger(roomId);
         },
 
         /**

@@ -190,6 +190,11 @@ function createIiroseMenuElement(icon, title, callback)
 }
 
 /**
+ * @type {WeakSet<HTMLElement>}
+ */
+let alreadyProcessedSet = new WeakSet();
+
+/**
  * 处理消息元素
  * @param {HTMLElement} messageElement
  */
@@ -197,6 +202,10 @@ function processingMessageElement(messageElement)
 {
     if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "msg")
     {
+        if (alreadyProcessedSet.has(messageElement))
+            return;
+        alreadyProcessedSet.add(messageElement);
+
         let uid = (
             messageElement.dataset.id ?
                 messageElement.dataset.id.split("_")[0] :
@@ -235,6 +244,10 @@ function processingPrivateChatTabElement(privateChatTabElement)
         privateChatTabElement.classList.contains("whoisTouch2")
     )
     {
+        if (alreadyProcessedSet.has(privateChatTabElement))
+            return;
+        alreadyProcessedSet.add(privateChatTabElement);
+
         let uid = privateChatTabElement.getAttribute("ip");
         let userNameElement = (/** @type {HTMLElement} */(domPath(privateChatTabElement, [1, 0, -1])));
         if (userNameElement)

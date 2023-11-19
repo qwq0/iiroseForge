@@ -1,21 +1,35 @@
 /**
- * html特殊符号转换
+ * html特殊符号转义
  * @param {string} e 
  * @returns {string}
  */
-export function htmlSpecialChars(e)
+export function htmlSpecialCharsEscape(e)
 {
-    if (-1 < e.indexOf("&"))
-        e = e.replace(/&/g, "&amp;");
-    if (-1 < e.indexOf("<"))
-        e = e.replace(/</g, "&lt;");
-    if (-1 < e.indexOf(">"))
-        e = e.replace(/>/g, "&gt;");
-    if (-1 < e.indexOf('"'))
-        e = e.replace(/"/g, "&quot;");
-    if (-1 < e.indexOf("'"))
-        e = e.replace(/'/g, "&#039;");
-    if (-1 < e.indexOf("\\"))
-        e = e.replace(/\\/g, "&#092;");
+    e = e.replaceAll(`&`, "&amp;");
+
+    e = e.replaceAll(`<`, "&lt;");
+    e = e.replaceAll(`>`, "&gt;");
+    e = e.replaceAll(`"`, "&quot;");
+    e = e.replaceAll(`'`, "&#039;");
+    e = e.replaceAll(`\\`, "&#092;");
+    
+    return e;
+};
+
+/**
+ * html特殊符号反转义
+ * @param {string} e 
+ * @returns {string}
+ */
+export function htmlSpecialCharsDecode(e)
+{
+    e = e.replaceAll("&lt;", `<`);
+    e = e.replaceAll("&gt;", `>`);
+    e = e.replaceAll("&quot;", `"`);
+    e = e.replaceAll("&#039;", `'`);
+    e = e.replaceAll("&#092;", `\\`);
+
+    e = e.replaceAll("&amp;", `&`);
+
     return e;
 };

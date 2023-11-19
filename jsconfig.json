@@ -5,7 +5,8 @@
         "target": "ES2022",
         "module": "ES2022",
         "lib": [
-            "DOM"
+            "DOM",
+            "ES2022"
         ]
     }
 }
