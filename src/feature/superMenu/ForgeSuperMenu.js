@@ -232,6 +232,7 @@ export class ForgeSuperMenu
 
     /**
      * 设置光标指示器
+     * @param {{ x: number; y: number; width: number; height: number; }} rect
      */
     setCursorIndicator(rect)
     {

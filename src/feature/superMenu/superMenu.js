@@ -48,8 +48,8 @@ export function enableSuperMenu()
                     let copyElement = /** @type {HTMLElement} */(o.cloneNode(true));
                     copyElement.classList.remove("whoisTouch2");
                     let onClick = copyElement.onclick;
-                    copyElement.onclick = null;
-                    copyElement.oncontextmenu = null;
+                    copyElement.removeAttribute("onclick");
+                    copyElement.removeAttribute("oncontextmenu");
                     midColumn.addChild(getNElement(copyElement), () =>
                     {
                         onClick.call(o, new MouseEvent(""));
@@ -93,6 +93,37 @@ export function enableSuperMenu()
         // 左侧的列表
         {
             leftColumn.clearChild();
+
+            leftColumn.addChild(createListItem("", "无动作", ""), () => { });
+            leftColumn.addChild(createListItem("mdi-mailbox", "打开信箱", ""), () =>
+            {
+                iframeContext.iframeWindow?.["functionBtnDo"]?.(2);
+            });
+            leftColumn.addChild(createListItem("mdi-music", "切换媒体开关", ""), () =>
+            {
+                iframeContext.iframeWindow?.["functionBtnDo"]?.(90);
+            });
+            leftColumn.addChild(createListItem("mdi-music-box-multiple", "打开播放列表", ""), () =>
+            {
+                iframeContext.iframeWindow?.["functionBtnDo"]?.(1, iframeContext.iframeDocument?.createElement("div"));
+            });
+            leftColumn.addChild(createListItem("mdi-store", "打开商店", ""), () =>
+            {
+                iframeContext.iframeWindow?.["functionBtnDo"]?.(10, iframeContext.iframeDocument?.createElement("div"));
+            });
+            leftColumn.addChild(createListItem("mdi-camera-iris", "打开朋友圈", ""), () =>
+            {
+                iframeContext.iframeWindow?.["functionBtnDo"]?.(5);
+            });
+            leftColumn.addChild(createListItem("mdi-forum", "打开论坛", ""), () =>
+            {
+                iframeContext.iframeWindow?.["functionBtnDo"]?.(3);
+            });
+            leftColumn.addChild(createListItem("mdi-clipboard-check-multiple", "打开任务版", ""), () =>
+            {
+                iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
+            });
+
             leftColumn.currentRowIndex = 0;
         }
 
@@ -134,8 +165,8 @@ export function enableSuperMenu()
         }
         if (!supperMenuDisplay)
             return;
-        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
         supperMenu.triggerCurrent();
+        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
 
         document.exitPointerLock();
         iframeContext.iframeDocument.exitPointerLock();
@@ -187,7 +218,7 @@ function createListItem(image, title, text, addition = "", cornerMark = "", colo
 
     let textColor = (rgbLightOrDark(color) ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.75)");
     return NList.getElement([
-        className("sessionHolderPmTaskBoxItem whoisTouch2"),
+        className("sessionHolderPmTaskBoxItem"),
         styles({
             backgroundColor: color,
             color: textColor
@@ -202,13 +233,33 @@ function createListItem(image, title, text, addition = "", cornerMark = "", colo
             }),
             [
                 className("bgImgBox"),
-                [
-                    className("bgImg"),
-                    new NTagName("img"),
-                    new NAttr("loading", "lazy"),
-                    new NAttr("decoding", "async"),
-                    new NAttr("src", image),
-                ],
+                (
+                    image.startsWith("mdi-") ?
+                        [
+                            styles({
+                                width: "100%",
+                                height: "100%",
+                                textAlign: "center"
+                            }),
+                            [
+                                styles({
+                                    lineHeight: "100px",
+                                    fontSize: "50px",
+                                    fontFamily: "md",
+                                    height: "100%",
+                                }),
+                                className(image),
+                                new NTagName("span"),
+                            ]
+                        ] :
+                        [
+                            className("bgImg"),
+                            new NTagName("img"),
+                            new NAttr("loading", "lazy"),
+                            new NAttr("decoding", "async"),
+                            new NAttr("src", image),
+                        ]
+                ),
                 [
                     className("fullBox")
                 ]
