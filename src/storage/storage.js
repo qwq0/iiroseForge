@@ -25,11 +25,20 @@ export const storageContext = {
         userRemark: {}
     },
     local: {
+        // 启用同步聊天记录
         enableSyncChatRecord: false,
+        // 启用用户备注
         enableUserRemark: true,
+        // 启用超级菜单
         enableSuperMenu: false,
+        // 最后一次关闭的时间
         lastCloseTime: 0,
-        syncChatRecordTo: 0
+        // 已同步聊天记录到此时间
+        syncChatRecordTo: 0,
+        // 启用实验性功能
+        enableExperimental: false,
+        // 实验性功能选项
+        experimentalOption: {}
     }
 };
 

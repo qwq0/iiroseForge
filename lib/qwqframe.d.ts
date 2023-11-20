@@ -1,4 +1,63 @@
 /**
+ * 指针数据
+ * 当发生鼠标或触摸事件时传递
+ * 包含指针坐标和按下状态等数据
+ */
+declare class PointerData$1 {
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @param {number} vx
+     * @param {number} vy
+     * @param {number} sx
+     * @param {number} sy
+     * @param {boolean} hold
+     * @param {boolean} pressing
+     */
+    constructor(x: number, y: number, vx: number, vy: number, sx: number, sy: number, hold: boolean, pressing: boolean);
+    /**
+     * 当前指针位置x
+     * @type {number}
+    */
+    x: number;
+    /**
+     * 当前指针位置y
+     * @type {number}
+    */
+    y: number;
+    /**
+     * 指针位置和上次位置的变化x
+     * @type {number}
+    */
+    vx: number;
+    /**
+     * 指针位置和上次位置的变化y
+     * @type {number}
+    */
+    vy: number;
+    /**
+     * 此指针的起始位置x
+     * @type {number}
+    */
+    sx: number;
+    /**
+     * 此指针的起始位置y
+     * @type {number}
+    */
+    sy: number;
+    /**
+     * 当前此指针是否处于按下状态
+     * @type {boolean}
+    */
+    hold: boolean;
+    /**
+     * 当前指针是否正在按下(按下事件)
+     * @type {boolean}
+    */
+    pressing: boolean;
+}
+
+/**
  * 钩子绑定到值类
  */
 declare class HookBindValue {
@@ -2085,78 +2144,20 @@ type EDObj = {
 };
 
 /**
- * 指针数据
- * 当发生鼠标或触摸事件时传递
- * 包含指针坐标和按下状态等数据
- */
-declare class PointerData {
-    /**
-     * @param {number} x
-     * @param {number} y
-     * @param {number} vx
-     * @param {number} vy
-     * @param {number} sx
-     * @param {number} sy
-     * @param {boolean} hold
-     * @param {boolean} pressing
-     */
-    constructor(x: number, y: number, vx: number, vy: number, sx: number, sy: number, hold: boolean, pressing: boolean);
-    /**
-     * 当前指针位置x
-     * @type {number}
-    */
-    x: number;
-    /**
-     * 当前指针位置y
-     * @type {number}
-    */
-    y: number;
-    /**
-     * 指针位置和上次位置的变化x
-     * @type {number}
-    */
-    vx: number;
-    /**
-     * 指针位置和上次位置的变化y
-     * @type {number}
-    */
-    vy: number;
-    /**
-     * 此指针的起始位置x
-     * @type {number}
-    */
-    sx: number;
-    /**
-     * 此指针的起始位置y
-     * @type {number}
-    */
-    sy: number;
-    /**
-     * 当前此指针是否处于按下状态
-     * @type {boolean}
-    */
-    hold: boolean;
-    /**
-     * 当前指针是否正在按下(按下事件)
-     * @type {boolean}
-    */
-    pressing: boolean;
-}
-
-/**
  * 鼠标(拖拽)事件处理
  * @param {NElement} element 绑定到元素
  * @param {function(PointerData):void} callBack 回调
  * @param {number} [button] 绑定的按键
+ * @param {HTMLElement | Window} [extensionRegion] 延伸区域 (实际捕获鼠标移动和按钮抬起的区域)
  */
-declare function mouseBind(element: NElement<any>, callBack: (arg0: PointerData) => void, button?: number | undefined): void;
+declare function mouseBind(element: NElement<any>, callBack: (arg0: PointerData$1) => void, button?: number | undefined, extensionRegion?: HTMLElement | Window | undefined): void;
 
 /**
  * 触摸(拖拽) 事件处理
  * @param {NElement} element
  * @param {function(PointerData):void} callBack
  */
-declare function touchBind(element: NElement<any>, callBack: (arg0: PointerData) => void): void;
+declare function touchBind(element: NElement<any>, callBack: (arg0: PointerData$1) => void): void;
 
 /**
  * 包装为仅能执行一次的函数
@@ -2392,5 +2393,6 @@ declare function bindArrayHook<T extends any[]>(proxyArray: T, callbacks: {
 } | undefined): ArrayHookBind;
 
 type NList_list = NList_list$1;
+type PointerData = PointerData$1;
 
-export { EventHandler, NAsse, NAttr, NElement, NEvent, NList, NList_list, NStyle, NTagName, bindArrayHook, bindAttribute, bindValue, createHookArray, createHookObj, createNStyle, createNStyleList, cssG, delayPromise, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, mouseBind, runOnce, tag, tagName, touchBind };
+export { EventHandler, NAsse, NAttr, NElement, NEvent, NList, NList_list, NStyle, NTagName, PointerData, bindArrayHook, bindAttribute, bindValue, createHookArray, createHookObj, createNStyle, createNStyleList, cssG, delayPromise, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, mouseBind, runOnce, tag, tagName, touchBind };

@@ -1089,8 +1089,19 @@
 	            throw "(NElelemt) animateCommit can only be used when fill forwards or both";
 	        let animate = this.element.animate(keyframes, options);
 	        await animate.finished;
-	        animate.commitStyles();
+	        
+	        let errorObject = null;
+	        try
+	        {
+	            animate.commitStyles();
+	        }
+	        catch (err)
+	        {
+	            errorObject = err;
+	        }
 	        animate.cancel();
+	        if (errorObject != null)
+	            throw errorObject;
 	    }
 
 	    /**
@@ -1426,8 +1437,9 @@
 	 * @param {NElement} element 绑定到元素
 	 * @param {function(PointerData):void} callBack 回调
 	 * @param {number} [button] 绑定的按键
+	 * @param {HTMLElement | Window} [extensionRegion] 延伸区域 (实际捕获鼠标移动和按钮抬起的区域)
 	 */
-	function mouseBind(element, callBack, button = 0)
+	function mouseBind(element, callBack, button = 0, extensionRegion = window)
 	{
 	    element.addEventListener("mousedown", (/** @type {MouseEvent} */ e) => mouseDown(e), false);
 
@@ -1447,8 +1459,8 @@
 	            e.preventDefault();
 	        sx = x = e.clientX;
 	        sy = y = e.clientY;
-	        window.addEventListener("mousemove", mousemoveP, true);
-	        window.addEventListener("mouseup", mouseupP, true);
+	        extensionRegion.addEventListener("mousemove", mousemoveP, true);
+	        extensionRegion.addEventListener("mouseup", mouseupP, true);
 	        if (e.button == button)
 	        {
 	            leftDown = true;
@@ -1491,8 +1503,8 @@
 	        let vy = e.clientY - y;
 	        x = e.clientX;
 	        y = e.clientY;
-	        window.removeEventListener("mousemove", mousemoveP, false);
-	        window.removeEventListener("mouseup", mouseupP, false);
+	        extensionRegion.removeEventListener("mousemove", mousemoveP, false);
+	        extensionRegion.removeEventListener("mouseup", mouseupP, false);
 	        if (leftDown && e.button == button)
 	        {
 	            leftDown = false;
@@ -1525,9 +1537,14 @@
 	        capture: false,
 	        passive: true
 	    });
+	    element.addEventListener("touchcancel", e => touchCancel(/** @type {TouchEvent} */(e)), {
+	        capture: false,
+	        passive: true
+	    });
 
 	    /**
-	     * @type {Array<{
+	     * 触摸点id 到 触摸点信息 映射
+	     * @type {Map<number, {
 	     *  id: number,
 	     *  sx: number,
 	     *  sy: number,
@@ -1535,22 +1552,8 @@
 	     *  y: number
 	     * }>}
 	     */
-	    let ogTouches = [];
-	    /**
-	     * 通过标识符取触摸点数据索引
-	     * @param {any} id
-	     * @returns {number}
-	     */
-	    function getTouchesInd(id)
-	    {
-	        let ret = -1;
-	        ogTouches.forEach((o, i) =>
-	        {
-	            if (id == o.id)
-	                ret = i;
-	        });
-	        return ret;
-	    }
+	    let touchesSet = new Map();
+
 	    /**
 	     * 触摸处理函数(按下)
 	     * @param {TouchEvent} e 
@@ -1568,7 +1571,7 @@
 	                x: o.clientX,
 	                y: o.clientY
 	            };
-	            ogTouches.push(t);
+	            touchesSet.set(o.identifier, t);
 	            callBack(new PointerData(
 	                t.x, t.y,
 	                0, 0,
@@ -1577,6 +1580,7 @@
 	            ));
 	        });
 	    }
+
 	    /**
 	     * 触摸处理函数(移动)
 	     * @param {TouchEvent} e 
@@ -1585,45 +1589,65 @@
 	    {
 	        forEach(e.changedTouches, o =>
 	        {
-	            let ind = getTouchesInd(o.identifier);
-	            if (ind > -1)
+	            let touchInfo = touchesSet.get(o.identifier);
+	            if (touchInfo)
 	            {
-	                let t = ogTouches[ind];
-	                let vx = o.clientX - t.x;
-	                let vy = o.clientY - t.y;
-	                t.x = o.clientX;
-	                t.y = o.clientY;
+	                let vx = o.clientX - touchInfo.x;
+	                let vy = o.clientY - touchInfo.y;
+	                touchInfo.x = o.clientX;
+	                touchInfo.y = o.clientY;
 	                callBack(new PointerData(
-	                    t.x, t.y,
+	                    touchInfo.x, touchInfo.y,
 	                    vx, vy,
-	                    t.sx, t.sy,
+	                    touchInfo.sx, touchInfo.sy,
 	                    true, false
 	                ));
 	            }
 	        });
 	    }
+
 	    /**
 	     * 触摸处理函数(松开)
 	     * @param {TouchEvent} e 
 	     */
 	    function touchEnd(e)
 	    {
-	        e.changedTouches;
 	        forEach(e.changedTouches, o =>
 	        {
-	            let ind = getTouchesInd(o.identifier);
-	            if (ind > -1)
+	            let touchInfo = touchesSet.get(o.identifier);
+	            if (touchInfo)
 	            {
-	                let t = ogTouches[ind];
-	                ogTouches.splice(ind, 1);
-	                let vx = o.clientX - t.x;
-	                let vy = o.clientY - t.y;
-	                t.x = o.clientX;
-	                t.y = o.clientY;
+	                touchesSet.delete(o.identifier);
+	                let vx = o.clientX - touchInfo.x;
+	                let vy = o.clientY - touchInfo.y;
+	                touchInfo.x = o.clientX;
+	                touchInfo.y = o.clientY;
 	                callBack(new PointerData(
-	                    t.x, t.y,
+	                    touchInfo.x, touchInfo.y,
 	                    vx, vy,
-	                    t.sx, t.sy,
+	                    touchInfo.sx, touchInfo.sy,
+	                    false, false
+	                ));
+	            }
+	        });
+	    }
+
+	    /**
+	     * 触摸处理函数(触摸取消)
+	     * @param {TouchEvent} e 
+	     */
+	    function touchCancel(e)
+	    {
+	        forEach(e.changedTouches, o =>
+	        {
+	            let touchInfo = touchesSet.get(o.identifier);
+	            if (touchInfo)
+	            {
+	                touchesSet.delete(o.identifier);
+	                callBack(new PointerData(
+	                    touchInfo.x, touchInfo.y,
+	                    0, 0,
+	                    touchInfo.sx, touchInfo.sy,
 	                    false, false
 	                ));
 	            }
@@ -3665,6 +3689,7 @@
 	        window["fdb"] = debugModeContext;
 	        if (iframeContext.iframeWindow)
 	            iframeContext.iframeWindow["fdb"] = debugModeContext;
+	        sessionStorage.setItem("iiroseForgeDebugMode", "true");
 	    }
 	    else
 	    {
@@ -3672,6 +3697,7 @@
 	            delete window["fdb"];
 	        if (iframeContext.iframeWindow?.["fdb"])
 	            delete iframeContext.iframeWindow["fdb"];
+	        sessionStorage.removeItem("iiroseForgeDebugMode");
 	    }
 	}
 
@@ -3774,11 +3800,20 @@
 	        userRemark: {}
 	    },
 	    local: {
+	        // 启用同步聊天记录
 	        enableSyncChatRecord: false,
+	        // 启用用户备注
 	        enableUserRemark: true,
+	        // 启用超级菜单
 	        enableSuperMenu: false,
+	        // 最后一次关闭的时间
 	        lastCloseTime: 0,
-	        syncChatRecordTo: 0
+	        // 已同步聊天记录到此时间
+	        syncChatRecordTo: 0,
+	        // 启用实验性功能
+	        enableExperimental: false,
+	        // 实验性功能选项
+	        experimentalOption: {}
 	    }
 	};
 
@@ -3864,22 +3899,6 @@
 	    {
 	        showNotice("错误", "无法写入本地储存 这可能导致iiroseForge配置丢失");
 	    }
-	}
-
-	/**
-	 * 生成添加类名的流水线
-	 * @param {string} classNameStr
-	 */
-	function className(classNameStr)
-	{
-	    let classList = classNameStr.split(" ");
-	    return new NAsse((/** @type {NElement} */e) =>
-	    {
-	        classList.forEach(o =>
-	        {
-	            (/** @type {HTMLElement} */(e.element)).classList.add(o);
-	        });
-	    });
 	}
 
 	/**
@@ -4044,6 +4063,56 @@
 	}
 
 	/**
+	 * 生成添加类名的流水线
+	 * @param {string} classNameStr
+	 */
+	function className(classNameStr)
+	{
+	    let classList = classNameStr.split(" ");
+	    return new NAsse((/** @type {NElement} */e) =>
+	    {
+	        classList.forEach(o =>
+	        {
+	            (/** @type {HTMLElement} */(e.element)).classList.add(o);
+	        });
+	    });
+	}
+
+	/**
+	 * 创建蔷薇菜单元素
+	 * @param {string} icon
+	 * @param {string} title
+	 * @param {(e: MouseEvent) => void} callback
+	 * @returns {NElement}
+	 */
+	function createIiroseMenuElement(icon, title, callback)
+	{
+	    return NList.getElement([
+	        className("selectHolderBoxItem selectHolderBoxItemIcon"),
+	        [
+	            className(icon),
+	            createNStyleList({
+	                fontFamily: "md",
+	                fontSize: "28px",
+	                textAlign: "center",
+	                lineHeight: "100px",
+	                height: "100px",
+	                width: "100px",
+	                position: "absolute",
+	                top: "0",
+	                opacity: ".7",
+	                left: "0",
+	            })
+	        ],
+	        title,
+	        [
+	            className("fullBox whoisTouch3")
+	        ],
+	        new NEvent("click", callback)
+	    ]);
+	}
+
+	/**
 	 * 启用用户备注功能
 	 * @returns 
 	 */
@@ -4192,39 +4261,6 @@
 	    }
 	}
 
-	/**
-	 * 创建蔷薇菜单元素
-	 * @param {string} icon
-	 * @param {string} title
-	 * @param {(e: MouseEvent) => void} callback
-	 * @returns {NElement}
-	 */
-	function createIiroseMenuElement(icon, title, callback)
-	{
-	    return NList.getElement([
-	        className("selectHolderBoxItem selectHolderBoxItemIcon"),
-	        [
-	            className(icon),
-	            createNStyleList({
-	                fontFamily: "md",
-	                fontSize: "28px",
-	                textAlign: "center",
-	                lineHeight: "100px",
-	                height: "100px",
-	                width: "100px",
-	                position: "absolute",
-	                top: "0",
-	                opacity: ".7",
-	                left: "0",
-	            })
-	        ],
-	        title,
-	        [
-	            className("fullBox whoisTouch3")
-	        ],
-	        new NEvent("click", callback)
-	    ]);
-	}
 
 	/**
 	 * @type {WeakSet<HTMLElement>}
@@ -5998,7 +6034,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.6.2"
+	    version: "alpha v1.7.0"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -7144,7 +7180,7 @@
 	            createNStyle("top", "40px"),
 	            createNStyle("bottom", "40px"),
 	            createNStyle("overflow", "auto"),
-	            
+
 	            [
 	                createNStyleList({
 	                    display: "grid",
@@ -7340,7 +7376,17 @@
 	                                    {
 	                                        name: "右键超级菜单",
 	                                        storageKey: "enableSuperMenu"
-	                                    }
+	                                    },
+	                                    ...(
+	                                        storageContext.local.enableExperimental ?
+	                                            [
+	                                                {
+	                                                    name: "实验性功能",
+	                                                    storageKey: "enableExperimental"
+	                                                }
+	                                            ] :
+	                                            []
+	                                    )
 	                                ]).map(o => NList.getElement([
 	                                    `(${storageContext.local[o.storageKey] ? "已启用" : "已禁用"}) ${o.name}`,
 	                                    new NEvent("click", async () =>
@@ -7502,7 +7548,122 @@
 	                    o.text
 	                ]
 	            ]))
-	        ]
+	        ],
+
+	        ele => // 实验性功能手势
+	        {
+	            const gestureTable = [
+	                "left",
+	                "leftDown",
+	                "down",
+	                "rightUp",
+	                "right",
+	                "rightDown",
+	                "up",
+	                "leftUp",
+	                "none"
+	            ];
+	            /**
+	             * @type {Array<typeof gestureTable[number]>}
+	             */
+	            let gestureList = [];
+	            // 跟踪点的累计值
+	            let trackPointX = 0;
+	            let trackPointY = 0;
+	            /**
+	             * @type {null | number | NodeJS.Timeout}
+	             */
+	            let intervalId = null;
+	            /**
+	             * @type {typeof gestureTable[number]}
+	             */
+	            let nowDirection = "none";
+
+	            /**
+	             * @param {import("../../lib/qwqframe").PointerData} e
+	             */
+	            function pointerMove(e)
+	            {
+	                if (e.pressing)
+	                {
+	                    trackPointX = 0;
+	                    trackPointY = 0;
+	                    nowDirection = "none";
+	                    if (intervalId == null)
+	                        intervalId = setInterval(checkPath, 85);
+	                }
+	                else
+	                {
+	                    trackPointX += e.vx;
+	                    trackPointY += e.vy;
+	                }
+
+	                if (!e.hold)
+	                {
+	                    if (intervalId != null)
+	                    {
+	                        clearInterval(intervalId);
+	                        intervalId = null;
+	                    }
+	                }
+	            }
+
+	            function checkPath()
+	            {
+	                let nowTickDirection = "none";
+	                if (Math.abs(trackPointX) >= 10 || Math.abs(trackPointY) >= 10)
+	                {
+	                    nowTickDirection = gestureTable[
+	                        Math.floor(((Math.floor(
+	                            ((Math.atan2(-trackPointY, trackPointX)) / (2 * Math.PI) + 0.5) * 16
+	                        ) + 1) % 16) / 2)
+	                    ];
+	                }
+	                trackPointX = 0;
+	                trackPointY = 0;
+
+	                if (nowTickDirection != nowDirection)
+	                {
+	                    nowDirection = nowTickDirection;
+	                    if (nowDirection != "none")
+	                        gestureList.push(nowDirection);
+	                }
+
+	                while (gestureList.length > 200)
+	                    gestureList.shift();
+
+	                /**
+	                 * @type {Array<typeof gestureTable[number]>}
+	                 */
+	                const targetGesture = [
+	                    "down",
+
+	                    "down",
+
+	                    "leftDown",
+	                    "right",
+	                    "down"
+	                ];
+
+	                if (targetGesture.every((o, index) => o == gestureList.at(index - targetGesture.length)))
+	                {
+	                    gestureList = [];
+
+	                    storageContext.local.enableExperimental = true;
+	                    storageLocalSave();
+	                    showNotice("实验性功能", "已激活实验性功能\n部分功能需要重载以启用");
+	                }
+	            }
+
+	            mouseBind(ele, pointerMove, 0, iframeContext.iframeWindow);
+	            touchBind(ele, pointerMove);
+	            ele.addEventListener("mousedown", e => { e.stopPropagation(); });
+	            ele.addEventListener("mouseup", e => { e.stopPropagation(); });
+	            ele.addEventListener("touchstart", e => { e.stopPropagation(); });
+	            ele.addEventListener("touchend", e => { e.stopPropagation(); });
+	            ele.addEventListener("touchmove", e => { e.stopPropagation(); });
+	            ele.addEventListener("touchcancel", e => { e.stopPropagation(); });
+	        }
 	    ]);
 	    menu.element.id = "iiroseForgeMenu";
 
@@ -8685,6 +8846,81 @@
 	}
 
 	/**
+	 * 启动实验性功能
+	 */
+	function enableExperimental()
+	{
+	    iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger = proxyFunction(
+	        iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger,
+	        (param) =>
+	        {
+	            if (param.length == 1 && typeof (param[0]) == "string")
+	            {
+	                if (storageContext.local.experimentalOption["ejection"])
+	                {
+	                    const targetRoomId = param[0];
+	                    ejectionEscape(targetRoomId);
+	                    return true;
+	                }
+	            }
+	            return false;
+	        }
+	    );
+
+	    let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
+	    if (oldFunction_Objs_mapHolder_function_event)
+	    { // 房间按钮点击
+	        iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, function (param, srcFunction, _targetFn, thisObj)
+	        {
+	            if (param.length == 1 && param[0] == 8)
+	            {
+	                let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
+	                if (!roomId)
+	                    return false;
+
+	                srcFunction(...param);
+
+	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+	                selectHolderBox.appendChild(
+	                    createIiroseMenuElement(
+	                        "mdi-ghost-outline",
+	                        `弹射起步`,
+	                        async e =>
+	                        {
+	                            ejectionEscape(roomId);
+	                        }
+	                    ).element
+	                );
+	                return true;
+	            }
+	            return false;
+	        });
+	    }
+	}
+
+	/**
+	 * @param {string} targetRoomId
+	 */
+	function ejectionEscape(targetRoomId)
+	{
+	    iframeContext.socketApi.send("m" + targetRoomId);
+	    iframeContext.socket.onclose = null;
+	    iframeContext.socket?.close();
+	    setTimeout(() =>
+	    {
+	        iframeContext.iframeWindow?.sessionStorage?.setItem?.("lastroom", "");
+	        iframeContext.iframeWindow?.sessionStorage?.setItem?.("autologin", "1");
+	        iframeContext.iframeWindow?.["Cookie"]?.("roomsave", targetRoomId);
+	        iframeContext.iframeWindow?.location?.reload?.();
+	    }, 7 * 1000);
+	    showNotice("实验性功能", "少女祈祷中...");
+	    setTimeout(() =>
+	    {
+	        showNotice("实验性功能", "马上就好了~");
+	    }, 3500);
+	}
+
+	/**
 	 * 初始化注入iframe元素
 	 */
 	function initInjectIframe()
@@ -8784,22 +9020,41 @@
 	        })();
 
 	        // 附加功能
-	        try
+	        ([
+	            {
+	                func: enableSyncConfig,
+	            },
+	            {
+	                func: enableSyncChatRecord
+	            },
+	            {
+	                func: enableUserRemark,
+	                condition: "enableUserRemark"
+	            },
+	            {
+	                func: trySyncChatRecord,
+	                condition: "enableSyncChatRecord"
+	            },
+	            {
+	                func: enableSuperMenu,
+	                condition: "enableSuperMenu"
+	            },
+	            {
+	                func: enableExperimental,
+	                condition: "enableExperimental"
+	            }
+	        ]).forEach(o =>
 	        {
-	            enableSyncConfig();
-	            enableSyncChatRecord();
-
-	            if (storageContext.local.enableUserRemark)
-	                enableUserRemark();
-	            if (storageContext.local.enableSyncChatRecord)
-	                trySyncChatRecord();
-	            if (storageContext.local.enableSuperMenu)
-	                enableSuperMenu();
-	        }
-	        catch (err)
-	        {
-	            console.error("patch error:", err);
-	        }
+	            try
+	            {
+	                if ((!o.condition) || storageContext.local[o.condition])
+	                    o.func();
+	            }
+	            catch (err)
+	            {
+	                console.error("patch error:", err);
+	            }
+	        });
 	    }, 1000);
 
 	    if (localStorage.getItem("installForge") == "true")
@@ -8851,6 +9106,8 @@
 	            console.log("[iiroseForge] iiroseForge已启用");
 
 	            window["enableForgeDebugMode"] = enableForgeDebugMode;
+	            if (sessionStorage.getItem("iiroseForgeDebugMode") == "true")
+	                enableForgeDebugMode(true);
 
 	            storageRoamingRead();
 	            storageLocalRead();

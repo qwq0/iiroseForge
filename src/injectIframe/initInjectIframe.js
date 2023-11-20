@@ -13,6 +13,7 @@ import { getMenuButton } from "./menuButton.js";
 import { enableSyncConfig } from "../feature/syncConfig.js";
 import { enableSyncChatRecord, trySyncChatRecord } from "../feature/syncChatRecord.js";
 import { enableSuperMenu } from "../feature/superMenu/superMenu.js";
+import { enableExperimental } from "../feature/experimental.js";
 
 
 
@@ -116,22 +117,41 @@ export function initInjectIframe()
         })();
 
         // 附加功能
-        try
+        ([
+            {
+                func: enableSyncConfig,
+            },
+            {
+                func: enableSyncChatRecord
+            },
+            {
+                func: enableUserRemark,
+                condition: "enableUserRemark"
+            },
+            {
+                func: trySyncChatRecord,
+                condition: "enableSyncChatRecord"
+            },
+            {
+                func: enableSuperMenu,
+                condition: "enableSuperMenu"
+            },
+            {
+                func: enableExperimental,
+                condition: "enableExperimental"
+            }
+        ]).forEach(o =>
         {
-            enableSyncConfig();
-            enableSyncChatRecord();
-
-            if (storageContext.local.enableUserRemark)
-                enableUserRemark();
-            if (storageContext.local.enableSyncChatRecord)
-                trySyncChatRecord();
-            if (storageContext.local.enableSuperMenu)
-                enableSuperMenu();
-        }
-        catch (err)
-        {
-            console.error("patch error:", err);
-        }
+            try
+            {
+                if ((!o.condition) || storageContext.local[o.condition])
+                    o.func();
+            }
+            catch (err)
+            {
+                console.error("patch error:", err);
+            }
+        });
     }, 1000);
 
     if (localStorage.getItem("installForge") == "true")

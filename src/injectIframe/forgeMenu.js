@@ -1,4 +1,6 @@
 import { RcoCcontext } from "../../lib/jsRco.js";
+import { mouseBind } from "../../lib/qwqframe.js";
+import { touchBind } from "../../lib/qwqframe.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
@@ -10,6 +12,7 @@ import { className } from "../ui/className.js";
 import { showInfoBox, showInputBox } from "../ui/infobox.js";
 import { showMenu } from "../ui/menu.js";
 import { showNotice } from "../ui/notice.js";
+import { iframeContext } from "./iframeContext.js";
 
 /**
  * @type {ReturnType<createPlugWindow>}
@@ -88,7 +91,7 @@ export function getForgeMenu()
             style("top", "40px"),
             style("bottom", "40px"),
             style("overflow", "auto"),
-            
+
             [
                 styles({
                     display: "grid",
@@ -290,7 +293,17 @@ export function getForgeMenu()
                                     {
                                         name: "右键超级菜单",
                                         storageKey: "enableSuperMenu"
-                                    }
+                                    },
+                                    ...(
+                                        storageContext.local.enableExperimental ?
+                                            [
+                                                {
+                                                    name: "实验性功能",
+                                                    storageKey: "enableExperimental"
+                                                }
+                                            ] :
+                                            []
+                                    )
                                 ]).map(o => NList.getElement([
                                     `(${storageContext.local[o.storageKey] ? "已启用" : "已禁用"}) ${o.name}`,
                                     new NEvent("click", async () =>
@@ -452,7 +465,124 @@ export function getForgeMenu()
                     o.text
                 ]
             ]))
-        ]
+        ],
+
+        ele => // 实验性功能手势
+        {
+            const gestureTable = [
+                "left",
+                "leftDown",
+                "down",
+                "rightUp",
+                "right",
+                "rightDown",
+                "up",
+                "leftUp",
+                "none"
+            ];
+            /**
+             * @type {Array<typeof gestureTable[number]>}
+             */
+            let gestureList = [];
+            // 跟踪点的累计值
+            let trackPointX = 0;
+            let trackPointY = 0;
+            /**
+             * @type {null | number | NodeJS.Timeout}
+             */
+            let intervalId = null;
+            /**
+             * @type {typeof gestureTable[number]}
+             */
+            let nowDirection = "none";
+            let nowDirectionStartTime = 0;
+
+            /**
+             * @param {import("../../lib/qwqframe").PointerData} e
+             */
+            function pointerMove(e)
+            {
+                if (e.pressing)
+                {
+                    trackPointX = 0;
+                    trackPointY = 0;
+                    nowDirectionStartTime = Date.now();
+                    nowDirection = "none";
+                    if (intervalId == null)
+                        intervalId = setInterval(checkPath, 85);
+                }
+                else
+                {
+                    trackPointX += e.vx;
+                    trackPointY += e.vy;
+                }
+
+                if (!e.hold)
+                {
+                    if (intervalId != null)
+                    {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
+                }
+            }
+
+            function checkPath()
+            {
+                let nowTickDirection = "none";
+                if (Math.abs(trackPointX) >= 10 || Math.abs(trackPointY) >= 10)
+                {
+                    nowTickDirection = gestureTable[
+                        Math.floor(((Math.floor(
+                            ((Math.atan2(-trackPointY, trackPointX)) / (2 * Math.PI) + 0.5) * 16
+                        ) + 1) % 16) / 2)
+                    ];
+                }
+                trackPointX = 0;
+                trackPointY = 0;
+
+                if (nowTickDirection != nowDirection)
+                {
+                    nowDirection = nowTickDirection;
+                    if (nowDirection != "none")
+                        gestureList.push(nowDirection);
+                }
+
+                while (gestureList.length > 200)
+                    gestureList.shift();
+
+                /**
+                 * @type {Array<typeof gestureTable[number]>}
+                 */
+                const targetGesture = [
+                    "down",
+
+                    "down",
+
+                    "leftDown",
+                    "right",
+                    "down"
+                ];
+
+                if (targetGesture.every((o, index) => o == gestureList.at(index - targetGesture.length)))
+                {
+                    gestureList = [];
+
+                    storageContext.local.enableExperimental = true;
+                    storageLocalSave();
+                    showNotice("实验性功能", "已激活实验性功能\n部分功能需要重载以启用");
+                }
+            }
+
+            mouseBind(ele, pointerMove, 0, iframeContext.iframeWindow);
+            touchBind(ele, pointerMove);
+            ele.addEventListener("mousedown", e => { e.stopPropagation(); });
+            ele.addEventListener("mouseup", e => { e.stopPropagation(); });
+            ele.addEventListener("touchstart", e => { e.stopPropagation(); });
+            ele.addEventListener("touchend", e => { e.stopPropagation(); });
+            ele.addEventListener("touchmove", e => { e.stopPropagation(); });
+            ele.addEventListener("touchcancel", e => { e.stopPropagation(); });
+        }
     ]);
     menu.element.id = "iiroseForgeMenu";
 

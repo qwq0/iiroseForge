@@ -45,6 +45,7 @@ export function enableForgeDebugMode(enable)
         window["fdb"] = debugModeContext;
         if (iframeContext.iframeWindow)
             iframeContext.iframeWindow["fdb"] = debugModeContext;
+        sessionStorage.setItem("iiroseForgeDebugMode", "true");
     }
     else
     {
@@ -52,5 +53,6 @@ export function enableForgeDebugMode(enable)
             delete window["fdb"];
         if (iframeContext.iframeWindow?.["fdb"])
             delete iframeContext.iframeWindow["fdb"];
+        sessionStorage.removeItem("iiroseForgeDebugMode");
     }
 }

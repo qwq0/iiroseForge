@@ -18,6 +18,8 @@ if (location.host == "iirose.com")
             console.log("[iiroseForge] iiroseForge已启用");
 
             window["enableForgeDebugMode"] = enableForgeDebugMode;
+            if (sessionStorage.getItem("iiroseForgeDebugMode") == "true")
+                enableForgeDebugMode(true);
 
             storageRoamingRead();
             storageLocalRead();
