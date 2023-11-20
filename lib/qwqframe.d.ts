@@ -2156,8 +2156,9 @@ declare function mouseBind(element: NElement<any>, callBack: (arg0: PointerData$
  * 触摸(拖拽) 事件处理
  * @param {NElement} element
  * @param {function(PointerData):void} callBack
+ * @param {boolean} [preventDefault]
  */
-declare function touchBind(element: NElement<any>, callBack: (arg0: PointerData$1) => void): void;
+declare function touchBind(element: NElement<any>, callBack: (arg0: PointerData$1) => void, preventDefault?: boolean | undefined): void;
 
 /**
  * 包装为仅能执行一次的函数

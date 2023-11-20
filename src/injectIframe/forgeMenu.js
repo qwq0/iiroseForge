@@ -575,7 +575,7 @@ export function getForgeMenu()
             }
 
             mouseBind(ele, pointerMove, 0, iframeContext.iframeWindow);
-            touchBind(ele, pointerMove);
+            touchBind(ele, pointerMove, false);
             ele.addEventListener("mousedown", e => { e.stopPropagation(); });
             ele.addEventListener("mouseup", e => { e.stopPropagation(); });
             ele.addEventListener("touchstart", e => { e.stopPropagation(); });
