@@ -3340,7 +3340,8 @@
 	         *  roomPath: Array<string>,
 	         *  color: string,
 	         *  description: string,
-	         *  roomImage: string
+	         *  roomImage: string,
+	         *  currentUserNum: number | "hidden"
 	         * }}
 	         */
 	        getRoomInfoById: (roomId) =>
@@ -3356,7 +3357,8 @@
 	                    color: roomInfoArray[2],
 	                    roomPath: (/** @type {string} */(roomInfoArray[0])).split("_"),
 	                    description: imageAndDescription.slice(firstSpaceIndex + 1),
-	                    roomImage: imageAndDescription.slice(0, firstSpaceIndex)
+	                    roomImage: imageAndDescription.slice(0, firstSpaceIndex),
+	                    currentUserNum: (typeof (roomInfoArray[7]) == "number" ? roomInfoArray[7] : "hidden")
 	                };
 	            }
 	            else
@@ -5996,7 +5998,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.6.1"
+	    version: "alpha v1.6.2"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -8172,7 +8174,7 @@
 	                    width: "0px",
 	                    height: "0px",
 	                    border: "5px rgba(255, 255, 255, 0.7) solid",
-	                    boxShadow: "0px 0px 5px 0px rgb(134, 143, 168)",
+	                    boxShadow: "0px 0px 5px 1px rgba(13, 14, 17, 0.7)",
 	                    boxSizing: "border-box",
 
 	                    zIndex: "100"
@@ -8551,7 +8553,14 @@
 	function createRoomListItemById(roomId, addition = "")
 	{
 	    let roomInfo = forgeApi.operation.getRoomInfoById(roomId);
-	    return createListItem("http" + roomInfo.roomImage, roomInfo.name, roomInfo.description, "", addition, `rgba(${roomInfo.color}, 0.8)`);
+	    return createListItem(
+	        "http" + roomInfo.roomImage,
+	        roomInfo.name,
+	        roomInfo.description,
+	        (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人`: "隐藏人数"),
+	        addition,
+	        `rgba(${roomInfo.color}, 0.8)`
+	    );
 	}
 
 	/**

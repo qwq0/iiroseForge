@@ -87,7 +87,8 @@ export const forgeApi = {
          *  roomPath: Array<string>,
          *  color: string,
          *  description: string,
-         *  roomImage: string
+         *  roomImage: string,
+         *  currentUserNum: number | "hidden"
          * }}
          */
         getRoomInfoById: (roomId) =>
@@ -103,7 +104,8 @@ export const forgeApi = {
                     color: roomInfoArray[2],
                     roomPath: (/** @type {string} */(roomInfoArray[0])).split("_"),
                     description: imageAndDescription.slice(firstSpaceIndex + 1),
-                    roomImage: imageAndDescription.slice(0, firstSpaceIndex)
+                    roomImage: imageAndDescription.slice(0, firstSpaceIndex),
+                    currentUserNum: (typeof (roomInfoArray[7]) == "number" ? roomInfoArray[7] : "hidden")
                 };
             }
             else

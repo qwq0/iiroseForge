@@ -82,7 +82,7 @@ export class ForgeSuperMenu
                     width: "0px",
                     height: "0px",
                     border: "5px rgba(255, 255, 255, 0.7) solid",
-                    boxShadow: "0px 0px 5px 0px rgb(134, 143, 168)",
+                    boxShadow: "0px 0px 5px 1px rgba(13, 14, 17, 0.7)",
                     boxSizing: "border-box",
 
                     zIndex: "100"

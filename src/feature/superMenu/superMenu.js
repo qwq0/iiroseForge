@@ -189,7 +189,14 @@ export function enableSuperMenu()
 function createRoomListItemById(roomId, addition = "")
 {
     let roomInfo = forgeApi.operation.getRoomInfoById(roomId);
-    return createListItem("http" + roomInfo.roomImage, roomInfo.name, roomInfo.description, "", addition, `rgba(${roomInfo.color}, 0.8)`);
+    return createListItem(
+        "http" + roomInfo.roomImage,
+        roomInfo.name,
+        roomInfo.description,
+        (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人`: "隐藏人数"),
+        addition,
+        `rgba(${roomInfo.color}, 0.8)`
+    );
 }
 
 /**
