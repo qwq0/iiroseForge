@@ -11,16 +11,19 @@
 
 
 ## 使用方法
+PC用户 (已经安装油猴)   
+  + [点击此处安装](https://qwq0.github.io/iiroseForge/inject-iiroseForge.user.js)
+
 注入脚本
 ```
 ((d,s)=>{s=d.createElement("script");s.src="//qwq0.github.io/iiroseForge/l.js";d.body.appendChild(s);})(document)
 ```
-PC用户   
-  + 打开浏览器console输入并回车
+PC用户 (不使用油猴)   
+  + 打开浏览器console输入以上注入脚本并回车
 
 手机用户   
   1. 打开蔷薇终端并键入console   
-  2. 在console悬浮窗标签页的输入框中输入   
+  2. 在console悬浮窗标签页的输入框中输入以上注入脚本   
   3. 点击Execute按钮   
   4. 关闭console(点击悬浮按钮)   
   5. 再次在蔷薇终端键入console以关闭console悬浮按钮   
