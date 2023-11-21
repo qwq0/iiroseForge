@@ -187,8 +187,8 @@ export function enableSuperMenu()
         touchBind(supperMenu.menuElement, e =>
         {
             mouseMove({
-                movementX: e.vx,
-                movementY: e.vy
+                movementX: e.vx * 1.8,
+                movementY: e.vy * 1.8
             });
 
             if (!e.hold)

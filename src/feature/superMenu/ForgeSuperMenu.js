@@ -124,8 +124,8 @@ export class ForgeSuperMenu
      */
     draw()
     {
-        const sizeX = 435;
-        const sizeY = 85;
+        const sizeX = 375;
+        const sizeY = 75;
 
 
         let minX = -(this.startColumnIndex + 0.5) * sizeX;
