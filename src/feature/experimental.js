@@ -4,6 +4,8 @@ import { storageContext } from "../storage/storage";
 import { showNotice } from "../ui/notice";
 import { createIiroseMenuElement } from "./tools";
 
+let textEncoder = new TextEncoder();
+
 /**
  * 启动实验性功能
  */
@@ -62,8 +64,8 @@ export function enableExperimental()
  */
 function ejectionEscape(targetRoomId)
 {
-    iframeContext.socketApi.send("m" + targetRoomId);
-    iframeContext.socket.onclose = null;
+    iframeContext.socket?._send(textEncoder.encode("m" + targetRoomId));
+    iframeContext.socket.onclose = () => { };
     iframeContext.socket?.close();
     setTimeout(() =>
     {

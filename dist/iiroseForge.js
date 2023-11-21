@@ -1896,7 +1896,7 @@
 
 	    socketApi: {
 	        /**
-	         * @type {(data: string) => void}
+	         * @type {(data: string | Uint8Array) => void}
 	         */
 	        send: () => { }
 	    }
@@ -1979,7 +1979,7 @@
 	 */
 	const deserializationFunctionSymbol$1 = Symbol("deserialization function");
 
-	const textEncoder$1 = new TextEncoder();
+	const textEncoder$2 = new TextEncoder();
 
 	/**
 	 * JSOBin编码器
@@ -2090,7 +2090,7 @@
 	     */
 	    pushStr(str)
 	    {
-	        let strBin = textEncoder$1.encode(str);
+	        let strBin = textEncoder$2.encode(str);
 	        this.pushVint(strBin.byteLength);
 	        this.pushArr(strBin);
 	    }
@@ -4673,7 +4673,7 @@
 	 */
 	const deserializationFunctionSymbol = Symbol("deserialization function");
 
-	const textEncoder = new TextEncoder();
+	const textEncoder$1 = new TextEncoder();
 
 	/**
 	 * JSOBin编码器
@@ -4775,7 +4775,7 @@
 	     */
 	    pushStr(str)
 	    {
-	        let strBin = textEncoder.encode(str);
+	        let strBin = textEncoder$1.encode(str);
 	        this.pushVint(strBin.byteLength);
 	        this.pushArr(strBin);
 	    }
@@ -6035,7 +6035,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.7.1"
+	    version: "alpha v1.7.2"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -8141,6 +8141,7 @@
 	            createNStyleList({
 	                position: "absolute",
 	                width: "700px",
+	                maxWidth: cssG.diFull("50px"),
 	                maxHeight: cssG.diFull("50px"),
 	                minHeight: "700px",
 	                inset: "0 0 0 0",
@@ -8436,7 +8437,12 @@
 	            }
 	        ], 83);
 	        this.menuElement.setDisplay("block");
-	        iframeContext.iframeDocument.body.appendChild(this.menuElement.element);
+
+	        if (!iframeContext.iframeDocument.body.contains(this.menuElement.element))
+	        {
+	            iframeContext.iframeDocument.body.appendChild(this.menuElement.element);
+	        }
+
 	        this.visible = true;
 
 	        this.draw();
@@ -8656,7 +8662,10 @@
 	        supperMenu.setCurrentColumn(1);
 	    }
 
-	    let mouseMove = (/** @type {MouseEvent} */ e) =>
+	    /**
+	     * @param {{ movementX: number, movementY: number }} e
+	     */
+	    let mouseMove = (e) =>
 	    {
 	        supperMenu.menuPointerMove(e.movementX, e.movementY);
 	    };
@@ -8703,6 +8712,50 @@
 	            supperMenu.hide();
 	        }, 10);
 	    }, true);
+
+	    if (iframeContext.iframeWindow?.["isMobile"])
+	    { // 适配手机版
+	        touchBind(supperMenu.menuElement, e =>
+	        {
+	            mouseMove({
+	                movementX: e.vx,
+	                movementY: e.vy
+	            });
+
+	            if (!e.hold)
+	                setTimeout(() =>
+	                {
+	                    supperMenu.triggerCurrent();
+	                    supperMenuDisplay = false;
+	                    supperMenu.hide();
+	                }, 10);
+	        });
+	        let msgholderElement = iframeContext.iframeDocument.getElementById("msgholder");
+	        msgholderElement?.addEventListener("contextmenu", e =>
+	        {
+	            console.log(e.target);
+	            let target = /** @type {HTMLElement} */(e.target);
+	            if (
+	                (
+	                    target.classList.contains("fullBox") ||
+	                    target.classList.contains("pubMsgTime")
+	                ) &&
+	                (
+	                    target == msgholderElement ||
+	                    target.parentElement == msgholderElement ||
+	                    target.parentElement?.parentElement == msgholderElement ||
+	                    target.parentElement?.parentElement?.parentElement == msgholderElement
+	                )
+	            )
+	            {
+	                e.stopImmediatePropagation();
+	                supperMenuDisplay = true;
+	                refreshListItem();
+	                supperMenu.menuPointerReset();
+	                supperMenu.show();
+	            }
+	        }, true);
+	    }
 	}
 
 
@@ -8719,7 +8772,7 @@
 	        "http" + roomInfo.roomImage,
 	        roomInfo.name,
 	        roomInfo.description,
-	        (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人`: "隐藏人数"),
+	        (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人` : "隐藏人数"),
 	        addition,
 	        `rgba(${roomInfo.color}, 0.8)`
 	    );
@@ -8846,6 +8899,8 @@
 	    ]);
 	}
 
+	let textEncoder = new TextEncoder();
+
 	/**
 	 * 启动实验性功能
 	 */
@@ -8904,8 +8959,8 @@
 	 */
 	function ejectionEscape(targetRoomId)
 	{
-	    iframeContext.socketApi.send("m" + targetRoomId);
-	    iframeContext.socket.onclose = null;
+	    iframeContext.socket?._send(textEncoder.encode("m" + targetRoomId));
+	    iframeContext.socket.onclose = () => { };
 	    iframeContext.socket?.close();
 	    setTimeout(() =>
 	    {

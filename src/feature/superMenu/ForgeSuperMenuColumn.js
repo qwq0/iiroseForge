@@ -46,6 +46,7 @@ export class ForgeSuperMenuColumn
             styles({
                 position: "absolute",
                 width: "700px",
+                maxWidth: cssG.diFull("50px"),
                 maxHeight: cssG.diFull("50px"),
                 minHeight: "700px",
                 inset: "0 0 0 0",

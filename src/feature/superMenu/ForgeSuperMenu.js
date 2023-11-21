@@ -182,7 +182,12 @@ export class ForgeSuperMenu
             }
         ], 83);
         this.menuElement.setDisplay("block");
-        iframeContext.iframeDocument.body.appendChild(this.menuElement.element);
+
+        if (!iframeContext.iframeDocument.body.contains(this.menuElement.element))
+        {
+            iframeContext.iframeDocument.body.appendChild(this.menuElement.element);
+        }
+
         this.visible = true;
 
         this.draw();

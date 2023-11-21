@@ -6,6 +6,7 @@ import { NAttr } from "../../../lib/qwqframe.js";
 import { ForgeSuperMenu } from "./ForgeSuperMenu.js";
 import { ForgeSuperMenuColumn } from "./ForgeSuperMenuColumn.js";
 import { forgeApi } from "../../forgeApi/forgeApi.js";
+import { touchBind } from "../../../lib/qwqframe.js";
 
 /**
  * 启用超级菜单
@@ -130,7 +131,10 @@ export function enableSuperMenu()
         supperMenu.setCurrentColumn(1);
     }
 
-    let mouseMove = (/** @type {MouseEvent} */ e) =>
+    /**
+     * @param {{ movementX: number, movementY: number }} e
+     */
+    let mouseMove = (e) =>
     {
         supperMenu.menuPointerMove(e.movementX, e.movementY);
     };
@@ -177,6 +181,50 @@ export function enableSuperMenu()
             supperMenu.hide();
         }, 10);
     }, true);
+
+    if (iframeContext.iframeWindow?.["isMobile"])
+    { // 适配手机版
+        touchBind(supperMenu.menuElement, e =>
+        {
+            mouseMove({
+                movementX: e.vx,
+                movementY: e.vy
+            });
+
+            if (!e.hold)
+                setTimeout(() =>
+                {
+                    supperMenu.triggerCurrent();
+                    supperMenuDisplay = false;
+                    supperMenu.hide();
+                }, 10);
+        });
+        let msgholderElement = iframeContext.iframeDocument.getElementById("msgholder");
+        msgholderElement?.addEventListener("contextmenu", e =>
+        {
+            console.log(e.target);
+            let target = /** @type {HTMLElement} */(e.target);
+            if (
+                (
+                    target.classList.contains("fullBox") ||
+                    target.classList.contains("pubMsgTime")
+                ) &&
+                (
+                    target == msgholderElement ||
+                    target.parentElement == msgholderElement ||
+                    target.parentElement?.parentElement == msgholderElement ||
+                    target.parentElement?.parentElement?.parentElement == msgholderElement
+                )
+            )
+            {
+                e.stopImmediatePropagation();
+                supperMenuDisplay = true;
+                refreshListItem();
+                supperMenu.menuPointerReset();
+                supperMenu.show();
+            }
+        }, true);
+    }
 }
 
 
@@ -193,7 +241,7 @@ function createRoomListItemById(roomId, addition = "")
         "http" + roomInfo.roomImage,
         roomInfo.name,
         roomInfo.description,
-        (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人`: "隐藏人数"),
+        (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人` : "隐藏人数"),
         addition,
         `rgba(${roomInfo.color}, 0.8)`
     );

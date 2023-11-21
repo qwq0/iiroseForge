@@ -21,7 +21,7 @@ export let iframeContext = {
 
     socketApi: {
         /**
-         * @type {(data: string) => void}
+         * @type {(data: string | Uint8Array) => void}
          */
         send: () => { }
     }
