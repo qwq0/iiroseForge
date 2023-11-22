@@ -136,7 +136,8 @@ export function enableSuperMenu()
      */
     let mouseMove = (e) =>
     {
-        supperMenu.menuPointerMove(e.movementX, e.movementY);
+        if (supperMenuDisplay)
+            supperMenu.menuPointerMove(e.movementX, e.movementY);
     };
 
     iframeContext.iframeWindow.addEventListener("mousedown", e =>
@@ -184,21 +185,23 @@ export function enableSuperMenu()
 
     if (iframeContext.iframeWindow?.["isMobile"])
     { // 适配手机版
-        touchBind(supperMenu.menuElement, e =>
+        touchBind(getNElement(iframeContext.iframeDocument.body), e =>
         {
-            mouseMove({
-                movementX: e.vx * 1.8,
-                movementY: e.vy * 1.8
-            });
-
-            if (!e.hold)
-                setTimeout(() =>
-                {
-                    supperMenu.triggerCurrent();
-                    supperMenuDisplay = false;
-                    supperMenu.hide();
-                }, 10);
-        });
+            if (supperMenuDisplay)
+            {
+                mouseMove({
+                    movementX: e.vx * 1.8,
+                    movementY: e.vy * 1.8
+                });
+                if (!e.hold)
+                    setTimeout(() =>
+                    {
+                        supperMenu.triggerCurrent();
+                        supperMenuDisplay = false;
+                        supperMenu.hide();
+                    }, 10);
+            }
+        }, false);
         let msgholderElement = iframeContext.iframeDocument.getElementById("msgholder");
         msgholderElement?.addEventListener("contextmenu", e =>
         {

@@ -191,3 +191,28 @@ export async function showCopyBox(title, text, copyText)
     var confirm = await showInfoBox(title, text, false, copyTextarea);
     return (confirm ? copyTextarea.element.value : undefined);
 }
+
+/**
+ * 显示多行输入框
+ * @param {string} title
+ * @param {string} text
+ * @param {boolean} [allowCancel]
+ * @param {string} [initValue]
+ * @returns {Promise<string>}
+ */
+export async function showTextareaBox(title, text, allowCancel = false, initValue = "")
+{
+    var textarea = expandElement({
+        tagName: "textarea",
+        style: {
+            resize: "none",
+            height: "5em",
+            weight: "20em"
+        },
+        attr: {
+            value: initValue
+        }
+    });
+    var confirm = await showInfoBox(title, text, allowCancel, textarea);
+    return (confirm ? textarea.element.value : undefined);
+}

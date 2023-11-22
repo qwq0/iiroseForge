@@ -9,7 +9,7 @@ import { plugList } from "../plug/plugList.js";
 import { createPlugWindow } from "../plug/plugWindow.js";
 import { storageContext, storageLocalSave, storageRoamingSave } from "../storage/storage.js";
 import { className } from "../ui/className.js";
-import { showInfoBox, showInputBox } from "../ui/infobox.js";
+import { showInfoBox, showInputBox, showTextareaBox } from "../ui/infobox.js";
 import { showMenu } from "../ui/menu.js";
 import { showNotice } from "../ui/notice.js";
 import { iframeContext } from "./iframeContext.js";
@@ -291,7 +291,7 @@ export function getForgeMenu()
                                         storageKey: "enableSyncChatRecord"
                                     },
                                     {
-                                        name: "右键超级菜单",
+                                        name: "超级菜单",
                                         storageKey: "enableSuperMenu"
                                     },
                                     ...(
@@ -300,20 +300,48 @@ export function getForgeMenu()
                                                 {
                                                     name: "实验性功能",
                                                     storageKey: "enableExperimental"
-                                                }
+                                                },
+                                                {
+                                                    name: "实验性功能设置",
+                                                    func: async () =>
+                                                    {
+                                                        let optionJson = JSON.stringify(storageContext.local.experimentalOption, undefined, 4);
+                                                        let newValue = await showTextareaBox("实验性功能设置", "设置实验性功能的json", true, optionJson);
+                                                        if (newValue != undefined && newValue != optionJson)
+                                                        {
+                                                            try
+                                                            {
+                                                                storageContext.local.experimentalOption = JSON.parse(newValue);
+                                                                storageLocalSave();
+                                                                showNotice("实验性功能", "已更新实验性功能设置");
+                                                            }
+                                                            catch (err)
+                                                            {
+                                                                showNotice("实验性功能", `实验性功能设置更新失败\n${err instanceof Error ? err.message : ""}`);
+                                                            }
+                                                        }
+                                                    }
+                                                },
                                             ] :
                                             []
                                     )
                                 ]).map(o => NList.getElement([
-                                    `(${storageContext.local[o.storageKey] ? "已启用" : "已禁用"}) ${o.name}`,
+                                    `${o.storageKey ? (storageContext.local[o.storageKey] ? "(已启用)" : "(已禁用)") : ""}${o.name}`,
                                     new NEvent("click", async () =>
                                     {
-                                        let targetState = !storageContext.local[o.storageKey];
-                                        let confirm = await showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
-                                        if (confirm)
+                                        if (o.storageKey)
                                         {
-                                            storageContext.local[o.storageKey] = targetState;
-                                            storageLocalSave();
+                                            let targetState = !storageContext.local[o.storageKey];
+                                            let confirm = await showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+                                            if (confirm)
+                                            {
+                                                storageContext.local[o.storageKey] = targetState;
+                                                storageLocalSave();
+                                            }
+                                        }
+                                        else if (o.func)
+                                        {
+                                            o.func();
                                         }
                                     }),
                                 ]))
