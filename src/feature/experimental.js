@@ -44,7 +44,7 @@ export function enableExperimental()
         }
     );
 
-    if (!storageContext.local.experimentalOption["ejectionButton"])
+    if (storageContext.local.experimentalOption["ejectionButton"])
     {
         let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
         if (oldFunction_Objs_mapHolder_function_event)
