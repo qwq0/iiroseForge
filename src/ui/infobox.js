@@ -184,6 +184,7 @@ export async function showCopyBox(title, text, copyText)
             value: copyText
         }
     });
+    copyTextarea.addEventListener("keydown", e => { e.stopPropagation(); }, true);
     copyTextarea.addEventListener("input", () =>
     {
         copyTextarea.element.value = copyText;
@@ -213,6 +214,7 @@ export async function showTextareaBox(title, text, allowCancel = false, initValu
             value: initValue
         }
     });
+    textarea.addEventListener("keydown", e => { e.stopPropagation(); }, true);
     var confirm = await showInfoBox(title, text, allowCancel, textarea);
     return (confirm ? textarea.element.value : undefined);
 }

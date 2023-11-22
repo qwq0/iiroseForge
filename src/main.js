@@ -40,6 +40,9 @@ if (location.host == "iirose.com")
                 storageContext.local.lastCloseTime = Date.now();
                 storageLocalSave();
             });
+
+            // 长时间连不上ws弹出提示
+
             let cannotLoad = 0;
             let showHelpNotice = false;
             setInterval(() =>
@@ -65,7 +68,20 @@ if (location.host == "iirose.com")
                                     cannotLoad = 0;
                                     showHelpNotice = false;
                                     if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
-                                        mainIframe.contentWindow?.["socket"]?.onerror?.();
+                                    {
+                                        try
+                                        {
+                                            mainIframe.contentWindow?.["socket"]?.close();
+                                        }
+                                        catch (err)
+                                        { }
+                                        try
+                                        {
+                                            mainIframe.contentWindow?.["socket"]?.onerror();
+                                        }
+                                        catch (err)
+                                        { }
+                                    }
                                 }
                             );
                         }

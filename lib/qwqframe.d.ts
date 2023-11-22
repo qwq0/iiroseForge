@@ -1,4 +1,34 @@
 /**
+ * 按键数据
+ * 当发生键盘事件时传递
+ * 包含按键和按下状态等数据
+ */
+declare class KeyboardData$1 {
+    /**
+     * @param {string} key
+     * @param {boolean} hold
+     * @param {boolean} pressing
+     */
+    constructor(key: string, hold: boolean, pressing: boolean);
+    /**
+     * 操作的键名
+     * @type {string}
+     */
+    key: string;
+    /**
+     * 当前键目前是否被按下
+     * @type {boolean}
+     */
+    hold: boolean;
+    /**
+     * 当前键是否刚按下
+     * (键按下时第一次为true)
+     * @type {boolean}
+     */
+    pressing: boolean;
+}
+
+/**
  * 指针数据
  * 当发生鼠标或触摸事件时传递
  * 包含指针坐标和按下状态等数据
@@ -2161,6 +2191,13 @@ declare function mouseBind(element: NElement<any>, callBack: (arg0: PointerData$
 declare function touchBind(element: NElement<any>, callBack: (arg0: PointerData$1) => void, preventDefault?: boolean | undefined): void;
 
 /**
+ * 键盘 事件处理
+ * @param {HTMLElement} element
+ * @param {function(KeyboardData) : void} callBack
+ */
+declare function keyboardBind(element: HTMLElement, callBack: (arg0: KeyboardData$1) => void): void;
+
+/**
  * 包装为仅能执行一次的函数
  * @template P
  * @template R
@@ -2395,5 +2432,6 @@ declare function bindArrayHook<T extends any[]>(proxyArray: T, callbacks: {
 
 type NList_list = NList_list$1;
 type PointerData = PointerData$1;
+type KeyboardData = KeyboardData$1;
 
-export { EventHandler, NAsse, NAttr, NElement, NEvent, NList, NList_list, NStyle, NTagName, PointerData, bindArrayHook, bindAttribute, bindValue, createHookArray, createHookObj, createNStyle, createNStyleList, cssG, delayPromise, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, mouseBind, runOnce, tag, tagName, touchBind };
+export { EventHandler, KeyboardData, NAsse, NAttr, NElement, NEvent, NList, NList_list, NStyle, NTagName, PointerData, bindArrayHook, bindAttribute, bindValue, createHookArray, createHookObj, createNStyle, createNStyleList, cssG, delayPromise, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, keyboardBind, mouseBind, runOnce, tag, tagName, touchBind };

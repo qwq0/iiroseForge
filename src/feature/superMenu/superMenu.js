@@ -240,14 +240,24 @@ export function enableSuperMenu()
 function createRoomListItemById(roomId, addition = "")
 {
     let roomInfo = forgeApi.operation.getRoomInfoById(roomId);
-    return createListItem(
-        "http" + roomInfo.roomImage,
-        roomInfo.name,
-        roomInfo.description,
-        (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人` : "隐藏人数"),
-        addition,
-        `rgba(${roomInfo.color}, 0.8)`
-    );
+    if (roomInfo)
+        return createListItem(
+            "http" + roomInfo.roomImage,
+            roomInfo.name,
+            roomInfo.description,
+            (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人` : "隐藏人数"),
+            addition,
+            `rgba(${roomInfo.color}, 0.8)`
+        );
+    else
+        return createListItem(
+            "",
+            "不存在的房间",
+            "",
+            "",
+            "",
+            `rgba(0, 0, 0, 0.8)`
+        );
 }
 
 /**

@@ -4,8 +4,8 @@ import { Trie } from "./Trie.js";
 import { readForgePacket, unfinishedSliceSymbol } from "./forgePacket.js";
 import { protocolEvent } from "./protocolEvent.js";
 
-let toServerTrie = new Trie();
-let toClientTrie = new Trie();
+export let toServerTrie = new Trie();
+export let toClientTrie = new Trie();
 /**
  * 数据包内容
  * 将改变实际发送或接收的包的内容

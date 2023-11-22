@@ -1657,6 +1657,127 @@
 	}
 
 	/**
+	 * 键盘对应表
+	 */
+	let keyNameTable = new Map([
+	    ["~", "`"],
+	    ["!", "1"],
+	    ["@", "2"],
+	    ["#", "3"],
+	    ["$", "4"],
+	    ["%", "5"],
+	    ["^", "6"],
+	    ["&", "7"],
+	    ["*", "8"],
+	    ["(", "9"],
+	    [")", "0"],
+	    ["_", "-"],
+	    ["+", "="],
+	    ["{", "["],
+	    ["}", "]"],
+	    ["|", "\\"],
+	    ["\"", "\'"],
+	    [":", ";"],
+	    ["<", ","],
+	    [">", "."],
+	    ["?", "/"]
+	]);
+	const capitalA = "A".charCodeAt(0);
+	const lowercaseA = "a".charCodeAt(0);
+	for (let i = 0; i < 26; i++)
+	    keyNameTable.set(String.fromCharCode(capitalA + i), String.fromCharCode(lowercaseA + i));
+
+
+	let keyMap = new Map();
+	/**
+	 * 按下键时调用
+	 * @param {string} keyName
+	 * @returns {boolean}
+	 */
+	function keyPress(keyName)
+	{
+	    if (keyMap.get(keyName))
+	        return false;
+	    keyMap.set(keyName, true);
+	    return true;
+	}
+	/**
+	 * 弹起键时调用
+	 * @param {string} keyName
+	 */
+	function keyUp(keyName)
+	{
+	    keyMap.set(keyName, false);
+	}
+
+	/**
+	 * 按键数据
+	 * 当发生键盘事件时传递
+	 * 包含按键和按下状态等数据
+	 */
+	class KeyboardData
+	{
+	    /**
+	     * 操作的键名
+	     * @type {string}
+	     */
+	    key = "";
+	    
+	    /**
+	     * 当前键目前是否被按下
+	     * @type {boolean}
+	     */
+	    hold = false;
+
+	    /**
+	     * 当前键是否刚按下
+	     * (键按下时第一次为true)
+	     * @type {boolean}
+	     */
+	    pressing = false;
+
+	    /**
+	     * @param {string} key
+	     * @param {boolean} hold
+	     * @param {boolean} pressing
+	     */
+	    constructor(key, hold, pressing)
+	    {
+	        this.key = key;
+	        this.hold = hold;
+	        this.pressing = pressing;
+	    }
+	}
+
+	/**
+	 * 键盘 事件处理
+	 * @param {HTMLElement} element
+	 * @param {function(KeyboardData) : void} callBack
+	 */
+	function keyboardBind(element, callBack)
+	{
+	    element.addEventListener("keydown", e =>
+	    {
+	        let keyName = (keyNameTable[e.key] ? keyNameTable[e.key] : e.key);
+	        callBack(new KeyboardData(
+	            keyName,
+	            true,
+	            keyPress(keyName)
+	        ));
+	    });
+	    element.addEventListener("keyup", e =>
+	    {
+	        let keyName = (keyNameTable[e.key] ? keyNameTable[e.key] : e.key);
+	        keyUp(keyName);
+	        callBack(new KeyboardData(
+	            keyName,
+	            false,
+	            false
+	        ));
+	    });
+	}
+
+	/**
 	 * 创建对象的代理
 	 * @template {object} T
 	 * @param {T} srcObj
@@ -4084,6 +4205,7 @@
 	            value: initValue
 	        }
 	    });
+	    textarea.addEventListener("keydown", e => { e.stopPropagation(); }, true);
 	    var confirm = await showInfoBox(title, text, allowCancel, textarea);
 	    return (confirm ? textarea.element.value : undefined);
 	}
@@ -6060,7 +6182,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.7.5"
+	    version: "alpha v1.8.0"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -8824,14 +8946,24 @@
 	function createRoomListItemById(roomId, addition = "")
 	{
 	    let roomInfo = forgeApi.operation.getRoomInfoById(roomId);
-	    return createListItem(
-	        "http" + roomInfo.roomImage,
-	        roomInfo.name,
-	        roomInfo.description,
-	        (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人` : "隐藏人数"),
-	        addition,
-	        `rgba(${roomInfo.color}, 0.8)`
-	    );
+	    if (roomInfo)
+	        return createListItem(
+	            "http" + roomInfo.roomImage,
+	            roomInfo.name,
+	            roomInfo.description,
+	            (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人` : "隐藏人数"),
+	            addition,
+	            `rgba(${roomInfo.color}, 0.8)`
+	        );
+	    else
+	        return createListItem(
+	            "",
+	            "不存在的房间",
+	            "",
+	            "",
+	            "",
+	            `rgba(0, 0, 0, 0.8)`
+	        );
 	}
 
 	/**
@@ -8962,13 +9094,24 @@
 	 */
 	function enableExperimental()
 	{
+	    let shiftDown = false;
+
+	    keyboardBind(iframeContext.iframeBody.element, e =>
+	    {
+	        if (e.key == "Shift")
+	            shiftDown = e.hold;
+	    });
+
 	    iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger = proxyFunction(
 	        iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger,
 	        (param) =>
 	        {
 	            if (param.length == 1 && typeof (param[0]) == "string")
 	            {
-	                if (storageContext.local.experimentalOption["ejection"])
+	                if (
+	                    storageContext.local.experimentalOption["ejection"] ||
+	                    (storageContext.local.experimentalOption["ejectionButton"] && shiftDown)
+	                )
 	                {
 	                    const targetRoomId = param[0];
 	                    ejectionEscape(targetRoomId);
@@ -8979,34 +9122,42 @@
 	        }
 	    );
 
-	    let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
-	    if (oldFunction_Objs_mapHolder_function_event)
-	    { // 房间按钮点击
-	        iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, function (param, srcFunction, _targetFn, thisObj)
-	        {
-	            if (param.length == 1 && param[0] == 8)
+	    if (!storageContext.local.experimentalOption["ejectionButton"])
+	    {
+	        let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
+	        if (oldFunction_Objs_mapHolder_function_event)
+	        { // 房间按钮点击
+	            iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, function (param, srcFunction, _targetFn, thisObj)
 	            {
-	                let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
-	                if (!roomId)
-	                    return false;
+	                if (param.length == 1 && param[0] == 8)
+	                {
+	                    let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
+	                    if (!roomId)
+	                        return false;
 
-	                srcFunction(...param);
+	                    srcFunction(...param);
 
-	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-	                selectHolderBox.appendChild(
-	                    createIiroseMenuElement(
-	                        "mdi-ghost-outline",
-	                        `弹射起步`,
-	                        async e =>
-	                        {
-	                            ejectionEscape(roomId);
-	                        }
-	                    ).element
-	                );
-	                return true;
-	            }
-	            return false;
-	        });
+	                    let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+	                    selectHolderBox.appendChild(
+	                        createIiroseMenuElement(
+	                            "mdi-ghost-outline",
+	                            `弹射起步`,
+	                            async e =>
+	                            {
+	                                ejectionEscape(roomId);
+	                            }
+	                        ).element
+	                    );
+	                    return true;
+	                }
+	                return false;
+	            });
+	        }
+	    }
+
+	    if (storageContext.local.experimentalOption["withdraw"])
+	    {
+	        takeoverWithdraw();
 	    }
 	}
 
@@ -9030,6 +9181,66 @@
 	    {
 	        showNotice("实验性功能", "马上就好了~");
 	    }, 3500);
+	}
+
+	let hadTakeoverWithdraw = false;
+	function takeoverWithdraw()
+	{
+	    if (hadTakeoverWithdraw)
+	        return;
+	    hadTakeoverWithdraw = true;
+	    toClientTrie.addPath("v0#", data =>
+	    {
+	        let part = data.split(`"`);
+	        try
+	        {
+	            let messageElement = /** @type {HTMLElement} */(iframeContext.iframeDocument.querySelector(`div#msgholder div.fullBox[index="0"] div[data-id="${part[0]}"]`));
+	            domPath(messageElement, [0, 0, 0])?.appendChild(NList.getElement([
+	                createNStyleList({
+	                    backgroundColor: cssG.rgb(100, 100, 100, 0.6),
+	                    color: cssG.rgb(255, 255, 255, 0.9),
+	                    borderRadius: "3px",
+
+	                    position: "absolute",
+	                    padding: "0.2em",
+	                    bottom: "-0.7em",
+	                    [messageElement.style.float != "right" ? "right" : "left"]: "-1.7em"
+	                }),
+	                "已撤回"
+	            ]).element);
+	        }
+	        catch (err)
+	        {
+	            console.error(err);
+	        }
+	        return true;
+	    });
+	    toClientTrie.addPath("v0*", data =>
+	    {
+	        let part = data.split(`"`);
+	        try
+	        {
+	            let messageElement = /** @type {HTMLElement} */(iframeContext.iframeDocument.querySelector(`div#msgholder div.fullBox[ip="${part[0]}"] div[data-id="${part[1]}"]`));
+	            domPath(messageElement, [1, 0])?.appendChild(NList.getElement([
+	                createNStyleList({
+	                    backgroundColor: cssG.rgb(100, 100, 100, 0.6),
+	                    color: cssG.rgb(255, 255, 255, 0.9),
+	                    borderRadius: "3px",
+
+	                    position: "absolute",
+	                    padding: "0.2em",
+	                    bottom: "-0.7em",
+	                    [messageElement.style.float != "right" ? "right" : "left"]: "-1.7em"
+	                }),
+	                "已撤回"
+	            ]).element);
+	        }
+	        catch (err)
+	        {
+	            console.error(err);
+	        }
+	        return true;
+	    });
 	}
 
 	/**
@@ -9240,6 +9451,9 @@
 	                storageContext.local.lastCloseTime = Date.now();
 	                storageLocalSave();
 	            });
+
+	            // 长时间连不上ws弹出提示
+
 	            let cannotLoad = 0;
 	            let showHelpNotice = false;
 	            setInterval(() =>
@@ -9265,7 +9479,20 @@
 	                                    cannotLoad = 0;
 	                                    showHelpNotice = false;
 	                                    if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
-	                                        mainIframe.contentWindow?.["socket"]?.onerror?.();
+	                                    {
+	                                        try
+	                                        {
+	                                            mainIframe.contentWindow?.["socket"]?.close();
+	                                        }
+	                                        catch (err)
+	                                        { }
+	                                        try
+	                                        {
+	                                            mainIframe.contentWindow?.["socket"]?.onerror();
+	                                        }
+	                                        catch (err)
+	                                        { }
+	                                    }
 	                                }
 	                            );
 	                        }
