@@ -7266,6 +7266,18 @@
 	                "戴上他的眼睛",
 	                new NEvent("click", () =>
 	                {
+	                    if(monitorId)
+	                    {
+	                        forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
+	                            plug: "forge",
+	                            type: "multiAccount",
+	                            option: "monitorQuit",
+	                            id: monitorId
+	                        });
+	                        monitorId = "";
+	                        monitorUserId = "";
+	                    }
+
 	                    showNotice("多账户", `正在连接 ${uid}`);
 	                    monitorId = uniqueIdentifierString$2();
 	                    monitorUserId = uid;
@@ -7623,7 +7635,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.10.0"
+	    version: "alpha v1.10.1"
 	};
 
 	/**

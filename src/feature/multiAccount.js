@@ -42,6 +42,18 @@ export async function showMultiAccountMenu()
                 "戴上他的眼睛",
                 new NEvent("click", () =>
                 {
+                    if(monitorId)
+                    {
+                        forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
+                            plug: "forge",
+                            type: "multiAccount",
+                            option: "monitorQuit",
+                            id: monitorId
+                        });
+                        monitorId = "";
+                        monitorUserId = "";
+                    }
+
                     showNotice("多账户", `正在连接 ${uid}`);
                     monitorId = uniqueIdentifierString();
                     monitorUserId = uid;
