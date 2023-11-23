@@ -113,6 +113,37 @@ export const forgeApi = {
         },
 
         /**
+         * 通过uid获取在线用户的信息
+         * @param {string} uid
+         * @returns {{
+         *  name: string,
+         *  color: string,
+         *  avatar: string,
+         *  roomId: string,
+         *  personalizedSignature: string
+         * }}
+         */
+        getOnlineUserInfoById: (uid) =>
+        {
+            uid = String(uid);
+            let userInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.findUserByUid?.(uid);
+            if (userInfoArray)
+            {
+                let imageAndDescription = htmlSpecialCharsDecode(userInfoArray[5].split("&&")[0].split("&")[0]);
+                let firstSpaceIndex = imageAndDescription.indexOf(" ");
+                return {
+                    name: userInfoArray[2],
+                    color: userInfoArray[3],
+                    avatar: userInfoArray[0],
+                    roomId: userInfoArray[4],
+                    personalizedSignature: userInfoArray[6]
+                };
+            }
+            else
+                return null;
+        },
+
+        /**
          * 切换房间
          * @param {string} roomId
          */

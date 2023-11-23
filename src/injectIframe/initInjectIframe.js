@@ -14,6 +14,7 @@ import { enableSyncConfig } from "../feature/syncConfig.js";
 import { enableSyncChatRecord, trySyncChatRecord } from "../feature/syncChatRecord.js";
 import { enableSuperMenu } from "../feature/superMenu/superMenu.js";
 import { enableExperimental } from "../feature/experimental.js";
+import { enableMultiAccount } from "../feature/multiAccount.js";
 
 
 
@@ -123,6 +124,9 @@ export function initInjectIframe()
             },
             {
                 func: enableSyncChatRecord
+            },
+            {
+                func: enableMultiAccount
             },
             {
                 func: enableUserRemark,

@@ -70,8 +70,9 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
             let senderId = part[1];
             let senderName = part[2];
             let content = part[4];
+            let receiverId = part[11];
 
-            if (part[1] != userId)
+            if (senderId != userId)
             {
                 let forgePacket = readForgePacket(content, senderId);
                 if (forgePacket != undefined)
@@ -102,7 +103,7 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
                         content: htmlSpecialCharsDecode(content)
                     });
             }
-            else if (part[1] == userId && part[11] == userId)
+            else if (senderId == userId && receiverId == userId)
             {
                 let forgePacket = readForgePacket(content, senderId);
                 if (forgePacket != undefined)
@@ -126,6 +127,12 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
                     forgeApi.event.selfPrivateMessage.trigger({
                         content: htmlSpecialCharsDecode(content)
                     });
+            }
+            else if (senderName == userId && receiverId != userId)
+            {
+                let forgePacket = readForgePacket(content, senderId);
+                if (forgePacket != undefined)
+                    return undefined;
             }
         }
         return data;

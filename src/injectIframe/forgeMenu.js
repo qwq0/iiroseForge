@@ -2,6 +2,7 @@ import { RcoCcontext } from "../../lib/jsRco.js";
 import { mouseBind } from "../../lib/qwqframe.js";
 import { touchBind } from "../../lib/qwqframe.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
+import { showMultiAccountMenu } from "../feature/multiAccount.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
@@ -267,7 +268,7 @@ export function getForgeMenu()
                     },
                     {
                         title: "拉取配置",
-                        text: "获取您此账号其他在线设备的配置",
+                        text: "获取您其他在线设备的配置",
                         icon: "sync",
                         onClick: async () =>
                         {
@@ -275,8 +276,8 @@ export function getForgeMenu()
                         }
                     },
                     {
-                        title: "设置功能",
-                        text: "启用或关闭附加功能",
+                        title: "附加功能",
+                        text: "设置本机的附加功能",
                         icon: "cog",
                         onClick: async () =>
                         {
@@ -346,6 +347,14 @@ export function getForgeMenu()
                                     }),
                                 ]))
                             ]);
+                        }
+                    }, {
+                        title: "账号管理",
+                        text: "管理你的其他账号",
+                        icon: "account-cog",
+                        onClick: async () =>
+                        {
+                            await showMultiAccountMenu();
                         }
                     },
                     {

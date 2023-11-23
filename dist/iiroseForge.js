@@ -3512,6 +3512,37 @@
 	        },
 
 	        /**
+	         * 通过uid获取在线用户的信息
+	         * @param {string} uid
+	         * @returns {{
+	         *  name: string,
+	         *  color: string,
+	         *  avatar: string,
+	         *  roomId: string,
+	         *  personalizedSignature: string
+	         * }}
+	         */
+	        getOnlineUserInfoById: (uid) =>
+	        {
+	            uid = String(uid);
+	            let userInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.findUserByUid?.(uid);
+	            if (userInfoArray)
+	            {
+	                let imageAndDescription = htmlSpecialCharsDecode(userInfoArray[5].split("&&")[0].split("&")[0]);
+	                imageAndDescription.indexOf(" ");
+	                return {
+	                    name: userInfoArray[2],
+	                    color: userInfoArray[3],
+	                    avatar: userInfoArray[0],
+	                    roomId: userInfoArray[4],
+	                    personalizedSignature: userInfoArray[6]
+	                };
+	            }
+	            else
+	                return null;
+	        },
+
+	        /**
 	         * 切换房间
 	         * @param {string} roomId
 	         */
@@ -3919,7 +3950,12 @@
 	         * 用户uid 到 用户备注
 	         * @type {Object<string, string>}
 	         */
-	        userRemark: {}
+	        userRemark: {},
+	        /**
+	         * 我的其他账号uid列表
+	         * @type {Array<string>}
+	         */
+	        myAccountList: []
 	    },
 	    local: {
 	        // 启用同步聊天记录
@@ -4668,8 +4704,9 @@
 	            let senderId = part[1];
 	            let senderName = part[2];
 	            let content = part[4];
+	            let receiverId = part[11];
 
-	            if (part[1] != userId)
+	            if (senderId != userId)
 	            {
 	                let forgePacket = readForgePacket(content, senderId);
 	                if (forgePacket != undefined)
@@ -4700,7 +4737,7 @@
 	                        content: htmlSpecialCharsDecode(content)
 	                    });
 	            }
-	            else if (part[1] == userId && part[11] == userId)
+	            else if (senderId == userId && receiverId == userId)
 	            {
 	                let forgePacket = readForgePacket(content, senderId);
 	                if (forgePacket != undefined)
@@ -4724,6 +4761,12 @@
 	                    forgeApi.event.selfPrivateMessage.trigger({
 	                        content: htmlSpecialCharsDecode(content)
 	                    });
+	            }
+	            else if (senderName == userId && receiverId != userId)
+	            {
+	                let forgePacket = readForgePacket(content, senderId);
+	                if (forgePacket != undefined)
+	                    return undefined;
 	            }
 	        }
 	        return data;
@@ -6113,6 +6156,307 @@
 	    }
 	}
 
+	/**
+	 * 显示菜单
+	 * @async
+	 * @param {Array<NElement>} menuItems
+	 * @returns {Promise<boolean>}
+	 */
+	function showMenu(menuItems)
+	{
+	    return new Promise(resolve =>
+	    {
+	        /**
+	         * @type {NElement}
+	         */
+	        var menu = null;
+	        var menuHolder = expandElement({ // 背景
+	            width: "100%", height: "100%",
+	            $position: "absolute",
+	            style: {
+	                userSelect: "none",
+	                backgroundColor: cssG.rgb(0, 0, 0, 0.7),
+	                alignItems: "center",
+	                justifyContent: "center",
+	                zIndex: "30001"
+	            },
+	            assembly: [e =>
+	            {
+	                e.animate([
+	                    {
+	                        opacity: 0.1
+	                    },
+	                    {
+	                        opacity: 1
+	                    }
+	                ], {
+	                    duration: 120
+	                });
+	            }],
+	            display: "flex",
+	            child: [{ // 菜单
+	                style: {
+	                    border: "1px white solid",
+	                    backgroundColor: cssG.rgb(255, 255, 255, 0.95),
+	                    color: cssG.rgb(0, 0, 0),
+	                    alignItems: "stretch",
+	                    justifyContent: "center",
+	                    flexFlow: "column",
+	                    lineHeight: "45px",
+	                    minHeight: "10px",
+	                    minWidth: "280px",
+	                    maxHeight: "100%",
+	                    maxWidth: "95%",
+	                    boxSizing: "border-box",
+	                    padding: "10px",
+	                    borderRadius: "7px",
+	                    pointerEvents: "none"
+	                },
+	                assembly: [e =>
+	                {
+	                    e.animate([
+	                        {
+	                            transform: "scale(0.9) translateY(-100px)"
+	                        },
+	                        {
+	                        }
+	                    ], {
+	                        duration: 120
+	                    });
+	                    setTimeout(() => { e.setStyle("pointerEvents", "auto"); }, 120);
+	                    e.getChilds().forEach(o =>
+	                    {
+	                        o.addEventListener("click", closeMenuBox);
+	                        buttonAsse(o);
+	                    });
+	                }, e => { menu = e; }],
+	                position$: "static",
+	                overflow: "auto",
+	                child: menuItems,
+	                event: {
+	                    click: e => { e.stopPropagation(); }
+	                }
+	            }],
+	            event: {
+	                click: closeMenuBox
+	            }
+	        });
+	        function closeMenuBox()
+	        {
+	            menu.setStyle("pointerEvents", "none");
+	            menu.animate([
+	                {
+	                },
+	                {
+	                    transform: "scale(0.9) translateY(-100px)"
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            menuHolder.animate([
+	                {
+	                    opacity: 1
+	                },
+	                {
+	                    opacity: 0.1
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            setTimeout(() =>
+	            {
+	                menuHolder.remove();
+	            }, 120);
+	        }
+	        body.addChild(menuHolder);
+	    });
+	}
+
+	let waitForId$2 = "";
+
+	async function showMultiAccountMenu()
+	{
+	    /**
+	     * @param {string} uid
+	     */
+	    function showAccountMenu(uid)
+	    {
+	        showMenu([
+	            NList.getElement([
+	                "拉取此账号的配置",
+	                new NEvent("click", () =>
+	                {
+	                    showNotice("多账户", "正在尝试获取配置");
+	                    let requestId = uniqueIdentifierString$2();
+	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                        plug: "forge",
+	                        type: "multiAccount",
+	                        option: "syncConfigRQ",
+	                        id: requestId
+	                    });
+	                    waitForId$2 = requestId;
+	                })
+	            ]),
+	            NList.getElement([
+	                "前往我所在的房间",
+	                new NEvent("click", () =>
+	                {
+	                    showNotice("多账户", "正在发送命令");
+	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                        plug: "forge",
+	                        type: "multiAccount",
+	                        option: "switchRoom",
+	                        roomId: forgeApi.operation.getUserRoomId()
+	                    });
+	                })
+	            ]),
+	            NList.getElement([
+	                "下线",
+	                new NEvent("click", () =>
+	                {
+	                    showNotice("多账户", "正在发送命令");
+	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                        plug: "forge",
+	                        type: "multiAccount",
+	                        option: "quit"
+	                    });
+	                })
+	            ]),
+	            NList.getElement([
+	                "移除账号",
+	                new NEvent("click", () =>
+	                {
+	                    storageContext.roaming.myAccountList = storageContext.roaming.myAccountList.filter(o => o != uid);
+	                    storageRoamingSave();
+	                    showNotice("绑定账号", `目标账号(${uid})与当前账号(${forgeApi.operation.getUserUid()})的单向绑定已解除`);
+	                })
+	            ])
+	        ]);
+	    }
+
+	    showMenu([
+	        NList.getElement([
+	            "[ 添加账号 ]",
+	            new NEvent("click", async () =>
+	            {
+	                let uid = await showInputBox("添加账号", "请输入您其他账号的唯一标识\n必须双向绑定才能进行管理", true);
+	                if (uid != undefined)
+	                {
+	                    let myUid = forgeApi.operation.getUserUid();
+	                    if (uid != myUid)
+	                    {
+	                        storageContext.roaming.myAccountList.push(uid);
+	                        storageRoamingSave();
+	                        showNotice("绑定账号", `你需要同时在目标账号(${uid})上绑定当前账号(${myUid})来完成反向绑定`);
+	                    }
+	                    else
+	                        showNotice("无法绑定", `不能绑定此账号本身`);
+	                }
+	            }),
+	        ]),
+	        ...(Array.from(storageContext.roaming.myAccountList).map(uid =>
+	        {
+	            let userInfo = forgeApi.operation.getOnlineUserInfoById(uid);
+	            return NList.getElement([
+	                `${uid}${userInfo ? ` (${userInfo.name})` : ""}`,
+	                new NEvent("click", async () =>
+	                {
+	                    showAccountMenu(uid);
+	                }),
+	            ]);
+	        }))
+	    ]);
+	}
+
+	let registedEvent = false;
+	/**
+	 * 启用多账号
+	 */
+	function enableMultiAccount()
+	{
+	    if (registedEvent)
+	        return;
+	    registedEvent = true;
+
+	    protocolEvent.forge.privateForgePacket.add(e =>
+	    {
+	        if (e.content.type == "multiAccount")
+	        {
+	            if (storageContext.roaming.myAccountList.indexOf(e.senderId) == -1)
+	                return;
+
+	            let userInfo = forgeApi.operation.getOnlineUserInfoById(e.senderId);
+	            let isCallback = false;
+
+	            try
+	            {
+	                switch (e.content.option)
+	                {
+	                    case "switchRoom": {
+	                        forgeApi.operation.changeRoom(e.content.roomId);
+	                        break;
+	                    }
+	                    case "quit": {
+	                        setTimeout(() =>
+	                        {
+	                            location.replace("about:blank");
+	                            window.close();
+	                        }, 1000);
+	                        break;
+	                    }
+	                    case "syncConfigRQ": {
+	                        let requestId = e.content.id;
+	                        forgeApi.operation.sendPrivateForgePacket(e.senderId, {
+	                            plug: "forge",
+	                            type: "multiAccount",
+	                            option: "syncConfigCB",
+	                            id: requestId,
+	                            storageObject: storageContext.roaming
+	                        });
+	                        break;
+	                    }
+	                    case "syncConfigCB": {
+	                        if (waitForId$2 && e.content.id == waitForId$2)
+	                        {
+	                            waitForId$2 = "";
+	                            /**
+	                             * @type {typeof storageContext.roaming}
+	                             */
+	                            let storageObj = e.content.storageObject;
+	                            if (storageObj)
+	                            {
+	                                if (storageObj?.userRemark)
+	                                { // 覆盖备注配置
+	                                    Object.keys(storageContext.roaming.userRemark).forEach(userId =>
+	                                    {
+	                                        if (!storageObj.userRemark[userId])
+	                                            storageObj.userRemark[userId] = storageContext.roaming.userRemark[userId];
+	                                    });
+	                                }
+	                                delete storageObj.myAccountList;
+	                                storageRoamingSet(storageObj);
+	                                storageRoamingSave();
+	                                showNotice("多账号", "拉取其他账号的配置成功");
+	                            }
+	                        }
+	                        isCallback = true;
+	                        break;
+	                    }
+	                }
+	            }
+	            catch (err)
+	            {
+	                console.error(err);
+	            }
+
+	            if (!isCallback)
+	                showNotice("多账号", `您的账号(${e.senderId}${userInfo ? ` - ${userInfo.name}` : ""})\n正在操作`);
+	        }
+	    });
+	}
+
 	let waitForId$1 = "";
 
 	/**
@@ -6182,7 +6526,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.8.2"
+	    version: "alpha v1.9.0"
 	};
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -7134,124 +7478,6 @@
 	const plugList = new PlugList();
 
 	/**
-	 * 显示菜单
-	 * @async
-	 * @param {Array<NElement>} menuItems
-	 * @returns {Promise<boolean>}
-	 */
-	function showMenu(menuItems)
-	{
-	    return new Promise(resolve =>
-	    {
-	        /**
-	         * @type {NElement}
-	         */
-	        var menu = null;
-	        var menuHolder = expandElement({ // 背景
-	            width: "100%", height: "100%",
-	            $position: "absolute",
-	            style: {
-	                userSelect: "none",
-	                backgroundColor: cssG.rgb(0, 0, 0, 0.7),
-	                alignItems: "center",
-	                justifyContent: "center",
-	                zIndex: "30001"
-	            },
-	            assembly: [e =>
-	            {
-	                e.animate([
-	                    {
-	                        opacity: 0.1
-	                    },
-	                    {
-	                        opacity: 1
-	                    }
-	                ], {
-	                    duration: 120
-	                });
-	            }],
-	            display: "flex",
-	            child: [{ // 菜单
-	                style: {
-	                    border: "1px white solid",
-	                    backgroundColor: cssG.rgb(255, 255, 255, 0.95),
-	                    color: cssG.rgb(0, 0, 0),
-	                    alignItems: "stretch",
-	                    justifyContent: "center",
-	                    flexFlow: "column",
-	                    lineHeight: "45px",
-	                    minHeight: "10px",
-	                    minWidth: "280px",
-	                    maxHeight: "100%",
-	                    maxWidth: "95%",
-	                    boxSizing: "border-box",
-	                    padding: "10px",
-	                    borderRadius: "7px",
-	                    pointerEvents: "none"
-	                },
-	                assembly: [e =>
-	                {
-	                    e.animate([
-	                        {
-	                            transform: "scale(0.9) translateY(-100px)"
-	                        },
-	                        {
-	                        }
-	                    ], {
-	                        duration: 120
-	                    });
-	                    setTimeout(() => { e.setStyle("pointerEvents", "auto"); }, 120);
-	                    e.getChilds().forEach(o =>
-	                    {
-	                        o.addEventListener("click", closeMenuBox);
-	                        buttonAsse(o);
-	                    });
-	                }, e => { menu = e; }],
-	                position$: "static",
-	                overflow: "auto",
-	                child: menuItems,
-	                event: {
-	                    click: e => { e.stopPropagation(); }
-	                }
-	            }],
-	            event: {
-	                click: closeMenuBox
-	            }
-	        });
-	        function closeMenuBox()
-	        {
-	            menu.setStyle("pointerEvents", "none");
-	            menu.animate([
-	                {
-	                },
-	                {
-	                    transform: "scale(0.9) translateY(-100px)"
-	                }
-	            ], {
-	                duration: 120,
-	                fill: "forwards"
-	            });
-	            menuHolder.animate([
-	                {
-	                    opacity: 1
-	                },
-	                {
-	                    opacity: 0.1
-	                }
-	            ], {
-	                duration: 120,
-	                fill: "forwards"
-	            });
-	            setTimeout(() =>
-	            {
-	                menuHolder.remove();
-	            }, 120);
-	        }
-	        body.addChild(menuHolder);
-	    });
-	}
-
-	/**
 	 * @type {ReturnType<createPlugWindow>}
 	 */
 	let plugStone = null;
@@ -7498,7 +7724,7 @@
 	                    },
 	                    {
 	                        title: "拉取配置",
-	                        text: "获取您此账号其他在线设备的配置",
+	                        text: "获取您其他在线设备的配置",
 	                        icon: "sync",
 	                        onClick: async () =>
 	                        {
@@ -7506,8 +7732,8 @@
 	                        }
 	                    },
 	                    {
-	                        title: "设置功能",
-	                        text: "启用或关闭附加功能",
+	                        title: "附加功能",
+	                        text: "设置本机的附加功能",
 	                        icon: "cog",
 	                        onClick: async () =>
 	                        {
@@ -7577,6 +7803,14 @@
 	                                    }),
 	                                ]))
 	                            ]);
+	                        }
+	                    }, {
+	                        title: "账号管理",
+	                        text: "管理你的其他账号",
+	                        icon: "account-cog",
+	                        onClick: async () =>
+	                        {
+	                            await showMultiAccountMenu();
 	                        }
 	                    },
 	                    {
@@ -9349,6 +9583,9 @@
 	            },
 	            {
 	                func: enableSyncChatRecord
+	            },
+	            {
+	                func: enableMultiAccount
 	            },
 	            {
 	                func: enableUserRemark,
