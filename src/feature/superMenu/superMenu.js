@@ -205,7 +205,6 @@ export function enableSuperMenu()
         let msgholderElement = iframeContext.iframeDocument.getElementById("msgholder");
         msgholderElement?.addEventListener("contextmenu", e =>
         {
-            console.log(e.target);
             let target = /** @type {HTMLElement} */(e.target);
             if (
                 (
