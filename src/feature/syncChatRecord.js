@@ -296,7 +296,7 @@ function mergeRecordToLocal(remoteRecordList, startTime)
                 let messageId = nowRecord[3];
                 if (!localRecordMessageMap.has(messageId))
                 {
-                    if (
+                    while (
                         localRecordIndex > 0 &&
                         processSingleRecord(localRecordInfo.records[localRecordIndex - 1])[1] > time
                     )
