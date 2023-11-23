@@ -128,7 +128,7 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
                         content: htmlSpecialCharsDecode(content)
                     });
             }
-            else if (senderName == userId && receiverId != userId)
+            else if (senderId == userId && receiverId != userId)
             {
                 let forgePacket = readForgePacket(content, senderId);
                 if (forgePacket != undefined)

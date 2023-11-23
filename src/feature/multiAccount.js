@@ -3,13 +3,17 @@ import { NEvent } from "../../lib/qwqframe.js";
 import { forgeApi } from "../forgeApi/forgeApi.js";
 import { protocolEvent } from "../protocol/protocolEvent.js";
 import { storageContext, storageRoamingSave, storageRoamingSet } from "../storage/storage.js";
-import { showInputBox } from "../ui/infobox.js";
+import { showInfoBox, showInputBox } from "../ui/infobox.js";
 import { showMenu } from "../ui/menu.js";
 import { showNotice } from "../ui/notice.js";
 import { uniqueIdentifierString } from "../util/uniqueIdentifier.js";
+import { monitorAddMessage, monitorBindSendCB, monitorClearMessage, setMonitorOperator, showMonitorWindow } from "./monitor.js";
+
 
 
 let waitForId = "";
+let monitorId = "";
+let monitorUserId = "";
 
 export async function showMultiAccountMenu()
 {
@@ -35,6 +39,35 @@ export async function showMultiAccountMenu()
                 })
             ]),
             NList.getElement([
+                "戴上他的眼睛",
+                new NEvent("click", () =>
+                {
+                    showNotice("多账户", `正在连接 ${uid}`);
+                    monitorId = uniqueIdentifierString();
+                    monitorUserId = uid;
+                    forgeApi.operation.sendPrivateForgePacket(uid, {
+                        plug: "forge",
+                        type: "multiAccount",
+                        option: "monitorRQ",
+                        id: monitorId
+                    });
+
+                    showMonitorWindow();
+                    monitorClearMessage();
+                    monitorBindSendCB(o =>
+                    {
+                        if (o)
+                            forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
+                                plug: "forge",
+                                type: "multiAccount",
+                                option: "monitorSend",
+                                id: monitorId,
+                                content: o
+                            });
+                    });
+                })
+            ]),
+            NList.getElement([
                 "前往我所在的房间",
                 new NEvent("click", () =>
                 {
@@ -49,14 +82,17 @@ export async function showMultiAccountMenu()
             ]),
             NList.getElement([
                 "下线",
-                new NEvent("click", () =>
+                new NEvent("click", async () =>
                 {
-                    showNotice("多账户", "正在发送命令");
-                    forgeApi.operation.sendPrivateForgePacket(uid, {
-                        plug: "forge",
-                        type: "multiAccount",
-                        option: "quit"
-                    });
+                    if (await showInfoBox("远程下线", "确认发送下线指令吗?\n您必须手动重新上线此账号", true))
+                    {
+                        showNotice("多账户", "正在发送命令");
+                        forgeApi.operation.sendPrivateForgePacket(uid, {
+                            plug: "forge",
+                            type: "multiAccount",
+                            option: "quit"
+                        });
+                    }
                 })
             ]),
             NList.getElement([
@@ -91,6 +127,38 @@ export async function showMultiAccountMenu()
                 }
             }),
         ]),
+        ...(
+            monitorId ?
+                [
+                    NList.getElement([
+                        "正在戴着的眼睛",
+                        new NEvent("click", () =>
+                        {
+                            showMonitorWindow();
+                        })
+                    ]),
+                    NList.getElement([
+                        "停止戴着眼睛",
+                        new NEvent("click", () =>
+                        {
+                            monitorBindSendCB(null);
+                            monitorAddMessage([{
+                                sender: "系统",
+                                content: "您已断开远程连接"
+                            }]);
+                            forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
+                                plug: "forge",
+                                type: "multiAccount",
+                                option: "monitorQuit",
+                                id: monitorId
+                            });
+                            monitorId = "";
+                            monitorUserId = "";
+                        })
+                    ])
+                ] :
+                []
+        ),
         ...(Array.from(storageContext.roaming.myAccountList).map(uid =>
         {
             let userInfo = forgeApi.operation.getOnlineUserInfoById(uid);
@@ -105,6 +173,9 @@ export async function showMultiAccountMenu()
     ]);
 }
 
+
+let monitorOperatorId = "";
+let monitorOperatorUserId = "";
 let registedEvent = false;
 /**
  * 启用多账号
@@ -127,13 +198,13 @@ export function enableMultiAccount()
 
             try
             {
-                switch (e.content.option)
+                switch (e.content.option) // 远程指令类别
                 {
-                    case "switchRoom": {
+                    case "switchRoom": { // 切换房间
                         forgeApi.operation.changeRoom(e.content.roomId);
                         break;
                     }
-                    case "quit": {
+                    case "quit": { // 下线 (退出)
                         setTimeout(() =>
                         {
                             location.replace("about:blank");
@@ -141,7 +212,7 @@ export function enableMultiAccount()
                         }, 1000);
                         break;
                     }
-                    case "syncConfigRQ": {
+                    case "syncConfigRQ": { // 请求拉取远程配置
                         let requestId = e.content.id;
                         forgeApi.operation.sendPrivateForgePacket(e.senderId, {
                             plug: "forge",
@@ -152,7 +223,7 @@ export function enableMultiAccount()
                         });
                         break;
                     }
-                    case "syncConfigCB": {
+                    case "syncConfigCB": { // 收到请求的配置
                         if (waitForId && e.content.id == waitForId)
                         {
                             waitForId = "";
@@ -175,6 +246,73 @@ export function enableMultiAccount()
                                 storageRoamingSave();
                                 showNotice("多账号", "拉取其他账号的配置成功");
                             }
+                        }
+                        isCallback = true;
+                        break;
+                    }
+                    case "monitorRQ": { // 监视开始请求
+                        let requestId = e.content.id;
+
+                        if (monitorOperatorId)
+                        {
+                            forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
+                                plug: "forge",
+                                type: "multiAccount",
+                                option: "monitorQuit",
+                                id: monitorOperatorId
+                            });
+                        }
+
+                        monitorOperatorId = requestId;
+                        monitorOperatorUserId = e.senderId;
+
+                        setMonitorOperator(o =>
+                        {
+                            forgeApi.operation.sendPrivateForgePacket(e.senderId, {
+                                plug: "forge",
+                                type: "multiAccount",
+                                option: "monitorCB",
+                                id: requestId,
+                                messages: o
+                            });
+                        });
+                        break;
+                    }
+                    case "monitorSend": { // 监视发送信息
+                        let requestId = e.content.id;
+                        if (requestId == monitorOperatorId)
+                        {
+                            forgeApi.operation.sendRoomMessage(e.content.content);
+                        }
+                        break;
+                    }
+                    case "monitorQuit": { // 断开监视
+                        let requestId = e.content.id;
+                        if (requestId == monitorOperatorId)
+                        {
+                            setMonitorOperator(null);
+                            monitorOperatorId = "";
+                            monitorOperatorUserId = "";
+                            showNotice("多账号", "多账号监视已断开");
+                        }
+                        else if (requestId == monitorId)
+                        {
+                            monitorBindSendCB(null);
+                            monitorAddMessage([{
+                                sender: "系统",
+                                content: "连接被远端断开"
+                            }]);
+                            monitorId = "";
+                            monitorUserId = "";
+                        }
+                        isCallback = true;
+                        break;
+                    }
+                    case "monitorCB": { // 监视回调 (收到消息时)
+                        let requestId = e.content.id;
+                        if (requestId == monitorId)
+                        {
+                            monitorAddMessage(e.content.messages);
                         }
                         isCallback = true;
                         break;

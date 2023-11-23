@@ -4762,7 +4762,7 @@
 	                        content: htmlSpecialCharsDecode(content)
 	                    });
 	            }
-	            else if (senderName == userId && receiverId != userId)
+	            else if (senderId == userId && receiverId != userId)
 	            {
 	                let forgePacket = readForgePacket(content, senderId);
 	                if (forgePacket != undefined)
@@ -6274,261 +6274,6 @@
 	    });
 	}
 
-	let waitForId$2 = "";
-
-	async function showMultiAccountMenu()
-	{
-	    /**
-	     * @param {string} uid
-	     */
-	    function showAccountMenu(uid)
-	    {
-	        showMenu([
-	            NList.getElement([
-	                "拉取此账号的配置",
-	                new NEvent("click", () =>
-	                {
-	                    showNotice("多账户", "正在尝试获取配置");
-	                    let requestId = uniqueIdentifierString$2();
-	                    forgeApi.operation.sendPrivateForgePacket(uid, {
-	                        plug: "forge",
-	                        type: "multiAccount",
-	                        option: "syncConfigRQ",
-	                        id: requestId
-	                    });
-	                    waitForId$2 = requestId;
-	                })
-	            ]),
-	            NList.getElement([
-	                "前往我所在的房间",
-	                new NEvent("click", () =>
-	                {
-	                    showNotice("多账户", "正在发送命令");
-	                    forgeApi.operation.sendPrivateForgePacket(uid, {
-	                        plug: "forge",
-	                        type: "multiAccount",
-	                        option: "switchRoom",
-	                        roomId: forgeApi.operation.getUserRoomId()
-	                    });
-	                })
-	            ]),
-	            NList.getElement([
-	                "下线",
-	                new NEvent("click", () =>
-	                {
-	                    showNotice("多账户", "正在发送命令");
-	                    forgeApi.operation.sendPrivateForgePacket(uid, {
-	                        plug: "forge",
-	                        type: "multiAccount",
-	                        option: "quit"
-	                    });
-	                })
-	            ]),
-	            NList.getElement([
-	                "移除账号",
-	                new NEvent("click", () =>
-	                {
-	                    storageContext.roaming.myAccountList = storageContext.roaming.myAccountList.filter(o => o != uid);
-	                    storageRoamingSave();
-	                    showNotice("绑定账号", `目标账号(${uid})与当前账号(${forgeApi.operation.getUserUid()})的单向绑定已解除`);
-	                })
-	            ])
-	        ]);
-	    }
-
-	    showMenu([
-	        NList.getElement([
-	            "[ 添加账号 ]",
-	            new NEvent("click", async () =>
-	            {
-	                let uid = await showInputBox("添加账号", "请输入您其他账号的唯一标识\n必须双向绑定才能进行管理", true);
-	                if (uid != undefined)
-	                {
-	                    let myUid = forgeApi.operation.getUserUid();
-	                    if (uid != myUid)
-	                    {
-	                        storageContext.roaming.myAccountList.push(uid);
-	                        storageRoamingSave();
-	                        showNotice("绑定账号", `你需要同时在目标账号(${uid})上绑定当前账号(${myUid})来完成反向绑定`);
-	                    }
-	                    else
-	                        showNotice("无法绑定", `不能绑定此账号本身`);
-	                }
-	            }),
-	        ]),
-	        ...(Array.from(storageContext.roaming.myAccountList).map(uid =>
-	        {
-	            let userInfo = forgeApi.operation.getOnlineUserInfoById(uid);
-	            return NList.getElement([
-	                `${uid}${userInfo ? ` (${userInfo.name})` : ""}`,
-	                new NEvent("click", async () =>
-	                {
-	                    showAccountMenu(uid);
-	                }),
-	            ]);
-	        }))
-	    ]);
-	}
-
-	let registedEvent = false;
-	/**
-	 * 启用多账号
-	 */
-	function enableMultiAccount()
-	{
-	    if (registedEvent)
-	        return;
-	    registedEvent = true;
-
-	    protocolEvent.forge.privateForgePacket.add(e =>
-	    {
-	        if (e.content.type == "multiAccount")
-	        {
-	            if (storageContext.roaming.myAccountList.indexOf(e.senderId) == -1)
-	                return;
-
-	            let userInfo = forgeApi.operation.getOnlineUserInfoById(e.senderId);
-	            let isCallback = false;
-
-	            try
-	            {
-	                switch (e.content.option)
-	                {
-	                    case "switchRoom": {
-	                        forgeApi.operation.changeRoom(e.content.roomId);
-	                        break;
-	                    }
-	                    case "quit": {
-	                        setTimeout(() =>
-	                        {
-	                            location.replace("about:blank");
-	                            window.close();
-	                        }, 1000);
-	                        break;
-	                    }
-	                    case "syncConfigRQ": {
-	                        let requestId = e.content.id;
-	                        forgeApi.operation.sendPrivateForgePacket(e.senderId, {
-	                            plug: "forge",
-	                            type: "multiAccount",
-	                            option: "syncConfigCB",
-	                            id: requestId,
-	                            storageObject: storageContext.roaming
-	                        });
-	                        break;
-	                    }
-	                    case "syncConfigCB": {
-	                        if (waitForId$2 && e.content.id == waitForId$2)
-	                        {
-	                            waitForId$2 = "";
-	                            /**
-	                             * @type {typeof storageContext.roaming}
-	                             */
-	                            let storageObj = e.content.storageObject;
-	                            if (storageObj)
-	                            {
-	                                if (storageObj?.userRemark)
-	                                { // 覆盖备注配置
-	                                    Object.keys(storageContext.roaming.userRemark).forEach(userId =>
-	                                    {
-	                                        if (!storageObj.userRemark[userId])
-	                                            storageObj.userRemark[userId] = storageContext.roaming.userRemark[userId];
-	                                    });
-	                                }
-	                                delete storageObj.myAccountList;
-	                                storageRoamingSet(storageObj);
-	                                storageRoamingSave();
-	                                showNotice("多账号", "拉取其他账号的配置成功");
-	                            }
-	                        }
-	                        isCallback = true;
-	                        break;
-	                    }
-	                }
-	            }
-	            catch (err)
-	            {
-	                console.error(err);
-	            }
-
-	            if (!isCallback)
-	                showNotice("多账号", `您的账号(${e.senderId}${userInfo ? ` - ${userInfo.name}` : ""})\n正在操作`);
-	        }
-	    });
-	}
-
-	let waitForId$1 = "";
-
-	/**
-	 * 尝试同步配置
-	 */
-	function trySyncConfig()
-	{
-	    showNotice("配置同步", "正在尝试获取配置");
-	    let requestId = uniqueIdentifierString$2();
-	    forgeApi.operation.sendSelfPrivateForgePacket({
-	        plug: "forge",
-	        type: "syncConfigRQ",
-	        id: requestId
-	    });
-	    waitForId$1 = requestId;
-	}
-
-	let registedReturnConfig = false;
-	/**
-	 * 启用配置同步
-	 */
-	function enableSyncConfig()
-	{
-	    if (registedReturnConfig)
-	        return;
-	    registedReturnConfig = true;
-	    protocolEvent.forge.selfPrivateForgePacket.add(e =>
-	    {
-	        if (waitForId$1)
-	        {
-	            if (e.content.type == "syncConfigCB" && e.content.id == waitForId$1)
-	            {
-	                waitForId$1 = "";
-	                /**
-	                 * @type {typeof storageContext.roaming}
-	                 */
-	                let storageObj = e.content.storageObject;
-	                if (storageObj)
-	                {
-	                    if (storageObj?.userRemark)
-	                    { // 覆盖备注配置
-	                        Object.keys(storageContext.roaming.userRemark).forEach(userId =>
-	                        {
-	                            if (!storageObj.userRemark[userId])
-	                                storageObj.userRemark[userId] = storageContext.roaming.userRemark[userId];
-	                        });
-	                    }
-	                    storageRoamingSet(storageObj);
-	                    storageRoamingSave();
-	                    showNotice("配置同步", "拉取配置成功");
-	                }
-	            }
-	        }
-
-	        if (e.content.type == "syncConfigRQ")
-	        {
-	            let requestId = e.content.id;
-	            forgeApi.operation.sendSelfPrivateForgePacket({
-	                plug: "forge",
-	                type: "syncConfigCB",
-	                id: requestId,
-	                storageObject: storageContext.roaming
-	            });
-	            showNotice("配置同步", "其他设备正在拉取本机配置");
-	        }
-	    });
-	}
-
-	const versionInfo = {
-	    version: "alpha v1.9.0"
-	};
-
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
 
 	/**
@@ -7002,33 +6747,6 @@
 	}
 
 	/**
-	 * 插件请求的权限列表
-	 */
-	const apiPermission = {
-	    operation: {
-	        showForgeNotice: "显示forge通知",
-	        getUserName: "获取你的昵称",
-	        getUserUid: "获取你的uid",
-	        getUserRoomId: "获取所在房间id",
-	        getUserProfilePictureUrl: "获取你的头像",
-	        getUserInputColor: "获取你的主题色",
-	        sendRoomMessage: "在房间中发送信息",
-	        sendRoomForgePacket: "在房间中发送forge数据包",
-	        sendPrivateMessageSilence: "[危险]静默发送私聊消息",
-	        sendPrivateMessage: "[危险]发送私聊消息",
-	        sendSelfPrivateMessageSilence: "向自己静默发送私聊消息(同账号多设备间通信)",
-	        giveALike: "进行点赞",
-	        switchRoom: "切换所在房间"
-	    },
-	    event: {
-	        roomMessage: "接收房间消息",
-	        roomForgePacket: "接收房间forge数据包",
-	        privateMessage: "[危险]接收私聊消息",
-	        selfPrivateMessage: "接收自己(其他设备)发送给自己的私聊消息"
-	    }
-	};
-
-	/**
 	 * 创建悬浮窗
 	 */
 	function createPlugWindow(noSandbox = false)
@@ -7283,6 +7001,657 @@
 	        sandbox: plugWindow.sandbox
 	    });
 	}
+
+	/**
+	 * 房间消息历史
+	 * @type {Array<{
+	 *  sender: string,
+	 *  content: string
+	 * }>}
+	 */
+	let roomMessageHistory = [{
+	    sender: "系统",
+	    content: `forge已加载 ${(new Date()).toLocaleString()}`
+	}];
+	/**
+	 * 房间消息历史更新回调
+	 * @type {(x: Array<{
+	 *  sender: string,
+	 *  content: string
+	 * }>) => void}
+	 */
+	let newRoomMessageHistoryCB = null;
+
+	/**
+	 * 设置监视的操作者
+	 * @param {(x: Array<{
+	 *  sender: string,
+	 *  content: string
+	 * }>) => void} callback
+	 */
+	function setMonitorOperator(callback)
+	{
+	    if (callback)
+	    {
+	        callback(roomMessageHistory.slice(-100));
+	        newRoomMessageHistoryCB = callback;
+	    }
+	    else
+	        newRoomMessageHistoryCB = null;
+	}
+
+
+	let enabledMonitor = false;
+
+	/**
+	 * 启用监视
+	 * 允许跨账号查看房间消息
+	 */
+	function enableMonitor()
+	{
+	    if (enabledMonitor)
+	        return;
+	    enabledMonitor = true;
+
+	    let lastRoomId = "";
+	    let lastRoomName = "";
+
+	    /**
+	     * @param {{ senderName: string, content: string }} e
+	     */
+	    function onNewRoomMessage(e)
+	    {
+	        let newHistory = [];
+	        let nowRoomId = forgeApi.operation.getUserRoomId();
+	        if (nowRoomId != lastRoomId)
+	        {
+	            let nowRoomName = forgeApi.operation.getRoomInfoById(nowRoomId)?.name;
+	            newHistory.push({
+	                sender: "系统",
+	                content: `房间切换 ${lastRoomName}->${nowRoomName ? nowRoomName : nowRoomId}`
+	            });
+	            lastRoomId = nowRoomId;
+	            lastRoomName = nowRoomName;
+	        }
+
+	        newHistory.push({
+	            sender: e.senderName,
+	            content: e.content
+	        });
+
+	        if (newHistory.length > 0)
+	        {
+	            roomMessageHistory.push(...newHistory);
+	            while (roomMessageHistory.length >= 500)
+	                roomMessageHistory.shift();
+	            if (newRoomMessageHistoryCB)
+	                newRoomMessageHistoryCB(newHistory);
+	        }
+	    }
+
+	    forgeApi.event.roomMessage.add(o =>
+	    {
+	        onNewRoomMessage(o);
+	    });
+	}
+
+	/**
+	 * @type {ReturnType<createPlugWindow>}
+	 */
+	let monitorWindow = null;
+	/**
+	 * @type {Window}
+	 */
+	let monitorContextWindow = null;
+	/**
+	 * @type {NElement}
+	 */
+	let monitorMessageContainer = null;
+	/**
+	 * @type { (x: string) => void }
+	 */
+	let monitorSendMessageCB = null;
+
+	/**
+	 * 创建监视器窗口
+	 */
+	async function showMonitorWindow()
+	{
+	    if (!monitorWindow)
+	    {
+	        monitorWindow = createPlugWindow(true);
+	        monitorWindow.iframe.element.src = "about:blank";
+	        await (new Promise(resolve =>
+	        {
+	            monitorWindow.iframe.addEventListener("load", () => { resolve(); });
+	        }));
+	        monitorContextWindow = monitorWindow.iframe.element.contentWindow;
+	        let body = getNElement(monitorContextWindow.document.body);
+	        body.setStyles({
+	            margin: "0",
+	            position: "absolute",
+	            left: "0",
+	            top: "0",
+	            width: "100%",
+	            height: "100%",
+	        });
+
+	        body.addChild(NList.getElement([
+	            createNStyleList({
+	                position: "absolute",
+	                left: "0",
+	                top: "0",
+	                width: "100%",
+	                height: "100%",
+	            }),
+
+	            monitorMessageContainer = NList.getElement([
+	                createNStyleList({
+	                    position: "absolute",
+	                    left: "0",
+	                    top: "0",
+	                    width: "100%",
+	                    bottom: "40px",
+	                    whiteSpace: "pre-wrap",
+	                    color: "white"
+	                })
+	            ]),
+
+	            [
+	                new NTagName("input"),
+	                new NAttr("type", "text"),
+	                new NAttr("placeholder", "远程发送"),
+	                new NAttr("size", "1000"),
+
+	                createNStyleList({
+	                    position: "absolute",
+	                    left: "0",
+	                    bottom: "0",
+	                    width: "100%",
+	                    height: "27px",
+	                    lineHeight: "27px",
+	                    backgroundColor: cssG.rgb(150, 150, 150, 0.3),
+	                    color: cssG.rgb(255, 255, 255)
+	                }),
+
+	                new NEvent("keydown", (e, ele) =>
+	                {
+	                    if (e.key == "Enter")
+	                    {
+	                        e.stopPropagation();
+	                        e.preventDefault();
+	                        if (monitorSendMessageCB)
+	                        {
+	                            let value = ele.element.value;
+	                            ele.element.value = "";
+	                            monitorSendMessageCB(value);
+	                        }
+	                    }
+	                })
+	            ]
+	        ]));
+	    }
+	    monitorWindow.windowElement.setDisplay("block");
+	    monitorWindow.windowElement.setStyle("pointerEvents", "auto");
+	}
+
+	/**
+	 * 监视器窗口清空消息
+	 */
+	function monitorClearMessage()
+	{
+	    if (!monitorMessageContainer)
+	        return;
+	    monitorMessageContainer.removeChilds();
+	}
+
+	/**
+	 * 监视器窗口添加消息
+	 * @param {Array<{
+	 *  sender: string,
+	 *  content: string
+	 * }>} messages
+	 */
+	function monitorAddMessage(messages)
+	{
+	    if (!monitorMessageContainer)
+	        return;
+	    monitorMessageContainer.addChilds(messages.map(o => NList.getElement([
+	        createNStyleList({
+	            margin: "2px",
+	            border: "1.5px rgba(255, 255, 255, 0.5) solid",
+	            padding: "3px"
+	        }),
+	        `${o.sender}: ${o.content}`,
+	    ])));
+	}
+
+	/**
+	 * 监视器窗口绑定发送消息回调
+	 * @param { (x: string) => void } sendCB
+	 */
+	function monitorBindSendCB(sendCB)
+	{
+	    monitorSendMessageCB = sendCB;
+	}
+
+	let waitForId$2 = "";
+	let monitorId = "";
+	let monitorUserId = "";
+
+	async function showMultiAccountMenu()
+	{
+	    /**
+	     * @param {string} uid
+	     */
+	    function showAccountMenu(uid)
+	    {
+	        showMenu([
+	            NList.getElement([
+	                "拉取此账号的配置",
+	                new NEvent("click", () =>
+	                {
+	                    showNotice("多账户", "正在尝试获取配置");
+	                    let requestId = uniqueIdentifierString$2();
+	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                        plug: "forge",
+	                        type: "multiAccount",
+	                        option: "syncConfigRQ",
+	                        id: requestId
+	                    });
+	                    waitForId$2 = requestId;
+	                })
+	            ]),
+	            NList.getElement([
+	                "戴上他的眼睛",
+	                new NEvent("click", () =>
+	                {
+	                    showNotice("多账户", `正在连接 ${uid}`);
+	                    monitorId = uniqueIdentifierString$2();
+	                    monitorUserId = uid;
+	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                        plug: "forge",
+	                        type: "multiAccount",
+	                        option: "monitorRQ",
+	                        id: monitorId
+	                    });
+
+	                    showMonitorWindow();
+	                    monitorClearMessage();
+	                    monitorBindSendCB(o =>
+	                    {
+	                        if (o)
+	                            forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
+	                                plug: "forge",
+	                                type: "multiAccount",
+	                                option: "monitorSend",
+	                                id: monitorId,
+	                                content: o
+	                            });
+	                    });
+	                })
+	            ]),
+	            NList.getElement([
+	                "前往我所在的房间",
+	                new NEvent("click", () =>
+	                {
+	                    showNotice("多账户", "正在发送命令");
+	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                        plug: "forge",
+	                        type: "multiAccount",
+	                        option: "switchRoom",
+	                        roomId: forgeApi.operation.getUserRoomId()
+	                    });
+	                })
+	            ]),
+	            NList.getElement([
+	                "下线",
+	                new NEvent("click", async () =>
+	                {
+	                    if (await showInfoBox("远程下线", "确认发送下线指令吗?\n您必须手动重新上线此账号", true))
+	                    {
+	                        showNotice("多账户", "正在发送命令");
+	                        forgeApi.operation.sendPrivateForgePacket(uid, {
+	                            plug: "forge",
+	                            type: "multiAccount",
+	                            option: "quit"
+	                        });
+	                    }
+	                })
+	            ]),
+	            NList.getElement([
+	                "移除账号",
+	                new NEvent("click", () =>
+	                {
+	                    storageContext.roaming.myAccountList = storageContext.roaming.myAccountList.filter(o => o != uid);
+	                    storageRoamingSave();
+	                    showNotice("绑定账号", `目标账号(${uid})与当前账号(${forgeApi.operation.getUserUid()})的单向绑定已解除`);
+	                })
+	            ])
+	        ]);
+	    }
+
+	    showMenu([
+	        NList.getElement([
+	            "[ 添加账号 ]",
+	            new NEvent("click", async () =>
+	            {
+	                let uid = await showInputBox("添加账号", "请输入您其他账号的唯一标识\n必须双向绑定才能进行管理", true);
+	                if (uid != undefined)
+	                {
+	                    let myUid = forgeApi.operation.getUserUid();
+	                    if (uid != myUid)
+	                    {
+	                        storageContext.roaming.myAccountList.push(uid);
+	                        storageRoamingSave();
+	                        showNotice("绑定账号", `你需要同时在目标账号(${uid})上绑定当前账号(${myUid})来完成反向绑定`);
+	                    }
+	                    else
+	                        showNotice("无法绑定", `不能绑定此账号本身`);
+	                }
+	            }),
+	        ]),
+	        ...(
+	            monitorId ?
+	                [
+	                    NList.getElement([
+	                        "正在戴着的眼睛",
+	                        new NEvent("click", () =>
+	                        {
+	                            showMonitorWindow();
+	                        })
+	                    ]),
+	                    NList.getElement([
+	                        "停止戴着眼睛",
+	                        new NEvent("click", () =>
+	                        {
+	                            monitorBindSendCB(null);
+	                            monitorAddMessage([{
+	                                sender: "系统",
+	                                content: "您已断开远程连接"
+	                            }]);
+	                            forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
+	                                plug: "forge",
+	                                type: "multiAccount",
+	                                option: "monitorQuit",
+	                                id: monitorId
+	                            });
+	                            monitorId = "";
+	                            monitorUserId = "";
+	                        })
+	                    ])
+	                ] :
+	                []
+	        ),
+	        ...(Array.from(storageContext.roaming.myAccountList).map(uid =>
+	        {
+	            let userInfo = forgeApi.operation.getOnlineUserInfoById(uid);
+	            return NList.getElement([
+	                `${uid}${userInfo ? ` (${userInfo.name})` : ""}`,
+	                new NEvent("click", async () =>
+	                {
+	                    showAccountMenu(uid);
+	                }),
+	            ]);
+	        }))
+	    ]);
+	}
+
+
+	let monitorOperatorId = "";
+	let monitorOperatorUserId = "";
+	let registedEvent = false;
+	/**
+	 * 启用多账号
+	 */
+	function enableMultiAccount()
+	{
+	    if (registedEvent)
+	        return;
+	    registedEvent = true;
+
+	    protocolEvent.forge.privateForgePacket.add(e =>
+	    {
+	        if (e.content.type == "multiAccount")
+	        {
+	            if (storageContext.roaming.myAccountList.indexOf(e.senderId) == -1)
+	                return;
+
+	            let userInfo = forgeApi.operation.getOnlineUserInfoById(e.senderId);
+	            let isCallback = false;
+
+	            try
+	            {
+	                switch (e.content.option) // 远程指令类别
+	                {
+	                    case "switchRoom": { // 切换房间
+	                        forgeApi.operation.changeRoom(e.content.roomId);
+	                        break;
+	                    }
+	                    case "quit": { // 下线 (退出)
+	                        setTimeout(() =>
+	                        {
+	                            location.replace("about:blank");
+	                            window.close();
+	                        }, 1000);
+	                        break;
+	                    }
+	                    case "syncConfigRQ": { // 请求拉取远程配置
+	                        let requestId = e.content.id;
+	                        forgeApi.operation.sendPrivateForgePacket(e.senderId, {
+	                            plug: "forge",
+	                            type: "multiAccount",
+	                            option: "syncConfigCB",
+	                            id: requestId,
+	                            storageObject: storageContext.roaming
+	                        });
+	                        break;
+	                    }
+	                    case "syncConfigCB": { // 收到请求的配置
+	                        if (waitForId$2 && e.content.id == waitForId$2)
+	                        {
+	                            waitForId$2 = "";
+	                            /**
+	                             * @type {typeof storageContext.roaming}
+	                             */
+	                            let storageObj = e.content.storageObject;
+	                            if (storageObj)
+	                            {
+	                                if (storageObj?.userRemark)
+	                                { // 覆盖备注配置
+	                                    Object.keys(storageContext.roaming.userRemark).forEach(userId =>
+	                                    {
+	                                        if (!storageObj.userRemark[userId])
+	                                            storageObj.userRemark[userId] = storageContext.roaming.userRemark[userId];
+	                                    });
+	                                }
+	                                delete storageObj.myAccountList;
+	                                storageRoamingSet(storageObj);
+	                                storageRoamingSave();
+	                                showNotice("多账号", "拉取其他账号的配置成功");
+	                            }
+	                        }
+	                        isCallback = true;
+	                        break;
+	                    }
+	                    case "monitorRQ": { // 监视开始请求
+	                        let requestId = e.content.id;
+
+	                        if (monitorOperatorId)
+	                        {
+	                            forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
+	                                plug: "forge",
+	                                type: "multiAccount",
+	                                option: "monitorQuit",
+	                                id: monitorOperatorId
+	                            });
+	                        }
+
+	                        monitorOperatorId = requestId;
+	                        monitorOperatorUserId = e.senderId;
+
+	                        setMonitorOperator(o =>
+	                        {
+	                            forgeApi.operation.sendPrivateForgePacket(e.senderId, {
+	                                plug: "forge",
+	                                type: "multiAccount",
+	                                option: "monitorCB",
+	                                id: requestId,
+	                                messages: o
+	                            });
+	                        });
+	                        break;
+	                    }
+	                    case "monitorSend": { // 监视发送信息
+	                        let requestId = e.content.id;
+	                        if (requestId == monitorOperatorId)
+	                        {
+	                            forgeApi.operation.sendRoomMessage(e.content.content);
+	                        }
+	                        break;
+	                    }
+	                    case "monitorQuit": { // 断开监视
+	                        let requestId = e.content.id;
+	                        if (requestId == monitorOperatorId)
+	                        {
+	                            setMonitorOperator(null);
+	                            monitorOperatorId = "";
+	                            monitorOperatorUserId = "";
+	                            showNotice("多账号", "多账号监视已断开");
+	                        }
+	                        else if (requestId == monitorId)
+	                        {
+	                            monitorBindSendCB(null);
+	                            monitorAddMessage([{
+	                                sender: "系统",
+	                                content: "连接被远端断开"
+	                            }]);
+	                            monitorId = "";
+	                            monitorUserId = "";
+	                        }
+	                        isCallback = true;
+	                        break;
+	                    }
+	                    case "monitorCB": { // 监视回调 (收到消息时)
+	                        let requestId = e.content.id;
+	                        if (requestId == monitorId)
+	                        {
+	                            monitorAddMessage(e.content.messages);
+	                        }
+	                        isCallback = true;
+	                        break;
+	                    }
+	                }
+	            }
+	            catch (err)
+	            {
+	                console.error(err);
+	            }
+
+	            if (!isCallback)
+	                showNotice("多账号", `您的账号(${e.senderId}${userInfo ? ` - ${userInfo.name}` : ""})\n正在操作`);
+	        }
+	    });
+	}
+
+	let waitForId$1 = "";
+
+	/**
+	 * 尝试同步配置
+	 */
+	function trySyncConfig()
+	{
+	    showNotice("配置同步", "正在尝试获取配置");
+	    let requestId = uniqueIdentifierString$2();
+	    forgeApi.operation.sendSelfPrivateForgePacket({
+	        plug: "forge",
+	        type: "syncConfigRQ",
+	        id: requestId
+	    });
+	    waitForId$1 = requestId;
+	}
+
+	let registedReturnConfig = false;
+	/**
+	 * 启用配置同步
+	 */
+	function enableSyncConfig()
+	{
+	    if (registedReturnConfig)
+	        return;
+	    registedReturnConfig = true;
+	    protocolEvent.forge.selfPrivateForgePacket.add(e =>
+	    {
+	        if (waitForId$1)
+	        {
+	            if (e.content.type == "syncConfigCB" && e.content.id == waitForId$1)
+	            {
+	                waitForId$1 = "";
+	                /**
+	                 * @type {typeof storageContext.roaming}
+	                 */
+	                let storageObj = e.content.storageObject;
+	                if (storageObj)
+	                {
+	                    if (storageObj?.userRemark)
+	                    { // 覆盖备注配置
+	                        Object.keys(storageContext.roaming.userRemark).forEach(userId =>
+	                        {
+	                            if (!storageObj.userRemark[userId])
+	                                storageObj.userRemark[userId] = storageContext.roaming.userRemark[userId];
+	                        });
+	                    }
+	                    storageRoamingSet(storageObj);
+	                    storageRoamingSave();
+	                    showNotice("配置同步", "拉取配置成功");
+	                }
+	            }
+	        }
+
+	        if (e.content.type == "syncConfigRQ")
+	        {
+	            let requestId = e.content.id;
+	            forgeApi.operation.sendSelfPrivateForgePacket({
+	                plug: "forge",
+	                type: "syncConfigCB",
+	                id: requestId,
+	                storageObject: storageContext.roaming
+	            });
+	            showNotice("配置同步", "其他设备正在拉取本机配置");
+	        }
+	    });
+	}
+
+	const versionInfo = {
+	    version: "alpha v1.10.0"
+	};
+
+	/**
+	 * 插件请求的权限列表
+	 */
+	const apiPermission = {
+	    operation: {
+	        showForgeNotice: "显示forge通知",
+	        getUserName: "获取你的昵称",
+	        getUserUid: "获取你的uid",
+	        getUserRoomId: "获取所在房间id",
+	        getUserProfilePictureUrl: "获取你的头像",
+	        getUserInputColor: "获取你的主题色",
+	        sendRoomMessage: "在房间中发送信息",
+	        sendRoomForgePacket: "在房间中发送forge数据包",
+	        sendPrivateMessageSilence: "[危险]静默发送私聊消息",
+	        sendPrivateMessage: "[危险]发送私聊消息",
+	        sendSelfPrivateMessageSilence: "向自己静默发送私聊消息(同账号多设备间通信)",
+	        giveALike: "进行点赞",
+	        switchRoom: "切换所在房间"
+	    },
+	    event: {
+	        roomMessage: "接收房间消息",
+	        roomForgePacket: "接收房间forge数据包",
+	        privateMessage: "[危险]接收私聊消息",
+	        selfPrivateMessage: "接收自己(其他设备)发送给自己的私聊消息"
+	    }
+	};
 
 	/**
 	 * 加载插件
@@ -9585,6 +9954,9 @@
 	            },
 	            {
 	                func: enableMultiAccount
+	            },
+	            {
+	                func: enableMonitor
 	            },
 	            {
 	                func: enableUserRemark,
