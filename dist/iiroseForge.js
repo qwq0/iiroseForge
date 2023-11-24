@@ -7108,6 +7108,10 @@
 	 */
 	let monitorMessageContainer = null;
 	/**
+	 * @type {NElement<HTMLInputElement>}
+	 */
+	let monitorInput = null;
+	/**
 	 * @type { (x: string) => void }
 	 */
 	let monitorSendMessageCB = null;
@@ -7151,13 +7155,16 @@
 	                    left: "0",
 	                    top: "0",
 	                    width: "100%",
-	                    bottom: "40px",
+	                    bottom: "27px",
 	                    whiteSpace: "pre-wrap",
-	                    color: "white"
+	                    color: "white",
+	                    overflow: "auto",
+	                    scrollbarWidth: "thin",
+	                    scrollbarColor: "rgb(120, 120, 120) rgb(160, 160, 160)"
 	                })
 	            ]),
 
-	            [
+	            monitorInput = NList.getElement([
 	                new NTagName("input"),
 	                new NAttr("type", "text"),
 	                new NAttr("placeholder", "远程发送"),
@@ -7188,7 +7195,7 @@
 	                        }
 	                    }
 	                })
-	            ]
+	            ])
 	        ]));
 	    }
 	    monitorWindow.windowElement.setDisplay("block");
@@ -7227,6 +7234,17 @@
 	}
 
 	/**
+	 * 设置监视器窗口中的文本框占位提示文本
+	 * @param {string} text
+	 */
+	function monitorSetPlaceholderText(text)
+	{
+	    if (!monitorInput)
+	        return;
+	    monitorInput.element.placeholder = text;
+	}
+
+	/**
 	 * 监视器窗口绑定发送消息回调
 	 * @param { (x: string) => void } sendCB
 	 */
@@ -7243,8 +7261,9 @@
 	{
 	    /**
 	     * @param {string} uid
+	     * @param {string | undefined} remoteUserName
 	     */
-	    function showAccountMenu(uid)
+	    function showAccountMenu(uid, remoteUserName)
 	    {
 	        showMenu([
 	            NList.getElement([
@@ -7266,7 +7285,7 @@
 	                "戴上他的眼睛",
 	                new NEvent("click", () =>
 	                {
-	                    if(monitorId)
+	                    if (monitorId)
 	                    {
 	                        forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
 	                            plug: "forge",
@@ -7301,6 +7320,7 @@
 	                                content: o
 	                            });
 	                    });
+	                    monitorSetPlaceholderText("正在连接中");
 	                })
 	            ]),
 	            NList.getElement([
@@ -7390,6 +7410,7 @@
 	                            });
 	                            monitorId = "";
 	                            monitorUserId = "";
+	                            monitorSetPlaceholderText("已断开");
 	                        })
 	                    ])
 	                ] :
@@ -7402,7 +7423,7 @@
 	                `${uid}${userInfo ? ` (${userInfo.name})` : ""}`,
 	                new NEvent("click", async () =>
 	                {
-	                    showAccountMenu(uid);
+	                    showAccountMenu(uid, userInfo?.name);
 	                }),
 	            ]);
 	        }))
@@ -7410,6 +7431,7 @@
 	}
 
 
+	let monitorOperatorStartTime = 0;
 	let monitorOperatorId = "";
 	let monitorOperatorUserId = "";
 	let registedEvent = false;
@@ -7501,9 +7523,17 @@
 
 	                        monitorOperatorId = requestId;
 	                        monitorOperatorUserId = e.senderId;
+	                        monitorOperatorStartTime = Date.now();
 
 	                        setMonitorOperator(o =>
 	                        {
+	                            if (Date.now() > monitorOperatorStartTime + 12 * 60 * 60 * 1000)
+	                            {
+	                                setMonitorOperator(null);
+	                                monitorOperatorId = "";
+	                                monitorOperatorUserId = "";
+	                                return;
+	                            }
 	                            forgeApi.operation.sendPrivateForgePacket(e.senderId, {
 	                                plug: "forge",
 	                                type: "multiAccount",
@@ -7540,6 +7570,7 @@
 	                            }]);
 	                            monitorId = "";
 	                            monitorUserId = "";
+	                            monitorSetPlaceholderText("已断开");
 	                        }
 	                        isCallback = true;
 	                        break;
@@ -7549,6 +7580,7 @@
 	                        if (requestId == monitorId)
 	                        {
 	                            monitorAddMessage(e.content.messages);
+	                            monitorSetPlaceholderText(`使用 ${e.senderName} 发送消息`);
 	                        }
 	                        isCallback = true;
 	                        break;
@@ -7635,7 +7667,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.10.1"
+	    version: "alpha v1.10.2"
 	};
 
 	/**

@@ -115,6 +115,10 @@ let monitorContextWindow = null;
  */
 let monitorMessageContainer = null;
 /**
+ * @type {NElement<HTMLInputElement>}
+ */
+let monitorInput = null;
+/**
  * @type { (x: string) => void }
  */
 let monitorSendMessageCB = null;
@@ -158,13 +162,16 @@ export async function showMonitorWindow()
                     left: "0",
                     top: "0",
                     width: "100%",
-                    bottom: "40px",
+                    bottom: "27px",
                     whiteSpace: "pre-wrap",
-                    color: "white"
+                    color: "white",
+                    overflow: "auto",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "rgb(120, 120, 120) rgb(160, 160, 160)"
                 })
             ]),
 
-            [
+            monitorInput = NList.getElement([
                 new NTagName("input"),
                 new NAttr("type", "text"),
                 new NAttr("placeholder", "远程发送"),
@@ -195,7 +202,7 @@ export async function showMonitorWindow()
                         }
                     }
                 })
-            ]
+            ])
         ]));
     }
     monitorWindow.windowElement.setDisplay("block");
@@ -231,6 +238,17 @@ export function monitorAddMessage(messages)
         }),
         `${o.sender}: ${o.content}`,
     ])));
+}
+
+/**
+ * 设置监视器窗口中的文本框占位提示文本
+ * @param {string} text
+ */
+export function monitorSetPlaceholderText(text)
+{
+    if (!monitorInput)
+        return;
+    monitorInput.element.placeholder = text;
 }
 
 /**

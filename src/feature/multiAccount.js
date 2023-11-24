@@ -7,7 +7,7 @@ import { showInfoBox, showInputBox } from "../ui/infobox.js";
 import { showMenu } from "../ui/menu.js";
 import { showNotice } from "../ui/notice.js";
 import { uniqueIdentifierString } from "../util/uniqueIdentifier.js";
-import { monitorAddMessage, monitorBindSendCB, monitorClearMessage, setMonitorOperator, showMonitorWindow } from "./monitor.js";
+import { monitorAddMessage, monitorBindSendCB, monitorClearMessage, monitorSetPlaceholderText, setMonitorOperator, showMonitorWindow } from "./monitor.js";
 
 
 
@@ -19,8 +19,9 @@ export async function showMultiAccountMenu()
 {
     /**
      * @param {string} uid
+     * @param {string | undefined} remoteUserName
      */
-    function showAccountMenu(uid)
+    function showAccountMenu(uid, remoteUserName)
     {
         showMenu([
             NList.getElement([
@@ -42,7 +43,7 @@ export async function showMultiAccountMenu()
                 "戴上他的眼睛",
                 new NEvent("click", () =>
                 {
-                    if(monitorId)
+                    if (monitorId)
                     {
                         forgeApi.operation.sendPrivateForgePacket(monitorUserId, {
                             plug: "forge",
@@ -77,6 +78,7 @@ export async function showMultiAccountMenu()
                                 content: o
                             });
                     });
+                    monitorSetPlaceholderText("正在连接中");
                 })
             ]),
             NList.getElement([
@@ -166,6 +168,7 @@ export async function showMultiAccountMenu()
                             });
                             monitorId = "";
                             monitorUserId = "";
+                            monitorSetPlaceholderText("已断开");
                         })
                     ])
                 ] :
@@ -178,7 +181,7 @@ export async function showMultiAccountMenu()
                 `${uid}${userInfo ? ` (${userInfo.name})` : ""}`,
                 new NEvent("click", async () =>
                 {
-                    showAccountMenu(uid);
+                    showAccountMenu(uid, userInfo?.name);
                 }),
             ]);
         }))
@@ -186,6 +189,7 @@ export async function showMultiAccountMenu()
 }
 
 
+let monitorOperatorStartTime = 0;
 let monitorOperatorId = "";
 let monitorOperatorUserId = "";
 let registedEvent = false;
@@ -277,9 +281,17 @@ export function enableMultiAccount()
 
                         monitorOperatorId = requestId;
                         monitorOperatorUserId = e.senderId;
+                        monitorOperatorStartTime = Date.now();
 
                         setMonitorOperator(o =>
                         {
+                            if (Date.now() > monitorOperatorStartTime + 12 * 60 * 60 * 1000)
+                            {
+                                setMonitorOperator(null);
+                                monitorOperatorId = "";
+                                monitorOperatorUserId = "";
+                                return;
+                            }
                             forgeApi.operation.sendPrivateForgePacket(e.senderId, {
                                 plug: "forge",
                                 type: "multiAccount",
@@ -316,6 +328,7 @@ export function enableMultiAccount()
                             }]);
                             monitorId = "";
                             monitorUserId = "";
+                            monitorSetPlaceholderText("已断开");
                         }
                         isCallback = true;
                         break;
@@ -325,6 +338,7 @@ export function enableMultiAccount()
                         if (requestId == monitorId)
                         {
                             monitorAddMessage(e.content.messages);
+                            monitorSetPlaceholderText(`使用 ${e.senderName} 发送消息`);
                         }
                         isCallback = true;
                         break;
