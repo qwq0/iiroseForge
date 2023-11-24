@@ -2,6 +2,7 @@ import { RcoCcontext } from "../../lib/jsRco.js";
 import { mouseBind } from "../../lib/qwqframe.js";
 import { touchBind } from "../../lib/qwqframe.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
+import { showBeautifyMenu } from "../feature/beautify.js";
 import { showMultiAccountMenu } from "../feature/multiAccount.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
@@ -273,6 +274,15 @@ export function getForgeMenu()
                         onClick: async () =>
                         {
                             trySyncConfig();
+                        }
+                    },
+                    {
+                        title: "美化设置",
+                        text: "定制你的界面",
+                        icon: "brush-outline",
+                        onClick: async () =>
+                        {
+                            showBeautifyMenu();
                         }
                     },
                     {

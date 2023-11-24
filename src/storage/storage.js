@@ -27,7 +27,12 @@ export const storageContext = {
          * 我的其他账号uid列表
          * @type {Array<string>}
          */
-        myAccountList: []
+        myAccountList: [],
+        /**
+         * 美化设置
+         * @type {Object<string, string>}
+         */
+        beautify: {}
     },
     local: {
         // 启用同步聊天记录

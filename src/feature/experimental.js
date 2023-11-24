@@ -12,7 +12,7 @@ import { cssG } from "../../lib/qwqframe";
 let textEncoder = new TextEncoder();
 
 /**
- * 启动实验性功能
+ * 启用实验性功能
  */
 export function enableExperimental()
 {
