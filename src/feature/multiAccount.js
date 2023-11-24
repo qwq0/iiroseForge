@@ -1,6 +1,7 @@
 import { NList } from "../../lib/qwqframe.js";
 import { NEvent } from "../../lib/qwqframe.js";
 import { forgeApi } from "../forgeApi/forgeApi.js";
+import { iframeContext } from "../injectIframe/iframeContext.js";
 import { protocolEvent } from "../protocol/protocolEvent.js";
 import { storageContext, storageRoamingSave, storageRoamingSet } from "../storage/storage.js";
 import { showInfoBox, showInputBox } from "../ui/infobox.js";
@@ -8,6 +9,7 @@ import { showMenu } from "../ui/menu.js";
 import { showNotice } from "../ui/notice.js";
 import { uniqueIdentifierString } from "../util/uniqueIdentifier.js";
 import { monitorAddMessage, monitorBindSendCB, monitorClearMessage, monitorSetPlaceholderText, setMonitorOperator, showMonitorWindow } from "./monitor.js";
+import { createNStyleList as styles } from "../../lib/qwqframe.js";
 
 
 
@@ -223,8 +225,65 @@ export function enableMultiAccount()
                     case "quit": { // 下线 (退出)
                         setTimeout(() =>
                         {
-                            location.replace("about:blank");
-                            window.close();
+                            let reload = iframeContext.iframeWindow?.location?.reload?.bind(iframeContext.iframeWindow.location);
+                            iframeContext.iframeBody?.addChild(NList.getElement([
+                                styles({
+                                    position: "absolute",
+                                    left: "0",
+                                    top: "0",
+                                    width: "100%",
+                                    height: "100%",
+                                    zIndex: "9999999",
+                                    backgroundColor: "rgb(28, 28, 28)",
+                                    cursor: "default",
+                                    whiteSpace: "pre-wrap",
+                                    textAlign: "center",
+                                    color: "rgb(255, 255, 255)"
+                                }),
+
+                                [
+                                    styles({
+                                        position: "absolute",
+                                        inset: "0 0 0 0",
+                                        height: "fit-content",
+                                        width: "fit-content",
+                                        margin: "auto",
+                                        backgroundColor: "rgb(21, 21, 21)",
+                                        padding: "10px",
+                                        borderRadius: "3px"
+                                    }),
+
+                                    `已通过远程指令下线\n下线时间: ${(new Date()).toLocaleString()}\n点击恢复`,
+                                    new NEvent("click", () =>
+                                    {
+                                        reload();
+                                    })
+                                ]
+                            ]));
+                            iframeContext.iframeWindow["Utils"]?.service?.saveStatus?.(0);
+                            if (iframeContext.socket)
+                            {
+                                try
+                                {
+                                    iframeContext.socket.onclose = null;
+                                    iframeContext.socket.onerror = null;
+                                    iframeContext.socket.send = () => { };
+                                    iframeContext.socket.onmessage = () => { };
+                                    iframeContext.socket?.close();
+                                }
+                                catch (err)
+                                {
+                                    console.error(err);
+                                }
+                            }
+                            iframeContext.iframeWindow.addEventListener("keydown", e => e.stopImmediatePropagation(), true);
+                            iframeContext.iframeWindow.addEventListener("keyup", e => e.stopImmediatePropagation(), true);
+                            iframeContext.iframeWindow.addEventListener("keypress", e => e.stopImmediatePropagation(), true);
+                            iframeContext.iframeWindow.addEventListener("mousemove", e => e.stopImmediatePropagation(), true);
+                            iframeContext.iframeWindow.addEventListener("mousedown", e => e.stopImmediatePropagation(), true);
+                            iframeContext.iframeWindow.addEventListener("mouseup", e => e.stopImmediatePropagation(), true);
+                            if (iframeContext.iframeWindow.location)
+                                iframeContext.iframeWindow.location["_reload"] = () => { };
                         }, 1000);
                         break;
                     }
