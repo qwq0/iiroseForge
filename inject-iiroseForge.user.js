@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         inject iiroseForge
 // @namespace    qwq0
-// @version      0.3
+// @version      0.4
 // @description  Inject iiroseForge into iirose
 // @author       qwq0
 // @match        https://iirose.com/
@@ -31,8 +31,8 @@
     if (win["iiroseForgeInjected"])
         return;
 
-    let scriptCode = "";
     let loaded = false;
+    let updatedCache = false;
     let candidateUrl = [
         "https://qwq0.github.io/iiroseForge/iiroseForge.js",
         "https://cdn.jsdelivr.net/gh/qwq0/iiroseForge@page/iiroseForge.js"
@@ -47,17 +47,24 @@
         if (response.ok)
         {
             let codeStr = await response.text();
-            if (!loaded)
+            if (codeStr)
             {
-                loaded = true;
-                scriptCode = codeStr;
-                (new win.Function(codeStr))();
-
-                let cache = await window?.["caches"]?.open?.("v");
-                if (cache)
+                if (!loaded)
                 {
-                    let cacheResponse = new Response(new Blob([scriptCode], { type: "text/javascript" }), { status: 200, statusText: "OK" });
-                    cache.put(candidateUrl[0], cacheResponse);
+                    loaded = true;
+                    console.log(`[iiroseForgeInjector] load from ${url}`);
+                    (new win.Function(codeStr))();
+                }
+                if (!updatedCache)
+                {
+                    updatedCache = true;
+                    let cache = await window?.["caches"]?.open?.("v");
+                    if (cache)
+                    {
+                        let cacheResponse = new Response(new Blob([codeStr], { type: "text/javascript" }), { status: 200, statusText: "OK" });
+                        cache.put(candidateUrl[0], cacheResponse);
+                        console.log(`[iiroseForgeInjector] cache updated`);
+                    }
                 }
             }
         }
@@ -80,21 +87,22 @@
 
     tryCandidate(0);
 
-    setTimeout(async () =>
+    (async () =>
     {
         if (loaded)
             return;
 
         let cacheResponse = await (await window?.["caches"]?.open?.("v"))?.match(candidateUrl[0]);
-        if (cacheResponse)
+        if (cacheResponse && cacheResponse.ok)
         {
             let codeStr = await cacheResponse.text();
             if (codeStr && !loaded)
             {
                 loaded = true;
-                scriptCode = codeStr;
+                console.log(`[iiroseForgeInjector] load from cache`);
                 (new win.Function(codeStr))();
             }
         }
-    }, 5 * 1000);
+    })();
 })();
+
