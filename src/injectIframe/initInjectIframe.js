@@ -185,7 +185,7 @@ export function initInjectIframe()
                 {
                     setTimeout(async () =>
                     {
-                        await writeForgeToCache();
+                        await writeForgeToCache(false);
                         setTimeout(() =>
                         {
                             old_parent_location__reload(...param);

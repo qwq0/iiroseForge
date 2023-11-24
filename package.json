@@ -1,0 +1,7 @@
+{
+    "type": "module",
+    "devDependencies": {
+        "rollup": "^4.5.2",
+        "terser": "^5.24.0"
+    }
+}

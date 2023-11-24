@@ -364,7 +364,7 @@ export function getForgeMenu()
                         onClick: async () =>
                         {
                             localStorage.setItem("installForge", "true");
-                            writeForgeToCache();
+                            writeForgeToCache(true);
                             showInfoBox("安装iiroseForge", "已完成");
                         }
                     },

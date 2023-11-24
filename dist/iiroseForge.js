@@ -3854,49 +3854,107 @@
 	    }
 	}
 
-	let iiroseForgeLoaderUrl = "https://qwq0.github.io/iiroseForge/l.js";
-	let iiroseForgeLoaderElementHtml = `<script type="text/javascript" src="${iiroseForgeLoaderUrl}"></script>`;
+	let injectorScript = "!function(){\"use strict\";!function(){if(\"iirose.com\"!=location.host)return;let e=null;if(\"/\"==location.pathname)e=window;else{if(\"/messages.html\"!=location.pathname)return;e=parent.window}if(e.iiroseForgeInjected)return;let t=!1,o=!1,i=[\"https://qwq0.github.io/iiroseForge/iiroseForge.js\",\"https://cdn.jsdelivr.net/gh/qwq0/iiroseForge@page/iiroseForge.js\"];!function n(a){!async function(n){let a=await fetch(n,{cache:\"no-cache\"});if(a.ok){let c=await a.text();if(c&&(t||(t=!0,console.log(`[iiroseForgeInjector] load from ${n}`),new e.Function(c)()),!o)){o=!0;let e=await(window?.caches?.open?.(\"v\"));if(e){let t=new Response(new Blob([c],{type:\"text/javascript\"}),{status:200,statusText:\"OK\"});e.put(i[0],t),console.log(\"[iiroseForgeInjector] cache updated\")}}}}(i[a]),a<i.length-1&&setTimeout((()=>{t||n(a+1)}),2e3)}(0),(async()=>{if(t)return;let o=await((await(window?.caches?.open?.(\"v\")))?.match(i[0]));if(o&&o.ok){let i=await o.text();i&&!t&&(t=!0,console.log(\"[iiroseForgeInjector] load from cache\"),new e.Function(i)())}})()}()}();";
+
+	const injectCacheStartTag = `<!-- iiroseForge Installed Start -->`;
+	const injectCacheEndTag = `<!-- iiroseForge Installed End -->`;
+
+	/**
+	 * 在缓存字符串中加入forge注入器
+	 * @param {string} originalCacheStr
+	 * @param {boolean} requireUpdate
+	 * @returns {string}
+	 */
+	function insertForgeInjectorToString(originalCacheStr, requireUpdate)
+	{
+	    let cacheStr = originalCacheStr;
+	    if (cacheStr.indexOf(injectCacheStartTag) != -1)
+	    {
+	        if (!requireUpdate)
+	            return originalCacheStr;
+	        else
+	            cacheStr = removeForgeInjectorFromString(cacheStr);
+	    }
+	    let insertIndex = cacheStr.lastIndexOf("</body></html>");
+	    if (insertIndex == -1)
+	    {
+	        showNotice("安装forge", "无法安装forge (缓存错误)");
+	        return originalCacheStr;
+	    }
+	    return ([
+	        cacheStr.slice(0, insertIndex),
+
+	        injectCacheStartTag,
+	        "<script>",
+	        injectorScript,
+	        "</script>",
+	        injectCacheEndTag,
+
+	        cacheStr.slice(insertIndex)
+	    ]).join("");
+	}
+
+	/**
+	 * 从缓存字符串中移除forge注入器
+	 * @param {string} originalCacheStr
+	 * @returns {string}
+	 */
+	function removeForgeInjectorFromString(originalCacheStr)
+	{
+	    const oldForgeLoaderElementHtml = `<script type="text/javascript" src="https://qwq0.github.io/iiroseForge/l.js"></script>`;
+
+	    let cacheStr = originalCacheStr;
+
+	    let oldRemoveIndex = cacheStr.indexOf(oldForgeLoaderElementHtml);
+	    if (oldRemoveIndex != -1)
+	        cacheStr = cacheStr.slice(0, oldRemoveIndex) + cacheStr.slice(oldRemoveIndex + oldForgeLoaderElementHtml.length);
+
+	    let removeStartIndex = cacheStr.indexOf(injectCacheStartTag);
+	    let removeEndIndex = cacheStr.lastIndexOf(injectCacheEndTag);
+	    if (removeStartIndex != -1 && removeEndIndex != -1)
+	        cacheStr = cacheStr.slice(0, removeStartIndex) + cacheStr.slice(removeEndIndex + injectCacheEndTag.length);
+
+	    return cacheStr;
+	}
 
 	/**
 	 * 向缓存中注入iiroseForge
+	 * @param {boolean} requireUpdate
 	 * @returns {Promise<void>}
 	 */
-	async function writeForgeToCache()
+	async function writeForgeToCache(requireUpdate)
 	{
 	    let cache = await caches.open("v");
 	    let catchMatch = await caches.match("/");
 	    if (catchMatch)
 	    {
-	        let cacheMainPage = await catchMatch.text();
-	        if (cacheMainPage.indexOf(iiroseForgeLoaderElementHtml) > -1)
-	            return;
-	        let insertIndex = cacheMainPage.lastIndexOf("</body></html>");
-	        if (insertIndex == -1)
-	            return;
-	        let newCacheMainPage = cacheMainPage.slice(0, insertIndex) + iiroseForgeLoaderElementHtml + cacheMainPage.slice(insertIndex);
+	        let mainPageCacheStr = await catchMatch.text();
+	        let newCacheMainPage = insertForgeInjectorToString(mainPageCacheStr, requireUpdate);
 	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
 	    }
 	    else
 	    {
-	        let newCacheMainPage = ([
+	        let newMainPageCacheStr = ([
 	            `<!DOCTYPE html>`,
 	            `<html>`,
 	            `<head>`,
 	            `</head>`,
 	            `<body>`,
 	            `<script>`,
-	            `(async() => {`,
-	            
+	            `(async () => {`,
+
 	            `let cache = await caches.open("v");`,
 	            `await cache.delete("/");`,
 
-	            `let cacheMainPage = await (await fetch("/",{cache:"no-cache"})).text();`,
-	            `let insertIndex = cacheMainPage.lastIndexOf("</body></html>");`,
+	            `let mainPageCacheStr = await (await fetch("/", { cache: "no-cache" })).text();`,
+	            `let insertIndex = mainPageCacheStr.lastIndexOf("</body></html>");`,
 
-	            `let newCacheMainPage = (insertIndex == -1 ? cacheMainPage : (cacheMainPage.slice(0, insertIndex) + \`<script\` + `,
-	            `\` type="text/javascript" src="${iiroseForgeLoaderUrl}"><\` + \`/script>\` + cacheMainPage.slice(insertIndex)));`,
-	            
-	            `await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));`,
+	            `if(insertIndex != -1)`,
+	            `mainPageCacheStr = cacheStr.slice(0, insertIndex) + `,
+	            ` "${injectCacheStartTag}" + "<scr" + "ipt>" + ${JSON.stringify(injectorScript)} + "<\\/sc" + "ript>" + "${injectCacheEndTag}" `,
+	            ` + cacheStr.slice(insertIndex);`,
+
+	            `await cache.put("/", new Response(new Blob([mainPageCacheStr], { type: "text/html" }), { status: 200, statusText: "OK" }));`,
 
 	            `location.reload();`,
 
@@ -3905,7 +3963,7 @@
 	            `</body>`,
 	            `</html>`
 	        ]).join("");
-	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	        await cache.put("/", new Response(new Blob([newMainPageCacheStr], { type: "text/html" }), { status: 200, statusText: "OK" }));
 	    }
 	}
 
@@ -3916,17 +3974,18 @@
 	async function removeForgeFromCache()
 	{
 	    let cache = await caches.open("v");
-	    let cacheMainPage = await (await caches.match("/")).text();
-	    let removeIndex = cacheMainPage.indexOf(iiroseForgeLoaderElementHtml);
-	    if (removeIndex == -1)
-	        return;
-	    let newCacheMainPage = cacheMainPage.slice(0, removeIndex) + cacheMainPage.slice(removeIndex + iiroseForgeLoaderElementHtml.length);
-	    await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	    let catchMatch = await caches.match("/");
+	    if (catchMatch)
+	    {
+	        let mainPageCacheStr = await catchMatch.text();
+	        let newCacheMainPage = removeForgeInjectorFromString(mainPageCacheStr);
+	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	    }
 	}
 
 	if (localStorage.getItem("installForge") == "true")
 	{ // 用户要求安装
-	    writeForgeToCache();
+	    writeForgeToCache(false);
 	}
 
 	/**
@@ -7725,7 +7784,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.10.3"
+	    version: "alpha v1.11.0"
 	};
 
 	/**
@@ -8291,7 +8350,7 @@
 	                        onClick: async () =>
 	                        {
 	                            localStorage.setItem("installForge", "true");
-	                            writeForgeToCache();
+	                            writeForgeToCache(true);
 	                            showInfoBox("安装iiroseForge", "已完成");
 	                        }
 	                    },
@@ -10113,7 +10172,7 @@
 	                {
 	                    setTimeout(async () =>
 	                    {
-	                        await writeForgeToCache();
+	                        await writeForgeToCache(false);
 	                        setTimeout(() =>
 	                        {
 	                            old_parent_location__reload(...param);
@@ -10244,7 +10303,7 @@
 	        {
 	            let doc = parent.document;
 	            let script = doc.createElement("script");
-	            script.src = iiroseForgeLoaderUrl;
+	            script.text = injectorScript;
 	            doc.body.appendChild(script);
 	            console.log("[iiroseForge] 修正注入");
 	        }

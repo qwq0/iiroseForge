@@ -1,1 +1,7 @@
 dist/iiroseForge.min.js
+dist/forge-injector.min.js
+
+node_modules/
+
+generate/*
+!generate/README.md

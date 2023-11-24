@@ -1,10 +1,10 @@
 import "./forgeApi/forgeApi.js";
 import { initInjectIframe } from "./injectIframe/initInjectIframe.js";
-import { iiroseForgeLoaderUrl } from "./injectCache/injectCache.js";
 import { showNotice } from "./ui/notice.js";
 import { plugList } from "./plug/plugList.js";
 import { storageContext, storageLocalRead, storageLocalSave, storageRoamingRead } from "./storage/storage.js";
 import { enableForgeDebugMode } from "./feature/debugMode.js";
+import { injectorScript } from "../generate/injectScript.js";
 
 
 if (location.host == "iirose.com")
@@ -123,7 +123,7 @@ if (location.host == "iirose.com")
         {
             let doc = parent.document;
             let script = doc.createElement("script");
-            script.src = iiroseForgeLoaderUrl;
+            script.text = injectorScript;
             doc.body.appendChild(script);
             console.log("[iiroseForge] 修正注入");
         }
