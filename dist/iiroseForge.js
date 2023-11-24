@@ -7157,6 +7157,7 @@
 	                    width: "100%",
 	                    bottom: "27px",
 	                    whiteSpace: "pre-wrap",
+	                    wordBreak: "break-all",
 	                    color: "white",
 	                    overflow: "auto",
 	                    scrollbarWidth: "thin",
