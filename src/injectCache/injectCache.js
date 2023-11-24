@@ -17,9 +17,8 @@ export function insertForgeInjectorToString(originalCacheStr, requireUpdate)
     {
         if (!requireUpdate)
             return originalCacheStr;
-        else
-            cacheStr = removeForgeInjectorFromString(cacheStr);
     }
+    cacheStr = removeForgeInjectorFromString(cacheStr);
     let insertIndex = cacheStr.lastIndexOf("</body></html>");
     if (insertIndex == -1)
     {
