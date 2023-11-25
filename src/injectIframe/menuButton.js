@@ -39,14 +39,20 @@ export function getMenuButton()
 
         new NEvent("mouseenter", (_e, ele) =>
         {
-            ele.setStyle("backgroundColor", (
-                (
-                    buttonBackgroundColor == "#202020" ||
-                    buttonBackgroundColor == "rgb(32, 32, 32)"
-                ) ?
-                    "rgb(42, 42, 42)" :
-                    "rgb(245, 245, 245)"
-            ));
+            if (ele.getStyle("backgroundColor") == "transparent")
+            {
+                buttonBackgroundColor = "transparent";
+                ele.setStyle("backgroundColor", "rgba(127, 127, 127, 0.3)");
+            }
+            else
+                ele.setStyle("backgroundColor", (
+                    (
+                        buttonBackgroundColor == "#202020" ||
+                        buttonBackgroundColor == "rgb(32, 32, 32)"
+                    ) ?
+                        "rgb(42, 42, 42)" :
+                        "rgb(245, 245, 245)"
+                ));
             iframeContext.iframeWindow?.["Utils"]?.Sound?.play?.(0);
         }),
         new NEvent("mouseleave", (_e, ele) =>

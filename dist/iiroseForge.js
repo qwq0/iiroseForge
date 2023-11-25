@@ -6342,7 +6342,8 @@
 	 */
 	async function enableBeautify()
 	{
-	    await delayPromise(2000);
+	    let styleStr = "";
+	    await delayPromise(1100);
 	    ([
 	        { // 侧边栏顶部图片
 	            key: "sidebarTopPicture",
@@ -6353,15 +6354,127 @@
 	                    imgElement.src = o;
 	            }
 	        },
+	        { // 侧边栏列表背景图片
+	            key: "sidebarListPicture",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                let functionHolder = iframeContext.iframeDocument?.getElementById("functionHolder");
+	                if (functionHolder)
+	                {
+	                    functionHolder.style.backgroundImage = `url("${o}")`;
+	                    functionHolder.style.backgroundSize = `cover`;
+	                    functionHolder.style.backgroundPosition = `top ${functionHolder.children[0].children[0]["style"].height} left 0px`;
+	                    Array.from(functionHolder.children[0].children).forEach((/** @type {HTMLElement} */ o) =>
+	                    {
+	                        if (o.classList.contains("functionItemBox"))
+	                            o.style.backgroundColor = "rgba(127, 127, 127, 0.1)";
+	                        else
+	                            o.style.backgroundColor = "transparent";
+	                    });
+	                    styleStr += ([
+	                        ".functionButtonGroup:hover, .functionButton:hover",
+	                        "{",
+	                        "background: rgba(127, 127, 127, 0.3) !important;",
+	                        "}",
+	                    ]).join("\n");
+	                }
+	            }
+	        },
 	        { // 选择菜单背景图片
 	            key: "selectMenuBackground",
 	            cb: (/** @type {string} */ o) =>
 	            {
 	                let selectHolderBox = iframeContext.iframeDocument?.getElementById("selectHolderBox");
 	                if (selectHolderBox)
+	                {
 	                    selectHolderBox.style.backgroundImage = `url("${o}")`;
+	                    selectHolderBox.style.backgroundSize = `cover`;
+	                }
 	            }
-	        }
+	        },
+	        { // 选择菜单圆角半径
+	            key: "selectMenuBorderRadius",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                let selectHolderBox = iframeContext.iframeDocument?.getElementById("selectHolderBox");
+	                if (selectHolderBox)
+	                {
+	                    selectHolderBox.style.borderRadius = o + "px";
+	                }
+	            }
+	        },
+	        { // 消息图片圆角半径
+	            key: "messageImgBorderRadius",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                styleStr += ([
+	                    ".roomChatContentBox img, .privatemsgMessagesBodyItemBodyBox img",
+	                    "{",
+	                    `border-radius: ${o}px !important;`,
+	                    "}",
+	                ]).join("\n");
+	            }
+	        },
+	        { // 消息头像圆角半径
+	            key: "messageAvatarBorderRadius",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                styleStr += ([
+	                    ".msgavatar, .msgavatar img, .privatemsgMessagesBodyItem .privatemsgMessagesBodyItemIcon, .privatemsgMessagesBodyItem .privatemsgMessagesBodyItemIcon img",
+	                    "{",
+	                    `border-radius: ${o}px !important;`,
+	                    "}",
+	                ]).join("\n");
+	            }
+	        },
+	        { // 系统消息圆角半径
+	            key: "systemMessageBorderRadius",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                styleStr += ([
+	                    ".pubMsgSystem span",
+	                    "{",
+	                    `border-radius: ${o}px !important;`,
+	                    "}",
+	                ]).join("\n");
+	            }
+	        },
+	        { // 系统消息图片圆角半径
+	            key: "systemMessageImgBorderRadius",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                styleStr += ([
+	                    ".pubMsgSystem .pubMsgSystemIcon, .pubMsgSystem img",
+	                    "{",
+	                    `border-radius: ${o}px !important;`,
+	                    "}",
+	                ]).join("\n");
+	            }
+	        },
+	        { // 会话列表项目圆角半径
+	            key: "sessionListItemBorderRadius",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                styleStr += ([
+	                    ".sessionHolderPmTaskBoxItem, .sessionHolderPmTaskBoxItem img",
+	                    "{",
+	                    `border-radius: ${o}px !important;`,
+	                    "}",
+	                ]).join("\n");
+	            }
+	        },
+	        { // 面板项圆角半径
+	            key: "panelItemBorderRadius",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                styleStr += ([
+	                    "#panelHolder .shopItem, #panelHolder img, .contentItemContent :is(.commonBox, .commonBox .commonBoxHead, .commonBox .shopItemColor, .cardTag)",
+	                    "{",
+	                    `border-radius: ${o}px !important;`,
+	                    "}",
+	                ]).join("\n");
+	            }
+	        },
 	    ]).forEach(o =>
 	    {
 	        let value = storageContext.roaming.beautify[o.key];
@@ -6377,6 +6490,13 @@
 	            }
 	        }
 	    });
+
+	    if (styleStr)
+	    {
+	        let styleElement = document.createElement("style");
+	        styleElement.textContent = styleStr;
+	        iframeContext.iframeDocument.body.appendChild(styleElement);
+	    }
 	}
 
 	/**
@@ -6392,20 +6512,78 @@
 	                type: "text"
 	            },
 	            {
+	                name: "侧边栏列表背景图片",
+	                key: "sidebarListPicture",
+	                type: "text"
+	            },
+	            {
 	                name: "选择菜单背景图片",
 	                key: "selectMenuBackground",
 	                type: "text"
+	            },
+	            {
+	                name: "选择菜单圆角半径",
+	                key: "selectMenuBorderRadius",
+	                type: "number"
+	            },
+	            {
+	                name: "消息图片圆角半径",
+	                key: "messageImgBorderRadius",
+	                type: "number"
+	            },
+	            {
+	                name: "消息头像圆角半径",
+	                key: "messageAvatarBorderRadius",
+	                type: "number"
+	            },
+	            {
+	                name: "系统消息圆角半径",
+	                key: "systemMessageBorderRadius",
+	                type: "number"
+	            },
+	            {
+	                name: "系统消息图片圆角半径",
+	                key: "systemMessageImgBorderRadius",
+	                type: "number"
+	            },
+	            {
+	                name: "会话选择项圆角半径",
+	                key: "sessionListItemBorderRadius",
+	                type: "number"
+	            },
+	            {
+	                name: "面板项圆角半径",
+	                key: "panelItemBorderRadius",
+	                type: "number"
 	            }
 	        ]).map(o => NList.getElement([
-	            o.name,
+	            o.name + (storageContext.roaming.beautify[o.key] ? " (已设置)" : ""),
 	            new NEvent("click", async () =>
 	            {
+	                let promptText = (o.type == "number" ? "填写一个数字" : "");
 	                let oldValue = storageContext.roaming.beautify[o.key];
-	                let value = await showInputBox("美化设置", `设置 ${o.name}`, true, (oldValue ? oldValue : ""));
+
+	                let value = await showInputBox("美化设置", `设置 ${o.name}${promptText ? "\n" + promptText : ""}`, true, (oldValue ? oldValue : ""));
 	                if (value != undefined)
 	                {
-	                    storageContext.roaming.beautify[o.key] = value;
-	                    storageRoamingSave();
+	                    if (value != "")
+	                    {
+	                        if (o.type == "number")
+	                        {
+	                            if (!Number.isFinite(Number(value)))
+	                            {
+	                                showNotice("美化设置", "设置的值不是一个数字");
+	                                return;
+	                            }
+	                        }
+	                        storageContext.roaming.beautify[o.key] = value;
+	                        storageRoamingSave();
+	                    }
+	                    else
+	                    {
+	                        delete storageContext.roaming.beautify[o.key];
+	                        storageRoamingSave();
+	                    }
 	                }
 	            }),
 	        ])))
@@ -7863,7 +8041,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.11.1"
+	    version: "alpha v1.11.2"
 	};
 
 	/**
@@ -8734,14 +8912,20 @@
 
 	        new NEvent("mouseenter", (_e, ele) =>
 	        {
-	            ele.setStyle("backgroundColor", (
-	                (
-	                    buttonBackgroundColor == "#202020" ||
-	                    buttonBackgroundColor == "rgb(32, 32, 32)"
-	                ) ?
-	                    "rgb(42, 42, 42)" :
-	                    "rgb(245, 245, 245)"
-	            ));
+	            if (ele.getStyle("backgroundColor") == "transparent")
+	            {
+	                buttonBackgroundColor = "transparent";
+	                ele.setStyle("backgroundColor", "rgba(127, 127, 127, 0.3)");
+	            }
+	            else
+	                ele.setStyle("backgroundColor", (
+	                    (
+	                        buttonBackgroundColor == "#202020" ||
+	                        buttonBackgroundColor == "rgb(32, 32, 32)"
+	                    ) ?
+	                        "rgb(42, 42, 42)" :
+	                        "rgb(245, 245, 245)"
+	                ));
 	            iframeContext.iframeWindow?.["Utils"]?.Sound?.play?.(0);
 	        }),
 	        new NEvent("mouseleave", (_e, ele) =>
