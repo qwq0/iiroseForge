@@ -3949,9 +3949,9 @@
 	            `let insertIndex = mainPageCacheStr.lastIndexOf("</body></html>");`,
 
 	            `if(insertIndex != -1)`,
-	            `mainPageCacheStr = cacheStr.slice(0, insertIndex) + `,
+	            `mainPageCacheStr = mainPageCacheStr.slice(0, insertIndex) + `,
 	            ` "${injectCacheStartTag}" + "<scr" + "ipt>" + ${JSON.stringify(injectorScript)} + "<\\/sc" + "ript>" + "${injectCacheEndTag}" `,
-	            ` + cacheStr.slice(insertIndex);`,
+	            ` + mainPageCacheStr.slice(insertIndex);`,
 
 	            `await cache.put("/", new Response(new Blob([mainPageCacheStr], { type: "text/html" }), { status: 200, statusText: "OK" }));`,
 
@@ -4018,7 +4018,15 @@
 	         * 美化设置
 	         * @type {Object<string, string>}
 	         */
-	        beautify: {}
+	        beautify: {},
+	        /**
+	         * 自定义资料卡设置
+	         * @type {{
+	         *  topPinned?: Array<string>,
+	         *  bottomPinned?: Array<string>
+	         * }}
+	         */
+	        customInfoPage: {}
 	    },
 	    local: {
 	        // 启用同步聊天记录
@@ -4598,7 +4606,7 @@
 	    /**
 	     * 添加路径
 	     * @param {string} pathStr
-	     * @param {(restStr: string, srcStr: string) => void} callback
+	     * @param {(restStr: string, srcStr: string) => any} callback
 	     */
 	    addPath(pathStr, callback)
 	    {
@@ -4607,7 +4615,8 @@
 
 	    /**
 	     * 匹配前缀
-	     * @param {string} str 
+	     * @param {string} str
+	     * @returns {any}
 	     */
 	    matchPrefix(str)
 	    {
@@ -4628,7 +4637,7 @@
 
 	    /**
 	     * 回调函数
-	     * @type {(restStr: string, srcStr:string) => void}
+	     * @type {(restStr: string, srcStr:string) => any}
 	     */
 	    #callback = null;
 
@@ -4636,7 +4645,7 @@
 	     * 添加路径
 	     * @param {string} pathStr
 	     * @param {number} pathInd
-	     * @param {(restStr: string, srcStr:string) => void} callback
+	     * @param {(restStr: string, srcStr:string) => any} callback
 	     */
 	    addPath(pathStr, pathInd, callback)
 	    {
@@ -4660,6 +4669,7 @@
 	     * 匹配前缀
 	     * @param {string} str
 	     * @param {number} strInd
+	     * @returns {any}
 	     */
 	    matchPrefix(str, strInd)
 	    {
@@ -4709,6 +4719,14 @@
 	 * @type {[string]}
 	 */
 	let packageData = [""];
+
+	/**
+	 * @param {string} data
+	 */
+	function setPackageData(data)
+	{
+	    packageData[0] = data;
+	}
 
 	toClientTrie.addPath(`"`, (data) => // 房间消息
 	{
@@ -8041,7 +8059,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.11.2"
+	    version: "alpha v1.11.3"
 	};
 
 	/**
@@ -9047,7 +9065,11 @@
 	                    if (time < startTime)
 	                        break;
 	                    if (startTime <= time && time < endTime)
-	                        needSendRecords.push(nowRecord);
+	                    {
+	                        let content = nowRecord[2];
+	                        if (!(content.startsWith("iiroseForge:") && content.endsWith(":end")))
+	                            needSendRecords.push(nowRecord);
+	                    }
 	                }
 	                if (needSendRecords.length > 0)
 	                {
@@ -10194,6 +10216,11 @@
 	    {
 	        takeoverWithdraw();
 	    }
+
+	    if (storageContext.local.experimentalOption["interceptState"])
+	    {
+	        takeoverState();
+	    }
 	}
 
 	/**
@@ -10275,6 +10302,19 @@
 	            console.error(err);
 	        }
 	        return true;
+	    });
+	}
+
+	let hadTakeoverState = false;
+	function takeoverState()
+	{
+	    if (hadTakeoverState)
+	        return;
+	    hadTakeoverState = true;
+	    toServerTrie.addPath("s", (_data, srcData) =>
+	    {
+	        if(srcData == "s")
+	            setPackageData("");
 	    });
 	}
 

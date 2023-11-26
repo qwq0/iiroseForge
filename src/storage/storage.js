@@ -32,7 +32,15 @@ export const storageContext = {
          * 美化设置
          * @type {Object<string, string>}
          */
-        beautify: {}
+        beautify: {},
+        /**
+         * 自定义资料卡设置
+         * @type {{
+         *  topPinned?: Array<string>,
+         *  bottomPinned?: Array<string>
+         * }}
+         */
+        customInfoPage: {}
     },
     local: {
         // 启用同步聊天记录

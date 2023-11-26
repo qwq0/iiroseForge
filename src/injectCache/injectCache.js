@@ -94,9 +94,9 @@ export async function writeForgeToCache(requireUpdate)
             `let insertIndex = mainPageCacheStr.lastIndexOf("</body></html>");`,
 
             `if(insertIndex != -1)`,
-            `mainPageCacheStr = cacheStr.slice(0, insertIndex) + `,
+            `mainPageCacheStr = mainPageCacheStr.slice(0, insertIndex) + `,
             ` "${injectCacheStartTag}" + "<scr" + "ipt>" + ${JSON.stringify(injectorScript)} + "<\\/sc" + "ript>" + "${injectCacheEndTag}" `,
-            ` + cacheStr.slice(insertIndex);`,
+            ` + mainPageCacheStr.slice(insertIndex);`,
 
             `await cache.put("/", new Response(new Blob([mainPageCacheStr], { type: "text/html" }), { status: 200, statusText: "OK" }));`,
 

@@ -2,7 +2,7 @@ import { domPath, proxyFunction } from "../../lib/plugToolsLib";
 import { NList } from "../../lib/qwqframe";
 import { keyboardBind } from "../../lib/qwqframe";
 import { iframeContext } from "../injectIframe/iframeContext";
-import { toClientTrie } from "../protocol/protocol";
+import { setPackageData, toClientTrie, toServerTrie } from "../protocol/protocol";
 import { storageContext } from "../storage/storage";
 import { showNotice } from "../ui/notice";
 import { createIiroseMenuElement } from "./tools";
@@ -80,6 +80,11 @@ export function enableExperimental()
     if (storageContext.local.experimentalOption["withdraw"])
     {
         takeoverWithdraw();
+    }
+
+    if (storageContext.local.experimentalOption["interceptState"])
+    {
+        takeoverState();
     }
 }
 
@@ -162,5 +167,18 @@ function takeoverWithdraw()
             console.error(err);
         }
         return true;
+    });
+}
+
+let hadTakeoverState = false;
+function takeoverState()
+{
+    if (hadTakeoverState)
+        return;
+    hadTakeoverState = true;
+    toServerTrie.addPath("s", (_data, srcData) =>
+    {
+        if(srcData == "s")
+            setPackageData("");
     });
 }

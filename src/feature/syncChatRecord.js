@@ -99,7 +99,11 @@ export function enableSyncChatRecord()
                     if (time < startTime)
                         break;
                     if (startTime <= time && time < endTime)
-                        needSendRecords.push(nowRecord);
+                    {
+                        let content = nowRecord[2];
+                        if (!(content.startsWith("iiroseForge:") && content.endsWith(":end")))
+                            needSendRecords.push(nowRecord);
+                    }
                 }
                 if (needSendRecords.length > 0)
                 {

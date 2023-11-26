@@ -13,6 +13,14 @@ export let toClientTrie = new Trie();
  */
 let packageData = [""];
 
+/**
+ * @param {string} data
+ */
+export function setPackageData(data)
+{
+    packageData[0] = data;
+}
+
 toClientTrie.addPath(`"`, (data) => // 房间消息
 {
     packageData[0] = `"` + data.split("<").reverse().map(data =>

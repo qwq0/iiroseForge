@@ -11,7 +11,7 @@ export class Trie
     /**
      * 添加路径
      * @param {string} pathStr
-     * @param {(restStr: string, srcStr: string) => void} callback
+     * @param {(restStr: string, srcStr: string) => any} callback
      */
     addPath(pathStr, callback)
     {
@@ -20,7 +20,8 @@ export class Trie
 
     /**
      * 匹配前缀
-     * @param {string} str 
+     * @param {string} str
+     * @returns {any}
      */
     matchPrefix(str)
     {
@@ -41,7 +42,7 @@ class TrieNode
 
     /**
      * 回调函数
-     * @type {(restStr: string, srcStr:string) => void}
+     * @type {(restStr: string, srcStr:string) => any}
      */
     #callback = null;
 
@@ -49,7 +50,7 @@ class TrieNode
      * 添加路径
      * @param {string} pathStr
      * @param {number} pathInd
-     * @param {(restStr: string, srcStr:string) => void} callback
+     * @param {(restStr: string, srcStr:string) => any} callback
      */
     addPath(pathStr, pathInd, callback)
     {
@@ -73,6 +74,7 @@ class TrieNode
      * 匹配前缀
      * @param {string} str
      * @param {number} strInd
+     * @returns {any}
      */
     matchPrefix(str, strInd)
     {
