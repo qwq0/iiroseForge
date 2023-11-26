@@ -1,13 +1,13 @@
-import { domPath, proxyFunction } from "../../lib/plugToolsLib";
-import { NList } from "../../lib/qwqframe";
-import { keyboardBind } from "../../lib/qwqframe";
-import { iframeContext } from "../injectIframe/iframeContext";
-import { setPackageData, toClientTrie, toServerTrie } from "../protocol/protocol";
-import { storageContext } from "../storage/storage";
-import { showNotice } from "../ui/notice";
-import { createIiroseMenuElement } from "./tools";
+import { domPath, proxyFunction } from "../../lib/plugToolsLib.js";
+import { NList } from "../../lib/qwqframe.js";
+import { keyboardBind } from "../../lib/qwqframe.js";
+import { iframeContext } from "../injectIframe/iframeContext.js";
+import { setPackageData, toClientTrie, toServerTrie } from "../protocol/protocol.js";
+import { storageContext } from "../storage/storage.js";
+import { showNotice } from "../ui/notice.js";
 import { createNStyleList as styles } from "../../lib/qwqframe.js";
-import { cssG } from "../../lib/qwqframe";
+import { cssG } from "../../lib/qwqframe.js";
+import { addMenuHook } from "./uiHook.js";
 
 let textEncoder = new TextEncoder();
 
@@ -46,35 +46,12 @@ export function enableExperimental()
 
     if (storageContext.local.experimentalOption["ejectionButton"])
     {
-        let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
-        if (oldFunction_Objs_mapHolder_function_event)
-        { // 房间按钮点击
-            iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, function (param, srcFunction, _targetFn, thisObj)
-            {
-                if (param.length == 1 && param[0] == 8)
-                {
-                    let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
-                    if (!roomId)
-                        return false;
-
-                    srcFunction(...param);
-
-                    let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-                    selectHolderBox.appendChild(
-                        createIiroseMenuElement(
-                            "mdi-ghost-outline",
-                            `弹射起步`,
-                            async e =>
-                            {
-                                ejectionEscape(roomId);
-                            }
-                        ).element
-                    );
-                    return true;
-                }
-                return false;
-            });
-        }
+        addMenuHook(
+            "ejectionButton",
+            "roomMenu",
+            () => ({ text: "弹射起步", icon: "ghost-outline" }),
+            async (roomId) => { ejectionEscape(roomId); }
+        );
     }
 
     if (storageContext.local.experimentalOption["withdraw"])
@@ -178,7 +155,7 @@ function takeoverState()
     hadTakeoverState = true;
     toServerTrie.addPath("s", (_data, srcData) =>
     {
-        if(srcData == "s")
+        if (srcData == "s")
             setPackageData("");
     });
 }

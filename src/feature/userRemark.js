@@ -3,8 +3,8 @@ import { iframeContext } from "../injectIframe/iframeContext.js";
 import { storageContext, storageRoamingSave } from "../storage/storage.js";
 import { showInputBox } from "../ui/infobox.js";
 import { createNStyleList as styles } from "../../lib/qwqframe.js";
-import { createIiroseMenuElement } from "./tools.js";
 import { NElement, NEvent, NList, bindValue } from "../../lib/qwqframe.js";
+import { addMenuHook } from "./uiHook.js";
 
 /**
  * 启用用户备注功能
@@ -64,95 +64,29 @@ export function enableUserRemark()
         }
     })).observe(sessionHolderPmTaskBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
 
-
-
-    // 资料卡菜单设置备注
-
-    let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
-    if (oldFunction_Objs_mapHolder_function_event)
-    { // 资料卡头像点击
-        iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, function (param, srcFunction, _targetFn, thisObj)
+    // 添加菜单ui
+    addMenuHook(
+        "userMark",
+        "userMenu",
+        uid =>
         {
-            if (param.length == 1 && param[0] == 7)
-            {
-                let uid = thisObj?.dataset?.uid;
-                if (!uid)
-                    return false;
-
-                srcFunction(...param);
-
-                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-                let oldRemarkName = storageContext.roaming.userRemark[uid];
-                selectHolderBox.appendChild(
-                    createIiroseMenuElement(
-                        "mdi-account-cog",
-                        `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`,
-                        async e =>
-                        {
-                            e.stopPropagation();
-
-
-
-                            let oldRemarkName = storageContext.roaming.userRemark[uid];
-                            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
-                            if (newRemark != undefined)
-                            {
-                                storageContext.roaming.userRemark[uid] = newRemark;
-                                storageRoamingSave();
-                            }
-                        }
-                    ).element
-                );
-                return true;
-            }
-            return false;
-        });
-    }
-
-
-
-    // 私聊选项卡菜单设置备注
-
-    let oldFunction_Utils_service_pm_menu = iframeContext.iframeWindow["Utils"]?.service?.pm?.menu;
-    if (oldFunction_Utils_service_pm_menu)
-    { // 私聊标签页点击
-        iframeContext.iframeWindow["Utils"].service.pm.menu = proxyFunction(oldFunction_Utils_service_pm_menu, function (param, srcFunction)
+            let oldRemarkName = storageContext.roaming.userRemark[uid];
+            return {
+                icon: "account-cog",
+                text: `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`
+            };
+        },
+        async (uid) =>
         {
-            if (param.length == 1)
+            let oldRemarkName = storageContext.roaming.userRemark[uid];
+            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
+            if (newRemark != undefined)
             {
-                let uid = param[0]?.parentNode?.getAttribute?.("ip");
-                if (!uid)
-                    return false;
-
-                srcFunction(...param);
-
-                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-                let oldRemarkName = storageContext.roaming.userRemark[uid];
-                selectHolderBox.appendChild(
-                    createIiroseMenuElement(
-                        "mdi-account-cog",
-                        `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`,
-                        async e =>
-                        {
-                            e.stopPropagation();
-
-
-
-                            let oldRemarkName = storageContext.roaming.userRemark[uid];
-                            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
-                            if (newRemark != undefined)
-                            {
-                                storageContext.roaming.userRemark[uid] = newRemark;
-                                storageRoamingSave();
-                            }
-                        }
-                    ).element
-                );
-                return true;
+                storageContext.roaming.userRemark[uid] = newRemark;
+                storageRoamingSave();
             }
-            return false;
-        });
-    }
+        }
+    );
 }
 
 

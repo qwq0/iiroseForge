@@ -3992,6 +3992,18 @@
 	 * 将使用json进行序列化
 	 */
 	const storageContext = {
+	    processed: {
+	        /**
+	         * 黑名单uid集合
+	         * @type {Set<string>}
+	         */
+	        uidBlacklistSet: new Set(),
+	        /**
+	         * 我的其他账号uid集合
+	         * @type {Set<string>}
+	         */
+	        myAccountSet: new Set(),
+	    },
 	    roaming: {
 	        /**
 	         * 插件信息
@@ -4026,7 +4038,12 @@
 	         *  bottomPinned?: Array<string>
 	         * }}
 	         */
-	        customInfoPage: {}
+	        customInfoPage: {},
+	        /**
+	         * 黑名单uid列表
+	         * @type {Array<string>}
+	         */
+	        uidBlacklist: [],
 	    },
 	    local: {
 	        // 启用同步聊天记录
@@ -4047,7 +4064,25 @@
 	};
 
 	/**
-	 * 设置储存
+	 * 获取漫游储存
+	 * @returns {typeof storageContext.roaming}
+	 */
+	function storageRoamingGet()
+	{
+	    try
+	    {
+	        storageContext.roaming.myAccountList = Array.from(storageContext.processed.myAccountSet);
+	        storageContext.roaming.uidBlacklist = Array.from(storageContext.processed.uidBlacklistSet);
+	    }
+	    catch (err)
+	    {
+	        showNotice("错误", "无法处理储存 这可能导致iiroseForge配置丢失");
+	    }
+	    return storageContext.roaming;
+	}
+
+	/**
+	 * 设置漫游储存
 	 * @param {Object} storageObj
 	 */
 	function storageRoamingSet(storageObj)
@@ -4066,6 +4101,8 @@
 	            )
 	                storageContext.roaming[key] = createHookObj(storageContext.roaming[key]);
 	        });
+	        storageContext.processed.myAccountSet = new Set(storageContext.roaming.myAccountList);
+	        storageContext.processed.uidBlacklistSet = new Set(storageContext.roaming.uidBlacklist);
 	    }
 	    catch (err)
 	    {
@@ -4091,7 +4128,7 @@
 	{
 	    try
 	    {
-	        let storageJson = JSON.stringify(storageContext.roaming);
+	        let storageJson = JSON.stringify(storageRoamingGet());
 	        localStorage.setItem("iiroseForge", storageJson);
 	    }
 	    catch (err)
@@ -4333,6 +4370,174 @@
 	    });
 	}
 
+	let menuHookList = {
+	    /**
+	     * @type {Array<{
+	     *  creater: (uid: string) => ({ text: string, icon: string } | null),
+	     *  callback: (uid: string) => {}
+	     * }>}
+	     */
+	    userMenu: [],
+	    /**
+	     * @type {Array<{
+	     *  creater: (roomId: string) => ({ text: string, icon: string } | null),
+	     *  callback: (roomId: string) => {}
+	     * }>}
+	     */
+	    roomMenu: [],
+	    /**
+	     * @type {Array<{
+	     *  creater: (messageId: string, uid: string, messageContent: string) => ({ text: string, icon: string } | null),
+	     *  callback: (messageId: string, uid: string, messageContent: string) => {}
+	     * }>}
+	     */
+	    roomMessageMenu: [],
+	    // TODO 房间消息菜单钩子
+	};
+
+
+	let hookIdSet = new Set();
+
+	/**
+	 * @template {keyof menuHookList} K
+	 * @param {string | symbol} hookId
+	 * @param {K} location
+	 * @param {menuHookList[K][number]["creater"]} creater
+	 * @param {menuHookList[K][number]["callback"]} callback
+	 */
+	function addMenuHook(hookId, location, creater, callback)
+	{
+	    enableUiHook();
+
+	    if (hookIdSet.has(hookId))
+	        return;
+	    hookIdSet.add(hookId);
+
+	    menuHookList[location].push({
+	        // @ts-ignore
+	        creater: creater,
+	        // @ts-ignore
+	        callback: callback
+	    });
+	}
+
+	/**
+	 * 已启用ui钩子的symbol
+	 */
+	let hadEnableUiHookSymbol = Symbol();
+	function enableUiHook()
+	{
+	    if ((!iframeContext.iframeWindow) || iframeContext.iframeWindow[hadEnableUiHookSymbol] == true)
+	        return;
+	    iframeContext.iframeWindow[hadEnableUiHookSymbol] = true;
+
+
+	    let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
+	    if (oldFunction_Objs_mapHolder_function_event)
+	    {
+	        iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, (param, srcFunction, _targetFn, thisObj) =>
+	        {
+	            // 资料卡头像菜单
+	            if (param.length == 1 && param[0] == 7)
+	            {
+	                let uid = thisObj?.dataset?.uid;
+	                if (!uid)
+	                    return false;
+
+	                srcFunction(...param);
+
+	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+	                menuHookList.userMenu.forEach(o =>
+	                {
+	                    let info = o.creater(uid);
+	                    if (!info)
+	                        return;
+	                    selectHolderBox.appendChild(
+	                        createIiroseMenuElement(
+	                            `mdi-${info.icon}`,
+	                            info.text,
+	                            async e =>
+	                            {
+	                                e.stopPropagation();
+	                                o.callback(uid);
+	                            }
+	                        ).element
+	                    );
+	                });
+	                return true;
+	            }
+	            // 房间菜单
+	            else if (param.length == 1 && param[0] == 8)
+	            {
+	                let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
+	                if (!roomId)
+	                    return false;
+
+	                srcFunction(...param);
+
+	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+	                menuHookList.roomMenu.forEach(o =>
+	                {
+	                    let info = o.creater(roomId);
+	                    if (!info)
+	                        return;
+	                    selectHolderBox.appendChild(
+	                        createIiroseMenuElement(
+	                            `mdi-${info.icon}`,
+	                            info.text,
+	                            async e =>
+	                            {
+	                                e.stopPropagation();
+	                                o.callback(roomId);
+	                            }
+	                        ).element
+	                    );
+	                });
+	                return true;
+	            }
+	            return false;
+	        });
+	    }
+
+	    // 私聊标签页点击
+	    let oldFunction_Utils_service_pm_menu = iframeContext.iframeWindow["Utils"]?.service?.pm?.menu;
+	    if (oldFunction_Utils_service_pm_menu)
+	    {
+	        iframeContext.iframeWindow["Utils"].service.pm.menu = proxyFunction(oldFunction_Utils_service_pm_menu, (param, srcFunction) =>
+	        {
+	            if (param.length == 1)
+	            {
+	                let uid = param[0]?.parentNode?.getAttribute?.("ip");
+	                if (!uid)
+	                    return false;
+
+	                srcFunction(...param);
+
+	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+	                menuHookList.userMenu.forEach(o =>
+	                {
+	                    let info = o.creater(uid);
+	                    if (!info)
+	                        return;
+	                    selectHolderBox.appendChild(
+	                        createIiroseMenuElement(
+	                            `mdi-${info.icon}`,
+	                            info.text,
+	                            async e =>
+	                            {
+	                                e.stopPropagation();
+	                                o.callback(uid);
+	                            }
+	                        ).element
+	                    );
+	                });
+	                return true;
+	            }
+	            return false;
+	        });
+	    }
+	}
+
 	/**
 	 * 创建蔷薇菜单元素
 	 * @param {string} icon
@@ -4425,95 +4630,29 @@
 	        }
 	    })).observe(sessionHolderPmTaskBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
 
-
-
-	    // 资料卡菜单设置备注
-
-	    let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
-	    if (oldFunction_Objs_mapHolder_function_event)
-	    { // 资料卡头像点击
-	        iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, function (param, srcFunction, _targetFn, thisObj)
+	    // 添加菜单ui
+	    addMenuHook(
+	        "userMark",
+	        "userMenu",
+	        uid =>
 	        {
-	            if (param.length == 1 && param[0] == 7)
-	            {
-	                let uid = thisObj?.dataset?.uid;
-	                if (!uid)
-	                    return false;
-
-	                srcFunction(...param);
-
-	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-	                let oldRemarkName = storageContext.roaming.userRemark[uid];
-	                selectHolderBox.appendChild(
-	                    createIiroseMenuElement(
-	                        "mdi-account-cog",
-	                        `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`,
-	                        async e =>
-	                        {
-	                            e.stopPropagation();
-
-
-
-	                            let oldRemarkName = storageContext.roaming.userRemark[uid];
-	                            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
-	                            if (newRemark != undefined)
-	                            {
-	                                storageContext.roaming.userRemark[uid] = newRemark;
-	                                storageRoamingSave();
-	                            }
-	                        }
-	                    ).element
-	                );
-	                return true;
-	            }
-	            return false;
-	        });
-	    }
-
-
-
-	    // 私聊选项卡菜单设置备注
-
-	    let oldFunction_Utils_service_pm_menu = iframeContext.iframeWindow["Utils"]?.service?.pm?.menu;
-	    if (oldFunction_Utils_service_pm_menu)
-	    { // 私聊标签页点击
-	        iframeContext.iframeWindow["Utils"].service.pm.menu = proxyFunction(oldFunction_Utils_service_pm_menu, function (param, srcFunction)
+	            let oldRemarkName = storageContext.roaming.userRemark[uid];
+	            return {
+	                icon: "account-cog",
+	                text: `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`
+	            };
+	        },
+	        async (uid) =>
 	        {
-	            if (param.length == 1)
+	            let oldRemarkName = storageContext.roaming.userRemark[uid];
+	            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
+	            if (newRemark != undefined)
 	            {
-	                let uid = param[0]?.parentNode?.getAttribute?.("ip");
-	                if (!uid)
-	                    return false;
-
-	                srcFunction(...param);
-
-	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-	                let oldRemarkName = storageContext.roaming.userRemark[uid];
-	                selectHolderBox.appendChild(
-	                    createIiroseMenuElement(
-	                        "mdi-account-cog",
-	                        `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`,
-	                        async e =>
-	                        {
-	                            e.stopPropagation();
-
-
-
-	                            let oldRemarkName = storageContext.roaming.userRemark[uid];
-	                            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
-	                            if (newRemark != undefined)
-	                            {
-	                                storageContext.roaming.userRemark[uid] = newRemark;
-	                                storageRoamingSave();
-	                            }
-	                        }
-	                    ).element
-	                );
-	                return true;
+	                storageContext.roaming.userRemark[uid] = newRemark;
+	                storageRoamingSave();
 	            }
-	            return false;
-	        });
-	    }
+	        }
+	    );
 	}
 
 
@@ -4591,6 +4730,236 @@
 	                )
 	            ])).element);
 	    }
+	}
+
+	/**
+	 * 显示菜单
+	 * @async
+	 * @param {Array<NElement>} menuItems
+	 * @returns {Promise<boolean>}
+	 */
+	function showMenu(menuItems)
+	{
+	    return new Promise(resolve =>
+	    {
+	        /**
+	         * @type {NElement}
+	         */
+	        var menu = null;
+	        var menuHolder = expandElement({ // 背景
+	            width: "100%", height: "100%",
+	            $position: "absolute",
+	            style: {
+	                userSelect: "none",
+	                backgroundColor: cssG.rgb(0, 0, 0, 0.7),
+	                alignItems: "center",
+	                justifyContent: "center",
+	                zIndex: "30001"
+	            },
+	            assembly: [e =>
+	            {
+	                e.animate([
+	                    {
+	                        opacity: 0.1
+	                    },
+	                    {
+	                        opacity: 1
+	                    }
+	                ], {
+	                    duration: 120
+	                });
+	            }],
+	            display: "flex",
+	            child: [{ // 菜单
+	                style: {
+	                    border: "1px white solid",
+	                    backgroundColor: cssG.rgb(255, 255, 255, 0.95),
+	                    color: cssG.rgb(0, 0, 0),
+	                    alignItems: "stretch",
+	                    justifyContent: "center",
+	                    flexFlow: "column",
+	                    lineHeight: "45px",
+	                    minHeight: "10px",
+	                    minWidth: "280px",
+	                    maxHeight: "100%",
+	                    maxWidth: "95%",
+	                    boxSizing: "border-box",
+	                    padding: "10px",
+	                    borderRadius: "7px",
+	                    pointerEvents: "none"
+	                },
+	                assembly: [e =>
+	                {
+	                    e.animate([
+	                        {
+	                            transform: "scale(0.9) translateY(-100px)"
+	                        },
+	                        {
+	                        }
+	                    ], {
+	                        duration: 120
+	                    });
+	                    setTimeout(() => { e.setStyle("pointerEvents", "auto"); }, 120);
+	                    e.getChilds().forEach(o =>
+	                    {
+	                        o.addEventListener("click", closeMenuBox);
+	                        buttonAsse(o);
+	                    });
+	                }, e => { menu = e; }],
+	                position$: "static",
+	                overflow: "auto",
+	                child: menuItems,
+	                event: {
+	                    click: e => { e.stopPropagation(); }
+	                }
+	            }],
+	            event: {
+	                click: closeMenuBox
+	            }
+	        });
+	        function closeMenuBox()
+	        {
+	            menu.setStyle("pointerEvents", "none");
+	            menu.animate([
+	                {
+	                },
+	                {
+	                    transform: "scale(0.9) translateY(-100px)"
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            menuHolder.animate([
+	                {
+	                    opacity: 1
+	                },
+	                {
+	                    opacity: 0.1
+	                }
+	            ], {
+	                duration: 120,
+	                fill: "forwards"
+	            });
+	            setTimeout(() =>
+	            {
+	                menuHolder.remove();
+	            }, 120);
+	        }
+	        body.addChild(menuHolder);
+	    });
+	}
+
+	async function showBlacklistMenu()
+	{
+	    /**
+	     * @param {string} targetUid
+	     * @param {string | undefined} targetUserName
+	     */
+	    function showAccountMenu(targetUid, targetUserName)
+	    {
+	        showMenu([
+	            NList.getElement([
+	                "移出黑名单",
+	                new NEvent("click", () =>
+	                {
+	                    showSetBlacklistDialog(targetUid, true);
+	                })
+	            ])
+	        ]);
+	    }
+
+	    showMenu([
+	        NList.getElement([
+	            "[ 添加黑名单 ]",
+	            new NEvent("click", async () =>
+	            {
+	                let uid = await showInputBox("添加黑名单", "输入目标的唯一标识", true);
+	                if (uid != undefined)
+	                {
+	                    let myUid = forgeApi.operation.getUserUid();
+	                    if (uid != myUid)
+	                        showSetBlacklistDialog(uid, false);
+	                    else
+	                        showNotice("黑名单", `不能添加此账号本身`);
+	                }
+	            }),
+	        ]),
+	        ...(Array.from(storageContext.processed.uidBlacklistSet).map(uid =>
+	        {
+	            let userInfo = forgeApi.operation.getOnlineUserInfoById(uid);
+	            return NList.getElement([
+	                `${uid}${userInfo ? ` (${userInfo.name})` : ""}`,
+	                new NEvent("click", async () =>
+	                {
+	                    showAccountMenu(uid, userInfo?.name);
+	                }),
+	            ]);
+	        }))
+	    ]);
+	}
+
+	/**
+	 * 显示设置用户黑名单的对话框 (加入或移出黑名单)
+	 * @param {string} uid
+	 * @param {boolean} removeFromBlacklist
+	 */
+	async function showSetBlacklistDialog(uid, removeFromBlacklist)
+	{
+	    let action = (removeFromBlacklist ? "移出黑名单" : "加入黑名单");
+	    let userInfo = forgeApi.operation.getOnlineUserInfoById(uid);
+
+	    if (await showInfoBox(action, `确定将用户 ${uid}${userInfo ? `(${userInfo.name})` : ""}\n${action}吗?`, true))
+	    {
+	        if (removeFromBlacklist)
+	            storageContext.processed.uidBlacklistSet.delete(uid);
+	        else
+	            storageContext.processed.uidBlacklistSet.add(uid);
+	        storageRoamingSave();
+	        showNotice("黑名单", `已将用户 ${uid}${userInfo ? `(${userInfo.name})` : ""} ${action}`);
+	    }
+	}
+
+	/**
+	 * 启用黑名单
+	 */
+	function enableBlacklist()
+	{
+	    // 添加菜单ui
+	    addMenuHook(
+	        "blacklist",
+	        "userMenu",
+	        uid =>
+	        {
+	            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(uid);
+	            if (uid != forgeApi.operation.getUserUid() || isInBlacklist)
+	                return {
+	                    icon: (isInBlacklist ? "account-lock-open-outline" : "account-cancel-outline"),
+	                    text: (isInBlacklist ? "此人已在黑名单中" : "添加到黑名单")
+	                };
+	            else
+	                return null;
+	        },
+	        async (uid) =>
+	        {
+	            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(uid);
+	            showSetBlacklistDialog(uid, isInBlacklist);
+	        }
+	    );
+	}
+
+	/**
+	 * 测试消息是否需要屏蔽
+	 * @param {string} uid
+	 * @param {string} [message]
+	 * @param {string} [userName]
+	 * @returns {boolean}
+	 */
+	function messageNeedBlock(uid, message = "", userName = "")
+	{
+	    if(forgeApi.operation.getUserUid() == uid)
+	        return false;
+	    return storageContext.processed.uidBlacklistSet.has(uid);
 	}
 
 	/**
@@ -4734,12 +5103,12 @@
 	    {
 	        let part = data.split(">");
 	        // console.log(part);
+	        let senderId = part[8];
+	        let senderName = part[2];
+	        let content = part[3];
 
-	        if (part[4] != "s" && part[3][0] != `'`)
+	        if (part[4] != "s" && content[0] != `'`)
 	        {
-	            let senderId = part[8];
-	            let senderName = part[2];
-	            let content = part[3];
 
 	            let forgePacket = readForgePacket(content, senderId);
 	            if (forgePacket != undefined)
@@ -4770,6 +5139,10 @@
 	                    content: htmlSpecialCharsDecode(content)
 	                });
 	        }
+
+	        if (messageNeedBlock(senderId, content, senderName))
+	            return undefined;
+
 	        return data;
 	    }).filter(o => o != undefined).reverse().join("<");
 	});
@@ -4780,13 +5153,14 @@
 	    packageData[0] = `""` + data.split("<").map(data =>
 	    {
 	        let part = data.split(">");
+
+	        let senderId = part[1];
+	        let senderName = part[2];
+	        let content = part[4];
+	        let receiverId = part[11];
+
 	        if (part[6] == "")
 	        {
-	            let senderId = part[1];
-	            let senderName = part[2];
-	            let content = part[4];
-	            let receiverId = part[11];
-
 	            if (senderId != userId)
 	            {
 	                let forgePacket = readForgePacket(content, senderId);
@@ -4849,7 +5223,17 @@
 	                if (forgePacket != undefined)
 	                    return undefined;
 	            }
+
+	            if (messageNeedBlock(senderId, content, senderName))
+	            {
+	                forgeApi.operation.sendPrivateMessageSilence(senderId, "[自动回复] 根据对方的隐私设置 您暂时无法向对方发送私信");
+	                return undefined;
+	            }
 	        }
+
+	        if (messageNeedBlock(senderId, content, senderName))
+	            return undefined;
+
 	        return data;
 	    }).filter(o => o != undefined).join("<");
 	});
@@ -6238,124 +6622,6 @@
 	}
 
 	/**
-	 * 显示菜单
-	 * @async
-	 * @param {Array<NElement>} menuItems
-	 * @returns {Promise<boolean>}
-	 */
-	function showMenu(menuItems)
-	{
-	    return new Promise(resolve =>
-	    {
-	        /**
-	         * @type {NElement}
-	         */
-	        var menu = null;
-	        var menuHolder = expandElement({ // 背景
-	            width: "100%", height: "100%",
-	            $position: "absolute",
-	            style: {
-	                userSelect: "none",
-	                backgroundColor: cssG.rgb(0, 0, 0, 0.7),
-	                alignItems: "center",
-	                justifyContent: "center",
-	                zIndex: "30001"
-	            },
-	            assembly: [e =>
-	            {
-	                e.animate([
-	                    {
-	                        opacity: 0.1
-	                    },
-	                    {
-	                        opacity: 1
-	                    }
-	                ], {
-	                    duration: 120
-	                });
-	            }],
-	            display: "flex",
-	            child: [{ // 菜单
-	                style: {
-	                    border: "1px white solid",
-	                    backgroundColor: cssG.rgb(255, 255, 255, 0.95),
-	                    color: cssG.rgb(0, 0, 0),
-	                    alignItems: "stretch",
-	                    justifyContent: "center",
-	                    flexFlow: "column",
-	                    lineHeight: "45px",
-	                    minHeight: "10px",
-	                    minWidth: "280px",
-	                    maxHeight: "100%",
-	                    maxWidth: "95%",
-	                    boxSizing: "border-box",
-	                    padding: "10px",
-	                    borderRadius: "7px",
-	                    pointerEvents: "none"
-	                },
-	                assembly: [e =>
-	                {
-	                    e.animate([
-	                        {
-	                            transform: "scale(0.9) translateY(-100px)"
-	                        },
-	                        {
-	                        }
-	                    ], {
-	                        duration: 120
-	                    });
-	                    setTimeout(() => { e.setStyle("pointerEvents", "auto"); }, 120);
-	                    e.getChilds().forEach(o =>
-	                    {
-	                        o.addEventListener("click", closeMenuBox);
-	                        buttonAsse(o);
-	                    });
-	                }, e => { menu = e; }],
-	                position$: "static",
-	                overflow: "auto",
-	                child: menuItems,
-	                event: {
-	                    click: e => { e.stopPropagation(); }
-	                }
-	            }],
-	            event: {
-	                click: closeMenuBox
-	            }
-	        });
-	        function closeMenuBox()
-	        {
-	            menu.setStyle("pointerEvents", "none");
-	            menu.animate([
-	                {
-	                },
-	                {
-	                    transform: "scale(0.9) translateY(-100px)"
-	                }
-	            ], {
-	                duration: 120,
-	                fill: "forwards"
-	            });
-	            menuHolder.animate([
-	                {
-	                    opacity: 1
-	                },
-	                {
-	                    opacity: 0.1
-	                }
-	            ], {
-	                duration: 120,
-	                fill: "forwards"
-	            });
-	            setTimeout(() =>
-	            {
-	                menuHolder.remove();
-	            }, 120);
-	        }
-	        body.addChild(menuHolder);
-	    });
-	}
-
-	/**
 	 * 启用美化功能
 	 */
 	async function enableBeautify()
@@ -7595,10 +7861,10 @@
 	async function showMultiAccountMenu()
 	{
 	    /**
-	     * @param {string} uid
-	     * @param {string | undefined} remoteUserName
+	     * @param {string} targetUid
+	     * @param {string | undefined} targetUserName
 	     */
-	    function showAccountMenu(uid, remoteUserName)
+	    function showAccountMenu(targetUid, targetUserName)
 	    {
 	        showMenu([
 	            NList.getElement([
@@ -7607,7 +7873,7 @@
 	                {
 	                    showNotice("多账户", "正在尝试获取配置");
 	                    let requestId = uniqueIdentifierString$2();
-	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
 	                        plug: "forge",
 	                        type: "multiAccount",
 	                        option: "syncConfigRQ",
@@ -7632,10 +7898,10 @@
 	                        monitorUserId = "";
 	                    }
 
-	                    showNotice("多账户", `正在连接 ${uid}`);
+	                    showNotice("多账户", `正在连接 ${targetUid}`);
 	                    monitorId = uniqueIdentifierString$2();
-	                    monitorUserId = uid;
-	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                    monitorUserId = targetUid;
+	                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
 	                        plug: "forge",
 	                        type: "multiAccount",
 	                        option: "monitorRQ",
@@ -7663,7 +7929,7 @@
 	                new NEvent("click", () =>
 	                {
 	                    showNotice("多账户", "正在发送命令");
-	                    forgeApi.operation.sendPrivateForgePacket(uid, {
+	                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
 	                        plug: "forge",
 	                        type: "multiAccount",
 	                        option: "switchRoom",
@@ -7678,7 +7944,7 @@
 	                    if (await showInfoBox("远程下线", "确认发送下线指令吗?\n您必须手动重新上线此账号", true))
 	                    {
 	                        showNotice("多账户", "正在发送命令");
-	                        forgeApi.operation.sendPrivateForgePacket(uid, {
+	                        forgeApi.operation.sendPrivateForgePacket(targetUid, {
 	                            plug: "forge",
 	                            type: "multiAccount",
 	                            option: "quit"
@@ -7690,9 +7956,10 @@
 	                "移除账号",
 	                new NEvent("click", () =>
 	                {
-	                    storageContext.roaming.myAccountList = storageContext.roaming.myAccountList.filter(o => o != uid);
+	                    storageContext.processed.myAccountSet.delete(targetUid);
+	                    storageContext.roaming.myAccountList = storageContext.roaming.myAccountList.filter(o => o != targetUid);
 	                    storageRoamingSave();
-	                    showNotice("绑定账号", `目标账号(${uid})与当前账号(${forgeApi.operation.getUserUid()})的单向绑定已解除`);
+	                    showNotice("绑定账号", `目标账号(${targetUid})与当前账号(${forgeApi.operation.getUserUid()})的单向绑定已解除`);
 	                })
 	            ])
 	        ]);
@@ -7709,6 +7976,7 @@
 	                    let myUid = forgeApi.operation.getUserUid();
 	                    if (uid != myUid)
 	                    {
+	                        storageContext.processed.myAccountSet.add(uid);
 	                        storageContext.roaming.myAccountList.push(uid);
 	                        storageRoamingSave();
 	                        showNotice("绑定账号", `你需要同时在目标账号(${uid})上绑定当前账号(${myUid})来完成反向绑定`);
@@ -7751,7 +8019,7 @@
 	                ] :
 	                []
 	        ),
-	        ...(Array.from(storageContext.roaming.myAccountList).map(uid =>
+	        ...(storageContext.roaming.myAccountList.map(uid =>
 	        {
 	            let userInfo = forgeApi.operation.getOnlineUserInfoById(uid);
 	            return NList.getElement([
@@ -7783,7 +8051,7 @@
 	    {
 	        if (e.content.type == "multiAccount")
 	        {
-	            if (storageContext.roaming.myAccountList.indexOf(e.senderId) == -1)
+	            if (!storageContext.processed.myAccountSet.has(e.senderId))
 	                return;
 
 	            let userInfo = forgeApi.operation.getOnlineUserInfoById(e.senderId);
@@ -8059,7 +8327,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.11.3"
+	    version: "alpha v1.12.0"
 	};
 
 	/**
@@ -8618,13 +8886,23 @@
 	                                ]))
 	                            ]);
 	                        }
-	                    }, {
+	                    },
+	                    {
 	                        title: "账号管理",
 	                        text: "管理你的其他账号",
 	                        icon: "account-cog",
 	                        onClick: async () =>
 	                        {
 	                            await showMultiAccountMenu();
+	                        }
+	                    },
+	                    {
+	                        title: "黑名单",
+	                        text: "管理黑名单",
+	                        icon: "account-cancel-outline",
+	                        onClick: async () =>
+	                        {
+	                            await showBlacklistMenu();
 	                        }
 	                    },
 	                    {
@@ -10181,35 +10459,12 @@
 
 	    if (storageContext.local.experimentalOption["ejectionButton"])
 	    {
-	        let oldFunction_Objs_mapHolder_function_event = iframeContext.iframeWindow["Objs"]?.mapHolder?.function?.event;
-	        if (oldFunction_Objs_mapHolder_function_event)
-	        { // 房间按钮点击
-	            iframeContext.iframeWindow["Objs"].mapHolder.function.event = proxyFunction(oldFunction_Objs_mapHolder_function_event, function (param, srcFunction, _targetFn, thisObj)
-	            {
-	                if (param.length == 1 && param[0] == 8)
-	                {
-	                    let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
-	                    if (!roomId)
-	                        return false;
-
-	                    srcFunction(...param);
-
-	                    let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-	                    selectHolderBox.appendChild(
-	                        createIiroseMenuElement(
-	                            "mdi-ghost-outline",
-	                            `弹射起步`,
-	                            async e =>
-	                            {
-	                                ejectionEscape(roomId);
-	                            }
-	                        ).element
-	                    );
-	                    return true;
-	                }
-	                return false;
-	            });
-	        }
+	        addMenuHook(
+	            "ejectionButton",
+	            "roomMenu",
+	            () => ({ text: "弹射起步", icon: "ghost-outline" }),
+	            async (roomId) => { ejectionEscape(roomId); }
+	        );
 	    }
 
 	    if (storageContext.local.experimentalOption["withdraw"])
@@ -10313,7 +10568,7 @@
 	    hadTakeoverState = true;
 	    toServerTrie.addPath("s", (_data, srcData) =>
 	    {
-	        if(srcData == "s")
+	        if (srcData == "s")
 	            setPackageData("");
 	    });
 	}
@@ -10449,6 +10704,9 @@
 	            {
 	                func: enableExperimental,
 	                condition: "enableExperimental"
+	            },
+	            {
+	                func: enableBlacklist
 	            }
 	        ]).forEach(o =>
 	        {

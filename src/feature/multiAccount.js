@@ -20,10 +20,10 @@ let monitorUserId = "";
 export async function showMultiAccountMenu()
 {
     /**
-     * @param {string} uid
-     * @param {string | undefined} remoteUserName
+     * @param {string} targetUid
+     * @param {string | undefined} targetUserName
      */
-    function showAccountMenu(uid, remoteUserName)
+    function showAccountMenu(targetUid, targetUserName)
     {
         showMenu([
             NList.getElement([
@@ -32,7 +32,7 @@ export async function showMultiAccountMenu()
                 {
                     showNotice("多账户", "正在尝试获取配置");
                     let requestId = uniqueIdentifierString();
-                    forgeApi.operation.sendPrivateForgePacket(uid, {
+                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
                         plug: "forge",
                         type: "multiAccount",
                         option: "syncConfigRQ",
@@ -57,10 +57,10 @@ export async function showMultiAccountMenu()
                         monitorUserId = "";
                     }
 
-                    showNotice("多账户", `正在连接 ${uid}`);
+                    showNotice("多账户", `正在连接 ${targetUid}`);
                     monitorId = uniqueIdentifierString();
-                    monitorUserId = uid;
-                    forgeApi.operation.sendPrivateForgePacket(uid, {
+                    monitorUserId = targetUid;
+                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
                         plug: "forge",
                         type: "multiAccount",
                         option: "monitorRQ",
@@ -88,7 +88,7 @@ export async function showMultiAccountMenu()
                 new NEvent("click", () =>
                 {
                     showNotice("多账户", "正在发送命令");
-                    forgeApi.operation.sendPrivateForgePacket(uid, {
+                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
                         plug: "forge",
                         type: "multiAccount",
                         option: "switchRoom",
@@ -103,7 +103,7 @@ export async function showMultiAccountMenu()
                     if (await showInfoBox("远程下线", "确认发送下线指令吗?\n您必须手动重新上线此账号", true))
                     {
                         showNotice("多账户", "正在发送命令");
-                        forgeApi.operation.sendPrivateForgePacket(uid, {
+                        forgeApi.operation.sendPrivateForgePacket(targetUid, {
                             plug: "forge",
                             type: "multiAccount",
                             option: "quit"
@@ -115,9 +115,10 @@ export async function showMultiAccountMenu()
                 "移除账号",
                 new NEvent("click", () =>
                 {
-                    storageContext.roaming.myAccountList = storageContext.roaming.myAccountList.filter(o => o != uid);
+                    storageContext.processed.myAccountSet.delete(targetUid);
+                    storageContext.roaming.myAccountList = storageContext.roaming.myAccountList.filter(o => o != targetUid);
                     storageRoamingSave();
-                    showNotice("绑定账号", `目标账号(${uid})与当前账号(${forgeApi.operation.getUserUid()})的单向绑定已解除`);
+                    showNotice("绑定账号", `目标账号(${targetUid})与当前账号(${forgeApi.operation.getUserUid()})的单向绑定已解除`);
                 })
             ])
         ]);
@@ -134,6 +135,7 @@ export async function showMultiAccountMenu()
                     let myUid = forgeApi.operation.getUserUid();
                     if (uid != myUid)
                     {
+                        storageContext.processed.myAccountSet.add(uid);
                         storageContext.roaming.myAccountList.push(uid);
                         storageRoamingSave();
                         showNotice("绑定账号", `你需要同时在目标账号(${uid})上绑定当前账号(${myUid})来完成反向绑定`);
@@ -176,7 +178,7 @@ export async function showMultiAccountMenu()
                 ] :
                 []
         ),
-        ...(Array.from(storageContext.roaming.myAccountList).map(uid =>
+        ...(storageContext.roaming.myAccountList.map(uid =>
         {
             let userInfo = forgeApi.operation.getOnlineUserInfoById(uid);
             return NList.getElement([
@@ -208,7 +210,7 @@ export function enableMultiAccount()
     {
         if (e.content.type == "multiAccount")
         {
-            if (storageContext.roaming.myAccountList.indexOf(e.senderId) == -1)
+            if (!storageContext.processed.myAccountSet.has(e.senderId))
                 return;
 
             let userInfo = forgeApi.operation.getOnlineUserInfoById(e.senderId);

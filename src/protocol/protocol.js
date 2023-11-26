@@ -1,3 +1,4 @@
+import { messageNeedBlock } from "../feature/blacklist.js";
 import { forgeApi, forgeOccupyPlugNameSet } from "../forgeApi/forgeApi.js";
 import { htmlSpecialCharsDecode } from "../util/htmlSpecialChars.js";
 import { Trie } from "./Trie.js";
@@ -27,12 +28,12 @@ toClientTrie.addPath(`"`, (data) => // 房间消息
     {
         let part = data.split(">");
         // console.log(part);
+        let senderId = part[8];
+        let senderName = part[2];
+        let content = part[3];
 
-        if (part[4] != "s" && part[3][0] != `'`)
+        if (part[4] != "s" && content[0] != `'`)
         {
-            let senderId = part[8];
-            let senderName = part[2];
-            let content = part[3];
 
             let forgePacket = readForgePacket(content, senderId);
             if (forgePacket != undefined)
@@ -63,6 +64,10 @@ toClientTrie.addPath(`"`, (data) => // 房间消息
                     content: htmlSpecialCharsDecode(content)
                 });
         }
+
+        if (messageNeedBlock(senderId, content, senderName))
+            return undefined;
+
         return data;
     }).filter(o => o != undefined).reverse().join("<");
 });
@@ -73,13 +78,14 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
     packageData[0] = `""` + data.split("<").map(data =>
     {
         let part = data.split(">");
+
+        let senderId = part[1];
+        let senderName = part[2];
+        let content = part[4];
+        let receiverId = part[11];
+
         if (part[6] == "")
         {
-            let senderId = part[1];
-            let senderName = part[2];
-            let content = part[4];
-            let receiverId = part[11];
-
             if (senderId != userId)
             {
                 let forgePacket = readForgePacket(content, senderId);
@@ -142,7 +148,17 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
                 if (forgePacket != undefined)
                     return undefined;
             }
+
+            if (messageNeedBlock(senderId, content, senderName))
+            {
+                forgeApi.operation.sendPrivateMessageSilence(senderId, "[自动回复] 根据对方的隐私设置 您暂时无法向对方发送私信");
+                return undefined;
+            }
         }
+
+        if (messageNeedBlock(senderId, content, senderName))
+            return undefined;
+
         return data;
     }).filter(o => o != undefined).join("<");
 });

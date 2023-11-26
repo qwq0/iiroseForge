@@ -6,6 +6,18 @@ import { showNotice } from "../ui/notice.js";
  * 将使用json进行序列化
  */
 export const storageContext = {
+    processed: {
+        /**
+         * 黑名单uid集合
+         * @type {Set<string>}
+         */
+        uidBlacklistSet: new Set(),
+        /**
+         * 我的其他账号uid集合
+         * @type {Set<string>}
+         */
+        myAccountSet: new Set(),
+    },
     roaming: {
         /**
          * 插件信息
@@ -40,7 +52,12 @@ export const storageContext = {
          *  bottomPinned?: Array<string>
          * }}
          */
-        customInfoPage: {}
+        customInfoPage: {},
+        /**
+         * 黑名单uid列表
+         * @type {Array<string>}
+         */
+        uidBlacklist: [],
     },
     local: {
         // 启用同步聊天记录
@@ -61,7 +78,25 @@ export const storageContext = {
 };
 
 /**
- * 设置储存
+ * 获取漫游储存
+ * @returns {typeof storageContext.roaming}
+ */
+export function storageRoamingGet()
+{
+    try
+    {
+        storageContext.roaming.myAccountList = Array.from(storageContext.processed.myAccountSet);
+        storageContext.roaming.uidBlacklist = Array.from(storageContext.processed.uidBlacklistSet);
+    }
+    catch (err)
+    {
+        showNotice("错误", "无法处理储存 这可能导致iiroseForge配置丢失");
+    }
+    return storageContext.roaming;
+}
+
+/**
+ * 设置漫游储存
  * @param {Object} storageObj
  */
 export function storageRoamingSet(storageObj)
@@ -80,6 +115,8 @@ export function storageRoamingSet(storageObj)
             )
                 storageContext.roaming[key] = createHookObj(storageContext.roaming[key]);
         });
+        storageContext.processed.myAccountSet = new Set(storageContext.roaming.myAccountList);
+        storageContext.processed.uidBlacklistSet = new Set(storageContext.roaming.uidBlacklist);
     }
     catch (err)
     {
@@ -105,7 +142,7 @@ export function storageRoamingSave()
 {
     try
     {
-        let storageJson = JSON.stringify(storageContext.roaming);
+        let storageJson = JSON.stringify(storageRoamingGet());
         localStorage.setItem("iiroseForge", storageJson);
     }
     catch (err)

@@ -17,6 +17,7 @@ import { enableExperimental } from "../feature/experimental.js";
 import { enableMultiAccount } from "../feature/multiAccount.js";
 import { enableMonitor } from "../feature/monitor.js";
 import { enableBeautify } from "../feature/beautify.js";
+import { enableBlacklist } from "../feature/blacklist.js";
 
 
 
@@ -151,6 +152,9 @@ export function initInjectIframe()
             {
                 func: enableExperimental,
                 condition: "enableExperimental"
+            },
+            {
+                func: enableBlacklist
             }
         ]).forEach(o =>
         {

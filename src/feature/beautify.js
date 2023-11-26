@@ -5,7 +5,6 @@ import { iframeContext } from "../injectIframe/iframeContext";
 import { toClientTrie } from "../protocol/protocol";
 import { storageContext, storageRoamingSave } from "../storage/storage";
 import { showNotice } from "../ui/notice";
-import { createIiroseMenuElement } from "./tools";
 import { createNStyleList as styles } from "../../lib/qwqframe.js";
 import { cssG } from "../../lib/qwqframe";
 import { NEvent } from "../../lib/qwqframe";

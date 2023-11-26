@@ -3,6 +3,7 @@ import { mouseBind } from "../../lib/qwqframe.js";
 import { touchBind } from "../../lib/qwqframe.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
 import { showBeautifyMenu } from "../feature/beautify.js";
+import { showBlacklistMenu } from "../feature/blacklist.js";
 import { showMultiAccountMenu } from "../feature/multiAccount.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
@@ -358,13 +359,23 @@ export function getForgeMenu()
                                 ]))
                             ]);
                         }
-                    }, {
+                    },
+                    {
                         title: "账号管理",
                         text: "管理你的其他账号",
                         icon: "account-cog",
                         onClick: async () =>
                         {
                             await showMultiAccountMenu();
+                        }
+                    },
+                    {
+                        title: "黑名单",
+                        text: "管理黑名单",
+                        icon: "account-cancel-outline",
+                        onClick: async () =>
+                        {
+                            await showBlacklistMenu();
                         }
                     },
                     {
