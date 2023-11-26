@@ -4783,6 +4783,8 @@
 	                    minWidth: "280px",
 	                    maxHeight: "100%",
 	                    maxWidth: "95%",
+	                    overflowY: "auto",
+	                    scrollbarWidth: "none",
 	                    boxSizing: "border-box",
 	                    padding: "10px",
 	                    borderRadius: "7px",
@@ -8327,7 +8329,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.12.0"
+	    version: "alpha v1.12.1"
 	};
 
 	/**

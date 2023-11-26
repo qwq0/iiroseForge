@@ -53,6 +53,8 @@ export function showMenu(menuItems)
                     minWidth: "280px",
                     maxHeight: "100%",
                     maxWidth: "95%",
+                    overflowY: "auto",
+                    scrollbarWidth: "none",
                     boxSizing: "border-box",
                     padding: "10px",
                     borderRadius: "7px",
