@@ -1,6 +1,8 @@
+import { domPath } from "../../lib/plugToolsLib";
 import { NEvent } from "../../lib/qwqframe";
 import { NList } from "../../lib/qwqframe";
 import { forgeApi } from "../forgeApi/forgeApi";
+import { iframeContext } from "../injectIframe/iframeContext";
 import { storageContext, storageRoamingSave } from "../storage/storage";
 import { showInfoBox, showInputBox } from "../ui/infobox";
 import { showMenu } from "../ui/menu";
@@ -120,6 +122,57 @@ export function enableBlacklist()
             showSetBlacklistDialog(uid, isInBlacklist);
         }
     );
+
+    // 聊天消息列表节点(房间消息)
+    let msgBox = iframeContext.iframeDocument.getElementsByClassName("msgholderBox")[0];
+    Array.from(msgBox.children).forEach(o =>
+    { // 处理已有的消息
+        try
+        {
+            let messageElement = /** @type {HTMLElement} */(o);
+            if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "msg")
+            { // 发送的消息
+                let uid = (
+                    messageElement.dataset.id ?
+                        messageElement.dataset.id.split("_")[0] :
+                        (/** @type {HTMLElement} */(domPath(messageElement, [0, -1, 0])))?.dataset?.uid
+                );
+                if (uid && messageNeedBlock(uid))
+                    o.remove();
+            }
+            if (messageElement.classList.length == 2 && messageElement.classList.contains("pubMsgSystem"))
+            { // 系统消息
+                let uid = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0])))?.dataset?.uid;
+                if (!uid)
+                    uid = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, 0])))?.dataset?.uid;
+                if (uid && messageNeedBlock(uid))
+                    o.remove();
+            }
+        }
+        catch (err)
+        {
+            console.error(err);
+        }
+    });
+    Array.from(msgBox.children).forEach((o, index, childArray) =>
+    { // 处理多个消息时间相邻
+        try
+        {
+            let messageElement = /** @type {HTMLElement} */(o);
+            if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "pubMsgTime")
+            { // 消息时间
+                if (
+                    index == childArray.length - 1 ||
+                    childArray[index + 1]?.classList?.contains("pubMsgTime")
+                )
+                    o.remove();
+            }
+        }
+        catch (err)
+        {
+            console.error(err);
+        }
+    });
 }
 
 /**
