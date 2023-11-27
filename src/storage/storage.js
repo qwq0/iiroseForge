@@ -58,6 +58,11 @@ export const storageContext = {
          * @type {Array<string>}
          */
         uidBlacklist: [],
+        /**
+         * 黑名单自动回复文本
+         * @type {string}
+         */
+        blacklistAutoReply: "根据对方的隐私设置 您暂时无法向对方发送私信"
     },
     local: {
         // 启用同步聊天记录

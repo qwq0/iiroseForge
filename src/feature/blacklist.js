@@ -28,6 +28,23 @@ export async function showBlacklistMenu()
 
     showMenu([
         NList.getElement([
+            "设置自动回复内容",
+            new NEvent("click", async () =>
+            {
+                let oldValue = storageContext.roaming.blacklistAutoReply;
+                let value = await showInputBox("自定义自动回复", "输入黑名单用户私聊的自动回复内容\n留空关闭自动回复", true, oldValue);
+                if (value != undefined && oldValue != value)
+                {
+                    storageContext.roaming.blacklistAutoReply = value;
+                    storageRoamingSave();
+                    if (value == "")
+                        showNotice("黑名单", "已关闭黑名单自动回复");
+                    else
+                        showNotice("黑名单", "已更新黑名单自动回复内容");
+                }
+            }),
+        ]),
+        NList.getElement([
             "[ 添加黑名单 ]",
             new NEvent("click", async () =>
             {
@@ -114,7 +131,7 @@ export function enableBlacklist()
  */
 export function messageNeedBlock(uid, message = "", userName = "")
 {
-    if(forgeApi.operation.getUserUid() == uid)
+    if (forgeApi.operation.getUserUid() == uid)
         return false;
     return storageContext.processed.uidBlacklistSet.has(uid);
 }

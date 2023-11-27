@@ -4044,6 +4044,11 @@
 	         * @type {Array<string>}
 	         */
 	        uidBlacklist: [],
+	        /**
+	         * 黑名单自动回复文本
+	         * @type {string}
+	         */
+	        blacklistAutoReply: "根据对方的隐私设置 您暂时无法向对方发送私信"
 	    },
 	    local: {
 	        // 启用同步聊天记录
@@ -4873,6 +4878,23 @@
 
 	    showMenu([
 	        NList.getElement([
+	            "设置自动回复内容",
+	            new NEvent("click", async () =>
+	            {
+	                let oldValue = storageContext.roaming.blacklistAutoReply;
+	                let value = await showInputBox("自定义自动回复", "输入黑名单用户私聊的自动回复内容\n留空关闭自动回复", true, oldValue);
+	                if (value != undefined && oldValue != value)
+	                {
+	                    storageContext.roaming.blacklistAutoReply = value;
+	                    storageRoamingSave();
+	                    if (value == "")
+	                        showNotice("黑名单", "已关闭黑名单自动回复");
+	                    else
+	                        showNotice("黑名单", "已更新黑名单自动回复内容");
+	                }
+	            }),
+	        ]),
+	        NList.getElement([
 	            "[ 添加黑名单 ]",
 	            new NEvent("click", async () =>
 	            {
@@ -4959,7 +4981,7 @@
 	 */
 	function messageNeedBlock(uid, message = "", userName = "")
 	{
-	    if(forgeApi.operation.getUserUid() == uid)
+	    if (forgeApi.operation.getUserUid() == uid)
 	        return false;
 	    return storageContext.processed.uidBlacklistSet.has(uid);
 	}
@@ -5228,7 +5250,8 @@
 
 	            if (messageNeedBlock(senderId, content, senderName))
 	            {
-	                forgeApi.operation.sendPrivateMessageSilence(senderId, "[自动回复] 根据对方的隐私设置 您暂时无法向对方发送私信");
+	                if (storageContext.roaming.blacklistAutoReply)
+	                    forgeApi.operation.sendPrivateMessageSilence(senderId, `[自动回复] ${storageContext.roaming.blacklistAutoReply}`);
 	                return undefined;
 	            }
 	        }
@@ -8329,7 +8352,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.12.1"
+	    version: "alpha v1.12.2"
 	};
 
 	/**

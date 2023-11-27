@@ -1,5 +1,6 @@
 import { messageNeedBlock } from "../feature/blacklist.js";
 import { forgeApi, forgeOccupyPlugNameSet } from "../forgeApi/forgeApi.js";
+import { storageContext } from "../storage/storage.js";
 import { htmlSpecialCharsDecode } from "../util/htmlSpecialChars.js";
 import { Trie } from "./Trie.js";
 import { readForgePacket, unfinishedSliceSymbol } from "./forgePacket.js";
@@ -151,7 +152,8 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
 
             if (messageNeedBlock(senderId, content, senderName))
             {
-                forgeApi.operation.sendPrivateMessageSilence(senderId, "[自动回复] 根据对方的隐私设置 您暂时无法向对方发送私信");
+                if (storageContext.roaming.blacklistAutoReply)
+                    forgeApi.operation.sendPrivateMessageSilence(senderId, `[自动回复] ${storageContext.roaming.blacklistAutoReply}`);
                 return undefined;
             }
         }
