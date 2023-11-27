@@ -306,6 +306,10 @@ export function getForgeMenu()
                                         name: "超级菜单",
                                         storageKey: "enableSuperMenu"
                                     },
+                                    {
+                                        name: "快捷房管操作",
+                                        storageKey: "enableRoomAdminOperation"
+                                    },
                                     ...(
                                         storageContext.local.enableExperimental ?
                                             [

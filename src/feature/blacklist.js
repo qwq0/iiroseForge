@@ -105,10 +105,10 @@ export function enableBlacklist()
     addMenuHook(
         "blacklist",
         "userMenu",
-        uid =>
+        e =>
         {
-            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(uid);
-            if (uid != forgeApi.operation.getUserUid() || isInBlacklist)
+            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(e.uid);
+            if (e.uid != forgeApi.operation.getUserUid() || isInBlacklist)
                 return {
                     icon: (isInBlacklist ? "account-lock-open-outline" : "account-cancel-outline"),
                     text: (isInBlacklist ? "此人已在黑名单中" : "添加到黑名单")
@@ -116,10 +116,10 @@ export function enableBlacklist()
             else
                 return null;
         },
-        async (uid) =>
+        async (e) =>
         {
-            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(uid);
-            showSetBlacklistDialog(uid, isInBlacklist);
+            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(e.uid);
+            showSetBlacklistDialog(e.uid, isInBlacklist);
         }
     );
 

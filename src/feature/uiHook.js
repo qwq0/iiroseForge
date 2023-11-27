@@ -9,26 +9,25 @@ import { NEvent } from "../../lib/qwqframe";
 let menuHookList = {
     /**
      * @type {Array<{
-     *  creater: (uid: string) => ({ text: string, icon: string } | null),
-     *  callback: (uid: string) => {}
+     *  creater: (e: { uid: string }) => ({ text: string, icon: string } | null),
+     *  callback: (e: { uid: string }) => void
      * }>}
      */
     userMenu: [],
     /**
      * @type {Array<{
-     *  creater: (roomId: string) => ({ text: string, icon: string } | null),
-     *  callback: (roomId: string) => {}
+     *  creater: (e: { roomId: string }) => ({ text: string, icon: string } | null),
+     *  callback: (e: { roomId: string }) => void
      * }>}
      */
     roomMenu: [],
     /**
      * @type {Array<{
-     *  creater: (messageId: string, uid: string, messageContent: string) => ({ text: string, icon: string } | null),
-     *  callback: (messageId: string, uid: string, messageContent: string) => {}
+     *  creater: (e: { uid: string, userName?: string, messageContent?: string, messageId?: string }) => ({ text: string, icon: string } | null),
+     *  callback: (e: { uid: string, userName?: string, messageContent?: string, messageId?: string }) => void
      * }>}
      */
     roomMessageMenu: [],
-    // TODO 房间消息菜单钩子
 };
 
 
@@ -85,7 +84,7 @@ function enableUiHook()
                 let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
                 menuHookList.userMenu.forEach(o =>
                 {
-                    let info = o.creater(uid);
+                    let info = o.creater({ uid });
                     if (!info)
                         return;
                     selectHolderBox.appendChild(
@@ -95,7 +94,53 @@ function enableUiHook()
                             async e =>
                             {
                                 e.stopPropagation();
-                                o.callback(uid);
+                                o.callback({ uid });
+                            }
+                        ).element
+                    );
+                });
+                return true;
+            }
+            // 房间消息头像点击
+            else if (
+                param.length == 2 &&
+                param[0] == 7 &&
+                Array.isArray(param[1]) &&
+                thisObj?.classList?.contains("msgavatar")
+            )
+            {
+                let uid = thisObj?.dataset?.uid;
+                let userName = param[1]?.[0];
+                let messageId = thisObj?.parentNode?.parentNode?.dataset?.id?.split("_")?.[1];
+                if (!uid)
+                    return false;
+                if (typeof (userName) != "string")
+                    userName = undefined;
+
+                srcFunction(...param);
+
+                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+                menuHookList.roomMessageMenu.forEach(o =>
+                {
+                    let info = o.creater({
+                        uid,
+                        messageId,
+                        userName
+                    });
+                    if (!info)
+                        return;
+                    selectHolderBox.appendChild(
+                        createIiroseMenuElement(
+                            `mdi-${info.icon}`,
+                            info.text,
+                            async e =>
+                            {
+                                e.stopPropagation();
+                                o.callback({
+                                    uid,
+                                    messageId,
+                                    userName
+                                });
                             }
                         ).element
                     );
@@ -114,7 +159,7 @@ function enableUiHook()
                 let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
                 menuHookList.roomMenu.forEach(o =>
                 {
-                    let info = o.creater(roomId);
+                    let info = o.creater({ roomId });
                     if (!info)
                         return;
                     selectHolderBox.appendChild(
@@ -124,7 +169,7 @@ function enableUiHook()
                             async e =>
                             {
                                 e.stopPropagation();
-                                o.callback(roomId);
+                                o.callback({ roomId });
                             }
                         ).element
                     );
@@ -152,7 +197,7 @@ function enableUiHook()
                 let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
                 menuHookList.userMenu.forEach(o =>
                 {
-                    let info = o.creater(uid);
+                    let info = o.creater({ uid });
                     if (!info)
                         return;
                     selectHolderBox.appendChild(
@@ -162,7 +207,7 @@ function enableUiHook()
                             async e =>
                             {
                                 e.stopPropagation();
-                                o.callback(uid);
+                                o.callback({ uid });
                             }
                         ).element
                     );

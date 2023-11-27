@@ -71,6 +71,8 @@ export const storageContext = {
         enableUserRemark: true,
         // 启用超级菜单
         enableSuperMenu: false,
+        // 启用快速房管操作
+        enableRoomAdminOperation: true,
         // 最后一次关闭的时间
         lastCloseTime: 0,
         // 已同步聊天记录到此时间

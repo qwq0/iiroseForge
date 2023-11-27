@@ -68,21 +68,21 @@ export function enableUserRemark()
     addMenuHook(
         "userMark",
         "userMenu",
-        uid =>
+        e =>
         {
-            let oldRemarkName = storageContext.roaming.userRemark[uid];
+            let oldRemarkName = storageContext.roaming.userRemark[e.uid];
             return {
                 icon: "account-cog",
                 text: `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`
             };
         },
-        async (uid) =>
+        async (e) =>
         {
-            let oldRemarkName = storageContext.roaming.userRemark[uid];
-            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
+            let oldRemarkName = storageContext.roaming.userRemark[e.uid];
+            let newRemark = await showInputBox("设置备注", `给 ${e.uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
             if (newRemark != undefined)
             {
-                storageContext.roaming.userRemark[uid] = newRemark;
+                storageContext.roaming.userRemark[e.uid] = newRemark;
                 storageRoamingSave();
             }
         }

@@ -88,7 +88,9 @@ export const forgeApi = {
          *  color: string,
          *  description: string,
          *  roomImage: string,
-         *  currentUserNum: number | "hidden"
+         *  currentUserNum: number | "hidden",
+         *  ownerName: string,
+         *  member: Array<{ name: string, auth: "member" | "admin"| "unknow" }>
          * }}
          */
         getRoomInfoById: (roomId) =>
@@ -97,7 +99,9 @@ export const forgeApi = {
             let roomInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.Assets?.roomJson?.[roomId];
             if (roomInfoArray)
             {
-                let imageAndDescription = htmlSpecialCharsDecode(roomInfoArray[5].split("&&")[0].split("&")[0]);
+                /** @type {Array<Array<string>>} */
+                let roomInfoPart = roomInfoArray[5].split("&&").map((/** @type {string} */ o) => o.split(" & "));
+                let imageAndDescription = htmlSpecialCharsDecode(roomInfoPart[0][0]);
                 let firstSpaceIndex = imageAndDescription.indexOf(" ");
                 return {
                     name: roomInfoArray[1],
@@ -105,7 +109,12 @@ export const forgeApi = {
                     roomPath: (/** @type {string} */(roomInfoArray[0])).split("_"),
                     description: imageAndDescription.slice(firstSpaceIndex + 1),
                     roomImage: imageAndDescription.slice(0, firstSpaceIndex),
-                    currentUserNum: (typeof (roomInfoArray[7]) == "number" ? roomInfoArray[7] : "hidden")
+                    currentUserNum: (typeof (roomInfoArray[7]) == "number" ? roomInfoArray[7] : "hidden"),
+                    ownerName: roomInfoPart[1][0],
+                    member: roomInfoPart[4].map(o => ({
+                        name: htmlSpecialCharsDecode(o.slice(1)),
+                        auth: (o[0] == "0" ? "member" : o[0] == "1" ? "admin" : "unknow")
+                    }))
                 };
             }
             else

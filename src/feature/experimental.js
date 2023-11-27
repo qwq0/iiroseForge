@@ -50,7 +50,7 @@ export function enableExperimental()
             "ejectionButton",
             "roomMenu",
             () => ({ text: "弹射起步", icon: "ghost-outline" }),
-            async (roomId) => { ejectionEscape(roomId); }
+            async (e) => { ejectionEscape(e.roomId); }
         );
     }
 

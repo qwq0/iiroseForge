@@ -3487,7 +3487,9 @@
 	         *  color: string,
 	         *  description: string,
 	         *  roomImage: string,
-	         *  currentUserNum: number | "hidden"
+	         *  currentUserNum: number | "hidden",
+	         *  ownerName: string,
+	         *  member: Array<{ name: string, auth: "member" | "admin"| "unknow" }>
 	         * }}
 	         */
 	        getRoomInfoById: (roomId) =>
@@ -3496,7 +3498,9 @@
 	            let roomInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.Assets?.roomJson?.[roomId];
 	            if (roomInfoArray)
 	            {
-	                let imageAndDescription = htmlSpecialCharsDecode(roomInfoArray[5].split("&&")[0].split("&")[0]);
+	                /** @type {Array<Array<string>>} */
+	                let roomInfoPart = roomInfoArray[5].split("&&").map((/** @type {string} */ o) => o.split(" & "));
+	                let imageAndDescription = htmlSpecialCharsDecode(roomInfoPart[0][0]);
 	                let firstSpaceIndex = imageAndDescription.indexOf(" ");
 	                return {
 	                    name: roomInfoArray[1],
@@ -3504,7 +3508,12 @@
 	                    roomPath: (/** @type {string} */(roomInfoArray[0])).split("_"),
 	                    description: imageAndDescription.slice(firstSpaceIndex + 1),
 	                    roomImage: imageAndDescription.slice(0, firstSpaceIndex),
-	                    currentUserNum: (typeof (roomInfoArray[7]) == "number" ? roomInfoArray[7] : "hidden")
+	                    currentUserNum: (typeof (roomInfoArray[7]) == "number" ? roomInfoArray[7] : "hidden"),
+	                    ownerName: roomInfoPart[1][0],
+	                    member: roomInfoPart[4].map(o => ({
+	                        name: htmlSpecialCharsDecode(o.slice(1)),
+	                        auth: (o[0] == "0" ? "member" : o[0] == "1" ? "admin" : "unknow")
+	                    }))
 	                };
 	            }
 	            else
@@ -4057,6 +4066,8 @@
 	        enableUserRemark: true,
 	        // 启用超级菜单
 	        enableSuperMenu: false,
+	        // 启用快速房管操作
+	        enableRoomAdminOperation: true,
 	        // 最后一次关闭的时间
 	        lastCloseTime: 0,
 	        // 已同步聊天记录到此时间
@@ -4378,26 +4389,25 @@
 	let menuHookList = {
 	    /**
 	     * @type {Array<{
-	     *  creater: (uid: string) => ({ text: string, icon: string } | null),
-	     *  callback: (uid: string) => {}
+	     *  creater: (e: { uid: string }) => ({ text: string, icon: string } | null),
+	     *  callback: (e: { uid: string }) => void
 	     * }>}
 	     */
 	    userMenu: [],
 	    /**
 	     * @type {Array<{
-	     *  creater: (roomId: string) => ({ text: string, icon: string } | null),
-	     *  callback: (roomId: string) => {}
+	     *  creater: (e: { roomId: string }) => ({ text: string, icon: string } | null),
+	     *  callback: (e: { roomId: string }) => void
 	     * }>}
 	     */
 	    roomMenu: [],
 	    /**
 	     * @type {Array<{
-	     *  creater: (messageId: string, uid: string, messageContent: string) => ({ text: string, icon: string } | null),
-	     *  callback: (messageId: string, uid: string, messageContent: string) => {}
+	     *  creater: (e: { uid: string, userName?: string, messageContent?: string, messageId?: string }) => ({ text: string, icon: string } | null),
+	     *  callback: (e: { uid: string, userName?: string, messageContent?: string, messageId?: string }) => void
 	     * }>}
 	     */
 	    roomMessageMenu: [],
-	    // TODO 房间消息菜单钩子
 	};
 
 
@@ -4454,7 +4464,7 @@
 	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
 	                menuHookList.userMenu.forEach(o =>
 	                {
-	                    let info = o.creater(uid);
+	                    let info = o.creater({ uid });
 	                    if (!info)
 	                        return;
 	                    selectHolderBox.appendChild(
@@ -4464,7 +4474,53 @@
 	                            async e =>
 	                            {
 	                                e.stopPropagation();
-	                                o.callback(uid);
+	                                o.callback({ uid });
+	                            }
+	                        ).element
+	                    );
+	                });
+	                return true;
+	            }
+	            // 房间消息头像点击
+	            else if (
+	                param.length == 2 &&
+	                param[0] == 7 &&
+	                Array.isArray(param[1]) &&
+	                thisObj?.classList?.contains("msgavatar")
+	            )
+	            {
+	                let uid = thisObj?.dataset?.uid;
+	                let userName = param[1]?.[0];
+	                let messageId = thisObj?.parentNode?.parentNode?.dataset?.id?.split("_")?.[1];
+	                if (!uid)
+	                    return false;
+	                if (typeof (userName) != "string")
+	                    userName = undefined;
+
+	                srcFunction(...param);
+
+	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
+	                menuHookList.roomMessageMenu.forEach(o =>
+	                {
+	                    let info = o.creater({
+	                        uid,
+	                        messageId,
+	                        userName
+	                    });
+	                    if (!info)
+	                        return;
+	                    selectHolderBox.appendChild(
+	                        createIiroseMenuElement(
+	                            `mdi-${info.icon}`,
+	                            info.text,
+	                            async e =>
+	                            {
+	                                e.stopPropagation();
+	                                o.callback({
+	                                    uid,
+	                                    messageId,
+	                                    userName
+	                                });
 	                            }
 	                        ).element
 	                    );
@@ -4483,7 +4539,7 @@
 	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
 	                menuHookList.roomMenu.forEach(o =>
 	                {
-	                    let info = o.creater(roomId);
+	                    let info = o.creater({ roomId });
 	                    if (!info)
 	                        return;
 	                    selectHolderBox.appendChild(
@@ -4493,7 +4549,7 @@
 	                            async e =>
 	                            {
 	                                e.stopPropagation();
-	                                o.callback(roomId);
+	                                o.callback({ roomId });
 	                            }
 	                        ).element
 	                    );
@@ -4521,7 +4577,7 @@
 	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
 	                menuHookList.userMenu.forEach(o =>
 	                {
-	                    let info = o.creater(uid);
+	                    let info = o.creater({ uid });
 	                    if (!info)
 	                        return;
 	                    selectHolderBox.appendChild(
@@ -4531,7 +4587,7 @@
 	                            async e =>
 	                            {
 	                                e.stopPropagation();
-	                                o.callback(uid);
+	                                o.callback({ uid });
 	                            }
 	                        ).element
 	                    );
@@ -4639,21 +4695,21 @@
 	    addMenuHook(
 	        "userMark",
 	        "userMenu",
-	        uid =>
+	        e =>
 	        {
-	            let oldRemarkName = storageContext.roaming.userRemark[uid];
+	            let oldRemarkName = storageContext.roaming.userRemark[e.uid];
 	            return {
 	                icon: "account-cog",
 	                text: `设置备注${oldRemarkName ? `(${oldRemarkName})` : ""}`
 	            };
 	        },
-	        async (uid) =>
+	        async (e) =>
 	        {
-	            let oldRemarkName = storageContext.roaming.userRemark[uid];
-	            let newRemark = await showInputBox("设置备注", `给 ${uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
+	            let oldRemarkName = storageContext.roaming.userRemark[e.uid];
+	            let newRemark = await showInputBox("设置备注", `给 ${e.uid} 设置备注`, true, (oldRemarkName ? oldRemarkName : ""));
 	            if (newRemark != undefined)
 	            {
-	                storageContext.roaming.userRemark[uid] = newRemark;
+	                storageContext.roaming.userRemark[e.uid] = newRemark;
 	                storageRoamingSave();
 	            }
 	        }
@@ -4953,10 +5009,10 @@
 	    addMenuHook(
 	        "blacklist",
 	        "userMenu",
-	        uid =>
+	        e =>
 	        {
-	            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(uid);
-	            if (uid != forgeApi.operation.getUserUid() || isInBlacklist)
+	            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(e.uid);
+	            if (e.uid != forgeApi.operation.getUserUid() || isInBlacklist)
 	                return {
 	                    icon: (isInBlacklist ? "account-lock-open-outline" : "account-cancel-outline"),
 	                    text: (isInBlacklist ? "此人已在黑名单中" : "添加到黑名单")
@@ -4964,10 +5020,10 @@
 	            else
 	                return null;
 	        },
-	        async (uid) =>
+	        async (e) =>
 	        {
-	            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(uid);
-	            showSetBlacklistDialog(uid, isInBlacklist);
+	            let isInBlacklist = storageContext.processed.uidBlacklistSet.has(e.uid);
+	            showSetBlacklistDialog(e.uid, isInBlacklist);
 	        }
 	    );
 
@@ -8403,7 +8459,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.12.2"
+	    version: "alpha v1.13.0"
 	};
 
 	/**
@@ -8908,6 +8964,10 @@
 	                                    {
 	                                        name: "超级菜单",
 	                                        storageKey: "enableSuperMenu"
+	                                    },
+	                                    {
+	                                        name: "快捷房管操作",
+	                                        storageKey: "enableRoomAdminOperation"
 	                                    },
 	                                    ...(
 	                                        storageContext.local.enableExperimental ?
@@ -10539,7 +10599,7 @@
 	            "ejectionButton",
 	            "roomMenu",
 	            () => ({ text: "弹射起步", icon: "ghost-outline" }),
-	            async (roomId) => { ejectionEscape(roomId); }
+	            async (e) => { ejectionEscape(e.roomId); }
 	        );
 	    }
 
@@ -10647,6 +10707,111 @@
 	        if (srcData == "s")
 	            setPackageData("");
 	    });
+	}
+
+	let isRoomAdminOrMember = false;
+	let isRoomAdmin = false;
+
+	/**
+	 * 启用房管操作
+	 */
+	function enableRoomAdminOperation()
+	{
+	    isRoomAdminOrMember = false;
+	    isRoomAdmin = false;
+
+	    let userName = forgeApi.operation.getUserName();
+	    let nowRoomInfo = forgeApi.operation.getRoomInfoById(forgeApi.operation.getUserRoomId());
+	    if (nowRoomInfo)
+	    {
+	        if (userName == nowRoomInfo.ownerName)
+	        {
+	            isRoomAdminOrMember = true;
+	            isRoomAdmin = true;
+	        }
+	        else
+	            nowRoomInfo.member.some(o =>
+	            {
+	                if (
+	                    o.name == userName &&
+	                    (
+	                        o.auth == "admin" ||
+	                        o.auth == "member"
+	                    )
+	                )
+	                {
+	                    isRoomAdminOrMember = true;
+	                    if (o.auth == "admin")
+	                        isRoomAdmin = true;
+	                }
+	            });
+	    }
+
+	    addMenuHook(
+	        "roomAdminOperation",
+	        "roomMessageMenu",
+	        () => (isRoomAdminOrMember ? {
+	            icon: "wrench",
+	            text: "房管操作"
+	        } : null),
+	        e =>
+	        {
+	            showMenu([
+	                ...(
+	                    isRoomAdmin ?
+	                        [
+	                            NList.getElement([
+	                                "白名单",
+	                                new NEvent("click", async () =>
+	                                {
+	                                    let timeStr = await showInputBox("房管操作", `设置用户(${e.userName})\n的白名单时间\nd天 h时 m分 s秒 &永久`, true, "&");
+	                                    if (timeStr == undefined)
+	                                        return;
+	                                    let remarkStr = await showInputBox("房管操作", `设置用户(${e.userName})\n的白名单备注`, true, "");
+	                                    if (remarkStr == undefined)
+	                                        return;
+	                                    iframeContext.socketApi.send(`!hw${JSON.stringify(["4", e.userName.toLowerCase(), timeStr, remarkStr])}`);
+	                                })
+	                            ]),
+	                            NList.getElement([
+	                                "黑名单",
+	                                new NEvent("click", async () =>
+	                                {
+	                                    let timeStr = await showInputBox("房管操作", `设置用户(${e.userName})\n的黑名单时间\nd天 h时 m分 s秒 &永久`, true, "30d");
+	                                    if (timeStr == undefined)
+	                                        return;
+	                                    let remarkStr = await showInputBox("房管操作", `设置用户(${e.userName})\n的黑名单备注`, true, "");
+	                                    if (remarkStr == undefined)
+	                                        return;
+	                                    iframeContext.socketApi.send(`!h4${JSON.stringify(["4", e.userName.toLowerCase(), timeStr, remarkStr])}`);
+	                                })
+	                            ]),
+	                            NList.getElement([
+	                                "永久黑名单",
+	                                new NEvent("click", async () =>
+	                                {
+	                                    let remarkStr = await showInputBox("房管操作", `设置用户(${e.userName})\n的永久黑名单备注`, true, "");
+	                                    if (remarkStr == undefined)
+	                                        return;
+	                                    iframeContext.socketApi.send(`!h4${JSON.stringify(["4", e.userName.toLowerCase(), "&", remarkStr])}`);
+	                                })
+	                            ])
+	                        ] :
+	                        []
+	                ),
+	                NList.getElement([
+	                    "移出房间",
+	                    new NEvent("click", async () =>
+	                    {
+	                        if (await showInfoBox("房管操作", `是否将用户(${e.userName})\n移出房间`))
+	                        {
+	                            iframeContext.socketApi.send(`!#${JSON.stringify([e.userName.toLowerCase()])}`);
+	                        }
+	                    })
+	                ]),
+	            ]);
+	        }
+	    );
 	}
 
 	/**
@@ -10768,6 +10933,10 @@
 	            {
 	                func: enableUserRemark,
 	                condition: "enableUserRemark"
+	            },
+	            {
+	                func: enableRoomAdminOperation,
+	                condition: "enableRoomAdminOperation"
 	            },
 	            {
 	                func: trySyncChatRecord,
