@@ -19,6 +19,7 @@ import { enableMonitor } from "../feature/monitor.js";
 import { enableBeautify } from "../feature/beautify.js";
 import { enableBlacklist } from "../feature/blacklist.js";
 import { enableRoomAdminOperation } from "../feature/roomAdminOperation.js";
+import { enablePatch } from "../feature/patch.js";
 
 
 
@@ -137,6 +138,9 @@ export function initInjectIframe()
             },
             {
                 func: enableBeautify
+            },
+            {
+                func: enablePatch
             },
             {
                 func: enableUserRemark,

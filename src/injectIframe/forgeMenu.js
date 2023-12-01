@@ -5,6 +5,7 @@ import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NEl
 import { showBeautifyMenu } from "../feature/beautify.js";
 import { showBlacklistMenu } from "../feature/blacklist.js";
 import { showMultiAccountMenu } from "../feature/multiAccount.js";
+import { showPatchMenu } from "../feature/patch.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
@@ -362,6 +363,15 @@ export function getForgeMenu()
                                     }),
                                 ]))
                             ]);
+                        }
+                    },
+                    {
+                        title: "补丁设置",
+                        text: "启用或禁用补丁",
+                        icon: "bandage",
+                        onClick: async () =>
+                        {
+                            showPatchMenu();
                         }
                     },
                     {

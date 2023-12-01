@@ -80,7 +80,12 @@ export const storageContext = {
         // 启用实验性功能
         enableExperimental: false,
         // 实验性功能选项
-        experimentalOption: {}
+        experimentalOption: {},
+        /**
+         * 补丁设置
+         * @type {Object<string, string | boolean>}
+         */
+        patch: {}
     }
 };
 
