@@ -273,7 +273,7 @@ export function getForgeMenu()
                     {
                         title: "勿扰模式",
                         text: "设置自动回复",
-                        icon: "sync",
+                        icon: "bell-minus-outline",
                         onClick: async () =>
                         {
                             showNotDisturbModeMenu();
