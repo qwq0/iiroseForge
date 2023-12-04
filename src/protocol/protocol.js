@@ -30,7 +30,7 @@ toClientTrie.addPath(`"`, (data) => // 房间消息
         let part = data.split(">");
         // console.log(part);
         let senderId = part[8];
-        let senderName = part[2];
+        let senderName = htmlSpecialCharsDecode(part[2]);
         let content = part[3];
 
         if (part[4] != "s" && content[0] != `'`)
@@ -81,7 +81,7 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
         let part = data.split(">");
 
         let senderId = part[1];
-        let senderName = part[2];
+        let senderName = htmlSpecialCharsDecode(part[2]);
         let content = part[4];
         let receiverId = part[11];
 

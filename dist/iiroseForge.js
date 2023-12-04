@@ -1886,7 +1886,7 @@
 	 * 可以定多个事件响应函数
 	 * @template {*} T
 	 */
-	let EventHandler$2 = class EventHandler
+	let EventHandler$1 = class EventHandler
 	{
 	    /**
 	     * 回调列表
@@ -3305,90 +3305,22 @@
 	}
 
 	/**
-	 * 事件处理器
-	 * 可以定多个事件响应函数
-	 * @template {*} T
-	 */
-	let EventHandler$1 = class EventHandler
-	{
-	    /**
-	     * 回调列表
-	     * @type {Array<function(T): void>}
-	     */
-	    cbList = [];
-	    /**
-	     * 单次回调列表
-	     * @type {Array<function(T): void>}
-	     */
-	    onceCbList = [];
-
-	    /**
-	     * 添加响应函数
-	     * @param {function(T): void} cb
-	     */
-	    add(cb)
-	    {
-	        this.cbList.push(cb);
-	    }
-
-	    /**
-	     * 添加单次响应函数
-	     * 触发一次事件后将不再响应
-	     * @param {function(T): void} cb
-	     */
-	    addOnce(cb)
-	    {
-	        this.onceCbList.push(cb);
-	    }
-
-	    /**
-	     * 移除响应函数
-	     * @param {function(T): void} cb
-	     */
-	    remove(cb)
-	    {
-	        let ind = this.cbList.indexOf(cb);
-	        if (ind > -1)
-	        {
-	            this.cbList.splice(ind, 1);
-	        }
-	        else
-	        {
-	            ind = this.onceCbList.indexOf(cb);
-	            if (ind > -1)
-	            {
-	                this.onceCbList.splice(ind, 1);
-	            }
-	        }
-	    }
-
-	    /**
-	     * 移除所有响应函数
-	     */
-	    removeAll()
-	    {
-	        this.cbList = [];
-	        this.onceCbList = [];
-	    }
-
-	    /**
-	     * 触发事件
-	     * @param {T} e
-	     */
-	    trigger(e)
-	    {
-	        this.cbList.forEach(async (o) => { o(e); });
-	        this.onceCbList.forEach(async (o) => { o(e); });
-	        this.onceCbList = [];
-	    }
-	};
-
-	/**
 	 * html特殊符号转义
 	 * @param {string} e 
 	 * @returns {string}
 	 */
+	function htmlSpecialCharsEscape(e)
+	{
+	    e = e.replaceAll(`&`, "&amp;");
 
+	    e = e.replaceAll(`<`, "&lt;");
+	    e = e.replaceAll(`>`, "&gt;");
+	    e = e.replaceAll(`"`, "&quot;");
+	    e = e.replaceAll(`'`, "&#039;");
+	    e = e.replaceAll(`\\`, "&#092;");
+	    
+	    return e;
+	}
 	/**
 	 * html特殊符号反转义
 	 * @param {string} e 
@@ -3451,8 +3383,8 @@
 	         */
 	        getUserName: () =>
 	        {
-	            if (iframeContext.iframeWindow?.["myself2"])
-	                return iframeContext.iframeWindow["myself2"];
+	            if (iframeContext.iframeWindow?.["myself"])
+	                return iframeContext.iframeWindow["myself"];
 	            return null;
 	        },
 
@@ -3537,8 +3469,6 @@
 	            let userInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.findUserByUid?.(uid);
 	            if (userInfoArray)
 	            {
-	                let imageAndDescription = htmlSpecialCharsDecode(userInfoArray[5].split("&&")[0].split("&")[0]);
-	                imageAndDescription.indexOf(" ");
 	                return {
 	                    name: userInfoArray[2],
 	                    color: userInfoArray[3],
@@ -3664,6 +3594,9 @@
 	         * 静默发送私聊
 	         * @param {string} targetUid
 	         * @param {string} content
+	         * @returns {{
+	         *  messageId: string
+	         * }}
 	         */
 	        sendPrivateMessageSilence: (targetUid, content) =>
 	        {
@@ -3671,12 +3604,14 @@
 	            content = String(content);
 	            if (!content || !targetUid)
 	                return;
+	            let messageId = String(Date.now()).slice(-5) + String(Math.random()).slice(-7);
 	            iframeContext.socketApi.send(JSON.stringify({
 	                "g": targetUid,
 	                "m": content,
 	                "mc": forgeApi.operation.getUserInputColor(),
-	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+	                "i": messageId
 	            }));
+	            return { messageId };
 	        },
 
 	        /**
@@ -3688,18 +3623,28 @@
 	        {
 	            targetUid = String(targetUid);
 	            content = String(content);
-	            if (!content || !targetUid || !iframeContext.iframeWindow?.["msgfetch"] || !iframeContext.iframeWindow?.["Variable"]?.pmObjJson || !iframeContext.iframeWindow?.["Utils"]?.service?.buildPmHelper)
+	            if (!content || !targetUid)
 	                return;
-	            let inputBox = /** @type {HTMLInputElement} */(iframeContext.iframeDocument.getElementById("moveinput"));
-	            let oldValue = inputBox.value;
-	            let old_pmFull = iframeContext.iframeWindow["pmFull"];
-	            inputBox.value = content;
-	            iframeContext.iframeWindow["pmFull"] = true;
-	            if (!iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid])
-	                iframeContext.iframeWindow["Utils"].service.buildPmHelper(1, targetUid, targetUid);
-	            iframeContext.iframeWindow["msgfetch"](0, iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid], targetUid, "");
-	            iframeContext.iframeWindow["pmFull"] = old_pmFull;
-	            inputBox.value = oldValue;
+	            let messageId = forgeApi.operation.sendPrivateMessageSilence(targetUid, content).messageId;
+	            iframeContext.iframeWindow?.["privatechatfunc"](([
+	                Math.floor(Date.now() / 1000).toString(10), // 0
+	                forgeApi.operation.getUserUid(), // 1
+	                htmlSpecialCharsEscape(forgeApi.operation.getUserName()), // 2
+	                htmlSpecialCharsEscape(forgeApi.operation.getUserProfilePictureUrl()), // 3
+	                htmlSpecialCharsEscape(content), // 4
+	                htmlSpecialCharsEscape(forgeApi.operation.getUserInputColor()), // 5
+	                "", // 6
+	                htmlSpecialCharsEscape(forgeApi.operation.getUserInputColor()), // 7
+	                "", // 8
+	                "", // 9
+	                messageId, // 10
+	                targetUid, // 11
+	                "", // 12
+	                "", // 13
+	                "", // 14
+	                "", // 15
+	                "", // 16
+	            ]).join(">"));
 	        },
 
 	        /**
@@ -4057,7 +4002,12 @@
 	         * 黑名单自动回复文本
 	         * @type {string}
 	         */
-	        blacklistAutoReply: "根据对方的隐私设置 您暂时无法向对方发送私信"
+	        blacklistAutoReply: "根据对方的隐私设置 您暂时无法向对方发送私信",
+	        /**
+	         * 勿扰模式自动回复文本
+	         * @type {string}
+	         */
+	        notDisturbModeAutoReply: "你好 我现在有事不在 一会再和你联系"
 	    },
 	    local: {
 	        // 启用同步聊天记录
@@ -5202,17 +5152,17 @@
 	         * 接收到房间的由forge本身发送的forge数据包
 	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
 	         */
-	        roomForgePacket: new EventHandler$2(),
+	        roomForgePacket: new EventHandler$1(),
 	        /**
 	         * 接收到私聊的由forge本身发送的forge数据包
 	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
 	         */
-	        privateForgePacket: new EventHandler$2(),
+	        privateForgePacket: new EventHandler$1(),
 	        /**
 	         * 接收到自己发给自己的由forge本身发送的forge数据包
 	         * @type {EventHandler<{ content: Object }>}
 	         */
-	        selfPrivateForgePacket: new EventHandler$2(),
+	        selfPrivateForgePacket: new EventHandler$1(),
 	    }
 	};
 
@@ -5240,7 +5190,7 @@
 	        let part = data.split(">");
 	        // console.log(part);
 	        let senderId = part[8];
-	        let senderName = part[2];
+	        let senderName = htmlSpecialCharsDecode(part[2]);
 	        let content = part[3];
 
 	        if (part[4] != "s" && content[0] != `'`)
@@ -5291,7 +5241,7 @@
 	        let part = data.split(">");
 
 	        let senderId = part[1];
-	        let senderName = part[2];
+	        let senderName = htmlSpecialCharsDecode(part[2]);
 	        let content = part[4];
 	        let receiverId = part[11];
 
@@ -8395,6 +8345,129 @@
 	    });
 	}
 
+	let enabledAutoResponse = false;
+	let autoResponseText = "";
+
+	/**
+	 * @param {typeof forgeApi.event.privateMessage extends EventHandler<infer T> ? T : never} e
+	 */
+	function onPrivateMessage(e)
+	{
+	    if (enabledAutoResponse && !messageNeedBlock(e.senderId))
+	    {
+	        setTimeout(() =>
+	        {
+	            forgeApi.operation.sendPrivateMessage(e.senderId, `[自动回复] ${autoResponseText}`);
+	        }, 1.5 * 1000);
+	        showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
+	        {
+	            setNotDisturbMode(false);
+	        });
+	    }
+	}
+
+	/**
+	 * @param {typeof forgeApi.event.privateMessage extends EventHandler<infer T> ? T : never} e
+	 */
+	function onRoomMessage(e)
+	{
+	    if (
+	        enabledAutoResponse &&
+	        e.senderId != forgeApi.operation.getUserUid() &&
+	        e.content.indexOf(` [*${forgeApi.operation.getUserName()}*] `) != -1 &&
+	        !messageNeedBlock(e.senderId)
+	    )
+	    {
+	        forgeApi.operation.sendRoomMessage(`[自动回复]  [*${e.senderName}*]  ${autoResponseText}`);
+	        showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
+	        {
+	            setNotDisturbMode(false);
+	        });
+	    }
+	}
+
+	/**
+	 * 设置自动回复
+	 * @param {string | null} text
+	 */
+	function setAutoResponse(text)
+	{
+	    if (text != null)
+	    {
+	        autoResponseText = text;
+	        if (!enabledAutoResponse)
+	        {
+	            enabledAutoResponse = true;
+	            forgeApi.event.privateMessage.add(onPrivateMessage);
+	            forgeApi.event.roomMessage.add(onRoomMessage);
+	        }
+	    }
+	    else
+	    {
+	        if (enabledAutoResponse)
+	        {
+	            forgeApi.event.privateMessage.remove(onPrivateMessage);
+	            forgeApi.event.roomMessage.remove(onRoomMessage);
+	            enabledAutoResponse = false;
+	        }
+	    }
+	}
+
+	let notDisturbMode = false;
+
+	/**
+	 * 设置勿扰模式
+	 * @param {boolean} enbale
+	 */
+	function setNotDisturbMode(enbale)
+	{
+	    notDisturbMode = enbale;
+	    if (notDisturbMode)
+	    {
+	        setAutoResponse(String(storageContext.roaming.notDisturbModeAutoReply));
+	        showNotice("勿扰模式", `已开启勿扰模式\n私聊 和 @您的信息 将自动回复`);
+	    }
+	    else
+	    {
+	        setAutoResponse(null);
+	        showNotice("勿扰模式", `已关闭勿扰模式`);
+	    }
+	}
+
+	/**
+	 * 显示勿扰模式菜单
+	 */
+	function showNotDisturbModeMenu()
+	{
+	    showMenu([
+
+	        NList.getElement([
+	            (notDisturbMode ? "关闭勿扰模式" : "打开勿扰模式"),
+	            new NEvent("click", async () =>
+	            {
+	                setNotDisturbMode(!notDisturbMode);
+	            }),
+	        ]),
+
+	        NList.getElement([
+	            "设置勿扰自动回复内容",
+	            new NEvent("click", async () =>
+	            {
+	                let oldValue = storageContext.roaming.notDisturbModeAutoReply;
+	                let value = await showInputBox("自定义自动回复", "输入开启勿扰模式时私聊的自动回复内容", true, oldValue);
+	                if (value != undefined && oldValue != value)
+	                {
+	                    storageContext.roaming.notDisturbModeAutoReply = value;
+	                    storageRoamingSave();
+	                    autoResponseText = value;
+	                    showNotice("勿扰模式", "已更新免打扰自动回复文本");
+	                }
+	            }),
+	        ])
+
+	    ]);
+	}
+
 	/**
 	 * 启用补丁
 	 */
@@ -8547,7 +8620,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.14.0"
+	    version: "alpha v1.14.1"
 	};
 
 	/**
@@ -9013,6 +9086,15 @@
 
 	                            plugStone.windowElement.setDisplay("block");
 	                            plugStone.windowElement.setStyle("pointerEvents", "auto");
+	                        }
+	                    },
+	                    {
+	                        title: "勿扰模式",
+	                        text: "设置自动回复",
+	                        icon: "sync",
+	                        onClick: async () =>
+	                        {
+	                            showNotDisturbModeMenu();
 	                        }
 	                    },
 	                    {

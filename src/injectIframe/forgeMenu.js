@@ -5,6 +5,7 @@ import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NEl
 import { showBeautifyMenu } from "../feature/beautify.js";
 import { showBlacklistMenu } from "../feature/blacklist.js";
 import { showMultiAccountMenu } from "../feature/multiAccount.js";
+import { showNotDisturbModeMenu } from "../feature/notDisturbMode.js";
 import { showPatchMenu } from "../feature/patch.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
@@ -267,6 +268,15 @@ export function getForgeMenu()
 
                             plugStone.windowElement.setDisplay("block");
                             plugStone.windowElement.setStyle("pointerEvents", "auto");
+                        }
+                    },
+                    {
+                        title: "勿扰模式",
+                        text: "设置自动回复",
+                        icon: "sync",
+                        onClick: async () =>
+                        {
+                            showNotDisturbModeMenu();
                         }
                     },
                     {

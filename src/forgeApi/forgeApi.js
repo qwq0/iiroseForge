@@ -1,12 +1,12 @@
 import { domPath } from "../../lib/plugToolsLib.js";
+import { EventHandler } from "../../lib/qwqframe.js";
 import { delayPromise } from "../../lib/qwqframe.js";
 import { runTerminalCommand } from "../feature/runCommand.js";
 import { sendMessageOnCurrentPage } from "../feature/sendMessage.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
 import { writeForgePacket } from "../protocol/forgePacket.js";
 import { showNotice } from "../ui/notice.js";
-import { EventHandler } from "../util/EventHandler.js";
-import { htmlSpecialCharsDecode } from "../util/htmlSpecialChars.js";
+import { htmlSpecialCharsDecode, htmlSpecialCharsEscape } from "../util/htmlSpecialChars.js";
 
 export const forgeOccupyPlugNameSet = new Set([
     "forge",
@@ -52,8 +52,8 @@ export const forgeApi = {
          */
         getUserName: () =>
         {
-            if (iframeContext.iframeWindow?.["myself2"])
-                return iframeContext.iframeWindow["myself2"];
+            if (iframeContext.iframeWindow?.["myself"])
+                return iframeContext.iframeWindow["myself"];
             return null;
         },
 
@@ -138,8 +138,6 @@ export const forgeApi = {
             let userInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.findUserByUid?.(uid);
             if (userInfoArray)
             {
-                let imageAndDescription = htmlSpecialCharsDecode(userInfoArray[5].split("&&")[0].split("&")[0]);
-                let firstSpaceIndex = imageAndDescription.indexOf(" ");
                 return {
                     name: userInfoArray[2],
                     color: userInfoArray[3],
@@ -265,6 +263,9 @@ export const forgeApi = {
          * 静默发送私聊
          * @param {string} targetUid
          * @param {string} content
+         * @returns {{
+         *  messageId: string
+         * }}
          */
         sendPrivateMessageSilence: (targetUid, content) =>
         {
@@ -272,12 +273,14 @@ export const forgeApi = {
             content = String(content);
             if (!content || !targetUid)
                 return;
+            let messageId = String(Date.now()).slice(-5) + String(Math.random()).slice(-7);
             iframeContext.socketApi.send(JSON.stringify({
                 "g": targetUid,
                 "m": content,
                 "mc": forgeApi.operation.getUserInputColor(),
-                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+                "i": messageId
             }));
+            return { messageId };
         },
 
         /**
@@ -289,18 +292,28 @@ export const forgeApi = {
         {
             targetUid = String(targetUid);
             content = String(content);
-            if (!content || !targetUid || !iframeContext.iframeWindow?.["msgfetch"] || !iframeContext.iframeWindow?.["Variable"]?.pmObjJson || !iframeContext.iframeWindow?.["Utils"]?.service?.buildPmHelper)
+            if (!content || !targetUid)
                 return;
-            let inputBox = /** @type {HTMLInputElement} */(iframeContext.iframeDocument.getElementById("moveinput"));
-            let oldValue = inputBox.value;
-            let old_pmFull = iframeContext.iframeWindow["pmFull"];
-            inputBox.value = content;
-            iframeContext.iframeWindow["pmFull"] = true;
-            if (!iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid])
-                iframeContext.iframeWindow["Utils"].service.buildPmHelper(1, targetUid, targetUid);
-            iframeContext.iframeWindow["msgfetch"](0, iframeContext.iframeWindow["Variable"].pmObjJson?.[targetUid], targetUid, "");
-            iframeContext.iframeWindow["pmFull"] = old_pmFull;
-            inputBox.value = oldValue;
+            let messageId = forgeApi.operation.sendPrivateMessageSilence(targetUid, content).messageId;
+            iframeContext.iframeWindow?.["privatechatfunc"](([
+                Math.floor(Date.now() / 1000).toString(10), // 0
+                forgeApi.operation.getUserUid(), // 1
+                htmlSpecialCharsEscape(forgeApi.operation.getUserName()), // 2
+                htmlSpecialCharsEscape(forgeApi.operation.getUserProfilePictureUrl()), // 3
+                htmlSpecialCharsEscape(content), // 4
+                htmlSpecialCharsEscape(forgeApi.operation.getUserInputColor()), // 5
+                "", // 6
+                htmlSpecialCharsEscape(forgeApi.operation.getUserInputColor()), // 7
+                "", // 8
+                "", // 9
+                messageId, // 10
+                targetUid, // 11
+                "", // 12
+                "", // 13
+                "", // 14
+                "", // 15
+                "", // 16
+            ]).join(">"));
         },
 
         /**
