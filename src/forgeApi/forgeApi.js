@@ -126,6 +126,7 @@ export const forgeApi = {
          * @param {string} uid
          * @returns {{
          *  name: string,
+         *  uid: string,
          *  color: string,
          *  avatar: string,
          *  roomId: string,
@@ -140,11 +141,45 @@ export const forgeApi = {
             {
                 return {
                     name: userInfoArray[2],
+                    uid: uid,
                     color: userInfoArray[3],
                     avatar: userInfoArray[0],
                     roomId: userInfoArray[4],
                     personalizedSignature: userInfoArray[6]
                 };
+            }
+            else
+                return null;
+        },
+
+        /**
+         * 通过uid获取在线用户的信息
+         * @returns {Array<{
+         *  name: string,
+         *  uid: string,
+         *  color: string,
+         *  avatar: string,
+         *  roomId: string,
+         *  personalizedSignature: string
+         * }>}
+         */
+        getAllOnlineUserInfo: () =>
+        {
+            let userInfoMapObj = iframeContext.iframeWindow?.["Objs"]?.mapHolder.Assets.userJson;
+            if (userInfoMapObj)
+            {
+                return (Object.keys(userInfoMapObj)).map(key =>
+                {
+                    let o = userInfoMapObj[key];
+                    return {
+                        name: o[2],
+                        uid: o[8],
+                        color: o[3],
+                        avatar: o[0],
+                        roomId: o[4],
+                        personalizedSignature: o[6]
+                    };
+                });
             }
             else
                 return null;

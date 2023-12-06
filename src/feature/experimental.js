@@ -8,6 +8,8 @@ import { showNotice } from "../ui/notice.js";
 import { createNStyleList as styles } from "../../lib/qwqframe.js";
 import { cssG } from "../../lib/qwqframe.js";
 import { addMenuHook } from "./uiHook.js";
+import { forgeApi } from "../forgeApi/forgeApi.js";
+import { showCopyBox } from "../ui/infobox.js";
 
 let textEncoder = new TextEncoder();
 
@@ -53,6 +55,35 @@ export function enableExperimental()
             async (e) => { ejectionEscape(e.roomId); }
         );
     }
+
+    if (storageContext.local.experimentalOption["roomQuery"])
+    {
+        addMenuHook(
+            "roomQueryButton",
+            "roomMenu",
+            () => ({ text: "房间查询", icon: "account-search" }),
+            async (e) =>
+            {
+                let roomId = e.roomId;
+                let result = [];
+                let userList = forgeApi.operation.getAllOnlineUserInfo();
+                result.push("--- online user ---");
+                let count = 0;
+                userList.forEach(o =>
+                {
+                    if (o.roomId == roomId)
+                    {
+                        result.push(`${count++} - ${o.uid} (${o.name})`);
+                    }
+                });
+                result.push(`${count} user in this room.`);
+                let resultStr = result.join("\n");
+                console.log("[iiroseForge] 房间查询\n", resultStr);
+                showCopyBox("房间查询", "查询结果", resultStr);
+            }
+        );
+    }
+
 
     if (storageContext.local.experimentalOption["withdraw"])
     {

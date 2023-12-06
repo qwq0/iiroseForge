@@ -3457,6 +3457,7 @@
 	         * @param {string} uid
 	         * @returns {{
 	         *  name: string,
+	         *  uid: string,
 	         *  color: string,
 	         *  avatar: string,
 	         *  roomId: string,
@@ -3471,11 +3472,45 @@
 	            {
 	                return {
 	                    name: userInfoArray[2],
+	                    uid: uid,
 	                    color: userInfoArray[3],
 	                    avatar: userInfoArray[0],
 	                    roomId: userInfoArray[4],
 	                    personalizedSignature: userInfoArray[6]
 	                };
+	            }
+	            else
+	                return null;
+	        },
+
+	        /**
+	         * 通过uid获取在线用户的信息
+	         * @returns {Array<{
+	         *  name: string,
+	         *  uid: string,
+	         *  color: string,
+	         *  avatar: string,
+	         *  roomId: string,
+	         *  personalizedSignature: string
+	         * }>}
+	         */
+	        getAllOnlineUserInfo: () =>
+	        {
+	            let userInfoMapObj = iframeContext.iframeWindow?.["Objs"]?.mapHolder.Assets.userJson;
+	            if (userInfoMapObj)
+	            {
+	                return (Object.keys(userInfoMapObj)).map(key =>
+	                {
+	                    let o = userInfoMapObj[key];
+	                    return {
+	                        name: o[2],
+	                        uid: o[8],
+	                        color: o[3],
+	                        avatar: o[0],
+	                        roomId: o[4],
+	                        personalizedSignature: o[6]
+	                    };
+	                });
 	            }
 	            else
 	                return null;
@@ -4300,6 +4335,36 @@
 	}
 
 	/**
+	 * 显示复制框
+	 * @async
+	 * @param {string} title
+	 * @param {string} text
+	 * @param {string} copyText
+	 * @returns {Promise<string>}
+	 */
+	async function showCopyBox(title, text, copyText)
+	{
+	    var copyTextarea = expandElement({
+	        tagName: "textarea",
+	        style: {
+	            resize: "none",
+	            height: "24em",
+	            width: "18em",
+	        },
+	        attr: {
+	            value: copyText
+	        }
+	    });
+	    copyTextarea.addEventListener("keydown", e => { e.stopPropagation(); }, true);
+	    copyTextarea.addEventListener("input", () =>
+	    {
+	        copyTextarea.element.value = copyText;
+	    });
+	    var confirm = await showInfoBox(title, text, false, copyTextarea);
+	    return (confirm ? copyTextarea.element.value : undefined);
+	}
+
+	/**
 	 * 显示多行输入框
 	 * @param {string} title
 	 * @param {string} text
@@ -4313,8 +4378,8 @@
 	        tagName: "textarea",
 	        style: {
 	            resize: "none",
-	            height: "5em",
-	            weight: "20em"
+	            height: "24em",
+	            width: "19em",
 	        },
 	        attr: {
 	            value: initValue
@@ -8620,7 +8685,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.14.2"
+	    version: "alpha v1.14.3"
 	};
 
 	/**
@@ -10781,6 +10846,35 @@
 	            async (e) => { ejectionEscape(e.roomId); }
 	        );
 	    }
+
+	    if (storageContext.local.experimentalOption["roomQuery"])
+	    {
+	        addMenuHook(
+	            "roomQueryButton",
+	            "roomMenu",
+	            () => ({ text: "房间查询", icon: "account-search" }),
+	            async (e) =>
+	            {
+	                let roomId = e.roomId;
+	                let result = [];
+	                let userList = forgeApi.operation.getAllOnlineUserInfo();
+	                result.push("--- online user ---");
+	                let count = 0;
+	                userList.forEach(o =>
+	                {
+	                    if (o.roomId == roomId)
+	                    {
+	                        result.push(`${count++} - ${o.uid} (${o.name})`);
+	                    }
+	                });
+	                result.push(`${count} user in this room.`);
+	                let resultStr = result.join("\n");
+	                console.log("[iiroseForge] 房间查询\n", resultStr);
+	                showCopyBox("房间查询", "查询结果", resultStr);
+	            }
+	        );
+	    }
+
 
 	    if (storageContext.local.experimentalOption["withdraw"])
 	    {

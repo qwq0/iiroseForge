@@ -177,8 +177,8 @@ export async function showCopyBox(title, text, copyText)
         tagName: "textarea",
         style: {
             resize: "none",
-            height: "5em",
-            weight: "20em"
+            height: "24em",
+            width: "18em",
         },
         attr: {
             value: copyText
@@ -207,8 +207,8 @@ export async function showTextareaBox(title, text, allowCancel = false, initValu
         tagName: "textarea",
         style: {
             resize: "none",
-            height: "5em",
-            weight: "20em"
+            height: "24em",
+            width: "19em",
         },
         attr: {
             value: initValue
