@@ -14,7 +14,8 @@ export class ForgeSuperMenuColumn
      * 此列的列表
      * @type {Array<{
      *  element: NElement,
-     *  execute: () => void
+     *  execute: () => void,
+     *  optionMenu?: () => void
      * }>}
      */
     list = [];
@@ -106,12 +107,14 @@ export class ForgeSuperMenuColumn
      * 添加列表项
      * @param {NElement} element
      * @param {() => void} executeCB
+     * @param {() => void} [optionMenuCB]
      */
-    addChild(element, executeCB)
+    addChild(element, executeCB, optionMenuCB)
     {
         this.list.push({
             element: element,
-            execute: executeCB
+            execute: executeCB,
+            optionMenu: optionMenuCB
         });
         this.element.addChild(element);
     }
@@ -156,9 +159,20 @@ export class ForgeSuperMenuColumn
         this.menu.setCursorIndicator(nowRowElement.element.getBoundingClientRect());
     }
 
+    /**
+     * 触发当前选择的项
+     */
     triggerCurrent()
     {
         if (this.currentRowIndex != this.startRowIndex)
             this.list[this.currentRowIndex]?.execute();
+    }
+
+    /**
+     * 触发当前选择的项的选项菜单
+     */
+    triggerCurrentOptionMenu()
+    {
+        this.list[this.currentRowIndex]?.optionMenu?.();
     }
 }

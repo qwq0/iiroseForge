@@ -90,7 +90,12 @@ export const storageContext = {
          * 补丁设置
          * @type {Object<string, string | boolean>}
          */
-        patch: {}
+        patch: {},
+        /**
+         * 超级菜单优先级
+         * @type {Object<string, Object<string, number>>}
+         */
+        superMenuPriority: {}
     }
 };
 

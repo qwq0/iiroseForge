@@ -4065,7 +4065,12 @@
 	         * 补丁设置
 	         * @type {Object<string, string | boolean>}
 	         */
-	        patch: {}
+	        patch: {},
+	        /**
+	         * 超级菜单优先级
+	         * @type {Object<string, Object<string, number>>}
+	         */
+	        superMenuPriority: {}
 	    }
 	};
 
@@ -8564,6 +8569,21 @@
 	                    return false;
 	                });
 	            }
+	        },
+	        {
+	            key: "f5RefreshInside",
+	            cb: () =>
+	            {
+	                iframeContext.iframeWindow?.addEventListener("keydown", e =>
+	                {
+	                    if (e.key == "F5")
+	                    {
+	                        e.preventDefault();
+	                        e.stopPropagation();
+	                        iframeContext.iframeWindow?.location?.reload?.();
+	                    }
+	                }, true);
+	            }
 	        }
 	    ]).forEach(o =>
 	    {
@@ -8596,13 +8616,17 @@
 	            {
 	                name: "禁用右侧边缘显示聊天列表",
 	                key: "disableRightEdgeTrigger"
+	            },
+	            {
+	                name: "F5键仅刷新iframe内侧",
+	                key: "f5RefreshInside"
 	            }
 	        ]).map(o => NList.getElement([
 	            (storageContext.local.patch[o.key] ? " (已启用)" : "(已禁用)") + o.name,
 	            new NEvent("click", async () =>
 	            {
 	                let targetState = !storageContext.local.patch[o.key];
-	                let confirm = await showInfoBox("设置补丁", `切换 ${o.name} 补丁到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+	                let confirm = await showInfoBox("设置补丁", `切换 ${o.name} 补丁到 ${targetState ? "启用" : "禁用"} 状态\n可能需要 重载 或 深度重载(刷新页面) 以生效`, true);
 	                if (confirm)
 	                {
 	                    if (targetState)
@@ -8685,7 +8709,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.14.3"
+	    version: "alpha v1.15.0"
 	};
 
 	/**
@@ -10000,7 +10024,8 @@
 	     * 此列的列表
 	     * @type {Array<{
 	     *  element: NElement,
-	     *  execute: () => void
+	     *  execute: () => void,
+	     *  optionMenu?: () => void
 	     * }>}
 	     */
 	    list = [];
@@ -10092,12 +10117,14 @@
 	     * 添加列表项
 	     * @param {NElement} element
 	     * @param {() => void} executeCB
+	     * @param {() => void} [optionMenuCB]
 	     */
-	    addChild(element, executeCB)
+	    addChild(element, executeCB, optionMenuCB)
 	    {
 	        this.list.push({
 	            element: element,
-	            execute: executeCB
+	            execute: executeCB,
+	            optionMenu: optionMenuCB
 	        });
 	        this.element.addChild(element);
 	    }
@@ -10142,10 +10169,21 @@
 	        this.menu.setCursorIndicator(nowRowElement.element.getBoundingClientRect());
 	    }
 
+	    /**
+	     * 触发当前选择的项
+	     */
 	    triggerCurrent()
 	    {
 	        if (this.currentRowIndex != this.startRowIndex)
 	            this.list[this.currentRowIndex]?.execute();
+	    }
+
+	    /**
+	     * 触发当前选择的项的选项菜单
+	     */
+	    triggerCurrentOptionMenu()
+	    {
+	        this.list[this.currentRowIndex]?.optionMenu?.();
 	    }
 	}
 
@@ -10187,6 +10225,16 @@
 	     * 菜单打开时选中的列
 	     */
 	    startColumnIndex = 0;
+
+	    /**
+	     * 光标移动的x方向刻度
+	     */
+	    cursorScaleSizeX = 375;
+	    /**
+	     * 光标移动的y方向刻度
+	     */
+	    cursorScaleSizeY = 75;
+
 	    /**
 	     * 光标指示器元素
 	     */
@@ -10217,6 +10265,23 @@
 	                backgroundColor: "rgba(230, 230, 230, 0.5)",
 	                zIndex: "10000000",
 	            }),
+
+	            (
+	                !iframeContext.iframeWindow?.["isMobile"] ?
+	                    [
+	                        createNStyleList({
+	                            width: "100%",
+	                            left: "0",
+	                            bottom: "2px",
+	                            position: "fixed",
+	                            color: "rgba(0, 0, 0, 0.8)",
+	                            textAlign: "center"
+	                        }),
+
+	                        "鼠标 或 WASD 移动 | 松开右键 确认 | E 选项设置 | Q 放弃选择"
+	                    ] :
+	                    null
+	            ),
 
 	            this.cursorIndicator.element = NList.getElement([
 	                createNStyleList({
@@ -10270,36 +10335,32 @@
 	     */
 	    draw()
 	    {
-	        const sizeX = 375;
-	        const sizeY = 75;
-
-
-	        let minX = -(this.startColumnIndex + 0.5) * sizeX;
-	        let maxX = (this.menuList.length - this.startColumnIndex - 0.5) * sizeX;
+	        let minX = -(this.startColumnIndex + 0.5) * this.cursorScaleSizeX;
+	        let maxX = (this.menuList.length - this.startColumnIndex - 0.5) * this.cursorScaleSizeX;
 	        if (this.menuPointerX >= maxX)
 	            this.menuPointerX = maxX - 1;
 	        else if (this.menuPointerX < minX)
 	            this.menuPointerX = minX;
 
-	        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / sizeX);
+	        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / this.cursorScaleSizeX);
 	        this.setCurrentColumn(columnIndex);
 
 
 
 	        let nowColumn = this.menuList[this.currentColumnIndex];
 
-	        let minY = -(nowColumn.startRowIndex + 0.5) * sizeY;
-	        let maxY = (nowColumn.list.length - nowColumn.startRowIndex - 0.5) * sizeY;
+	        let minY = -(nowColumn.startRowIndex + 0.5) * this.cursorScaleSizeY;
+	        let maxY = (nowColumn.list.length - nowColumn.startRowIndex - 0.5) * this.cursorScaleSizeY;
 	        if (this.menuPointerY >= maxY)
 	            this.menuPointerY = maxY - 1;
 	        else if (this.menuPointerY < minY)
 	            this.menuPointerY = minY;
 
-	        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / sizeY);
+	        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / this.cursorScaleSizeY);
 	        nowColumn.setCurrentRow(rowIndex);
 
-	        let verticalRemainderPercentage = (this.menuPointerY / sizeY) - Math.round(this.menuPointerY / sizeY) + 0.5;
-	        let horizontalRemainderPercentage = (this.menuPointerX / sizeX) - Math.round(this.menuPointerX / sizeX) + 0.5;
+	        let verticalRemainderPercentage = (this.menuPointerY / this.cursorScaleSizeY) - Math.round(this.menuPointerY / this.cursorScaleSizeY) + 0.5;
+	        let horizontalRemainderPercentage = (this.menuPointerX / this.cursorScaleSizeX) - Math.round(this.menuPointerX / this.cursorScaleSizeX) + 0.5;
 
 	        if (this.cursorIndicator.visible)
 	        {
@@ -10378,7 +10439,29 @@
 	     */
 	    triggerCurrent()
 	    {
-	        this.menuList[this.currentColumnIndex]?.triggerCurrent();
+	        try
+	        {
+	            this.menuList[this.currentColumnIndex]?.triggerCurrent();
+	        }
+	        catch (err)
+	        {
+	            console.error(err);
+	        }
+	    }
+
+	    /**
+	     * 触发当前选择的项的选项菜单
+	     */
+	    triggerCurrentOptionMenu()
+	    {
+	        try
+	        {
+	            this.menuList[this.currentColumnIndex]?.triggerCurrentOptionMenu();
+	        }
+	        catch (err)
+	        {
+	            console.error(err);
+	        }
 	    }
 
 	    /**
@@ -10390,11 +10473,13 @@
 	        if (rect)
 	        {
 	            const eps = 0.001;
-	            if (Math.abs(rect.x - this.cursorIndicator.x) >= eps ||
+	            if (
+	                Math.abs(rect.x - this.cursorIndicator.x) >= eps ||
 	                Math.abs(rect.y - this.cursorIndicator.y) >= eps ||
 	                Math.abs(rect.width - this.cursorIndicator.width) >= eps ||
 	                Math.abs(rect.height - this.cursorIndicator.height) >= eps ||
-	                !this.cursorIndicator.visible)
+	                !this.cursorIndicator.visible
+	            )
 	            {
 	                this.cursorIndicator.x = rect.x;
 	                this.cursorIndicator.y = rect.y;
@@ -10453,6 +10538,11 @@
 	    supperMenu.setCurrentColumn(1);
 
 	    /**
+	     * 当前选择被取消
+	     */
+	    let canceled = false;
+
+	    /**
 	     * 刷新列表项
 	     */
 	    function refreshListItem()
@@ -10490,8 +10580,17 @@
 	        {
 	            rightColumn.clearChild();
 
+	            /**
+	             * @type {Array<{ id?: string, item: any, execute: () => void }>}
+	             */
+	            let menuList = [];
+
 	            let nowRoomId = forgeApi.operation.getUserRoomId();
-	            rightColumn.addChild(createRoomListItemById(nowRoomId), () => { });
+	            menuList.push({
+	                item: createRoomListItemById(nowRoomId),
+	                execute: () => { }
+	            });
+
 	            try
 	            {
 	                /** @type {Array<string>} */
@@ -10500,9 +10599,13 @@
 	                    roomHistory.forEach(o =>
 	                    {
 	                        if (o != nowRoomId)
-	                            rightColumn.addChild(createRoomListItemById(o, "历史"), () =>
-	                            {
-	                                forgeApi.operation.switchRoom(o);
+	                            menuList.push({
+	                                id: o,
+	                                item: createRoomListItemById(o, "历史"),
+	                                execute: () =>
+	                                {
+	                                    forgeApi.operation.switchRoom(o);
+	                                }
 	                            });
 	                    });
 	            }
@@ -10511,43 +10614,75 @@
 	                console.error("forge supper menu:", err);
 	            }
 
-	            rightColumn.currentRowIndex = 0;
+	            createSortableList(menuList, rightColumn, "right");
 	        }
 	        // 左侧的列表
 	        {
 	            leftColumn.clearChild();
 
-	            leftColumn.addChild(createListItem("", "无动作", ""), () => { });
-	            leftColumn.addChild(createListItem("mdi-mailbox", "打开信箱", ""), () =>
-	            {
-	                iframeContext.iframeWindow?.["functionBtnDo"]?.(2);
-	            });
-	            leftColumn.addChild(createListItem("mdi-music", "切换媒体开关", ""), () =>
-	            {
-	                iframeContext.iframeWindow?.["functionBtnDo"]?.(90);
-	            });
-	            leftColumn.addChild(createListItem("mdi-music-box-multiple", "打开播放列表", ""), () =>
-	            {
-	                iframeContext.iframeWindow?.["functionBtnDo"]?.(1, iframeContext.iframeDocument?.createElement("div"));
-	            });
-	            leftColumn.addChild(createListItem("mdi-store", "打开商店", ""), () =>
-	            {
-	                iframeContext.iframeWindow?.["functionBtnDo"]?.(10, iframeContext.iframeDocument?.createElement("div"));
-	            });
-	            leftColumn.addChild(createListItem("mdi-camera-iris", "打开朋友圈", ""), () =>
-	            {
-	                iframeContext.iframeWindow?.["functionBtnDo"]?.(5);
-	            });
-	            leftColumn.addChild(createListItem("mdi-forum", "打开论坛", ""), () =>
-	            {
-	                iframeContext.iframeWindow?.["functionBtnDo"]?.(3);
-	            });
-	            leftColumn.addChild(createListItem("mdi-clipboard-check-multiple", "打开任务版", ""), () =>
-	            {
-	                iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
-	            });
-
-	            leftColumn.currentRowIndex = 0;
+	            let menuList = [
+	                {
+	                    item: createListItem("", "无动作", ""),
+	                    execute: () => { }
+	                },
+	                {
+	                    id: "信箱",
+	                    item: createListItem("mdi-mailbox", "打开信箱", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(2);
+	                    }
+	                },
+	                {
+	                    id: "媒体开关",
+	                    item: createListItem("mdi-music", "切换媒体开关", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(90);
+	                    }
+	                },
+	                {
+	                    id: "播放列表",
+	                    item: createListItem("mdi-music-box-multiple", "打开播放列表", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(1, iframeContext.iframeDocument?.createElement("div"));
+	                    }
+	                },
+	                {
+	                    id: "商店",
+	                    item: createListItem("mdi-store", "打开商店", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(10, iframeContext.iframeDocument?.createElement("div"));
+	                    }
+	                },
+	                {
+	                    id: "朋友圈",
+	                    item: createListItem("mdi-camera-iris", "打开朋友圈", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(5);
+	                    }
+	                },
+	                {
+	                    id: "论坛",
+	                    item: createListItem("mdi-forum", "打开论坛", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(3);
+	                    }
+	                },
+	                {
+	                    id: "任务版",
+	                    item: createListItem("mdi-clipboard-check-multiple", "打开任务版", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
+	                    }
+	                }
+	            ];
+	            createSortableList(menuList, leftColumn, "left");
 	        }
 
 	        supperMenu.setCurrentColumn(1);
@@ -10558,8 +10693,57 @@
 	     */
 	    let mouseMove = (e) =>
 	    {
-	        if (supperMenuDisplay)
+	        if (supperMenuDisplay && !canceled)
 	            supperMenu.menuPointerMove(e.movementX, e.movementY);
+	    };
+	    /**
+	     * @param {KeyboardEvent} e
+	     */
+	    let keyDown = (e) =>
+	    {
+	        if (supperMenuDisplay && !canceled)
+	            switch (e.code)
+	            {
+	                case "KeyW":
+	                    e.preventDefault();
+	                    supperMenu.menuPointerMove(0, -supperMenu.cursorScaleSizeY);
+	                    break;
+	                case "KeyA":
+	                    e.preventDefault();
+	                    supperMenu.menuPointerMove(-supperMenu.cursorScaleSizeX, 0);
+	                    break;
+	                case "KeyD":
+	                    e.preventDefault();
+	                    supperMenu.menuPointerMove(supperMenu.cursorScaleSizeX, 0);
+	                    break;
+	                case "KeyS":
+	                    e.preventDefault();
+	                    supperMenu.menuPointerMove(0, supperMenu.cursorScaleSizeY);
+	                    break;
+	                case "KeyE":
+	                    e.preventDefault();
+
+	                    supperMenu.triggerCurrentOptionMenu();
+
+	                    iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+	                    iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+	                    supperMenu.hide();
+	                    canceled = true;
+	                    supperMenuDisplay = false;
+	                    document.exitPointerLock();
+	                    iframeContext.iframeDocument.exitPointerLock();
+	                    break;
+	                case "KeyQ":
+	                    e.preventDefault();
+
+	                    iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+	                    iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+	                    supperMenu.hide();
+	                    canceled = true;
+	                    document.exitPointerLock();
+	                    iframeContext.iframeDocument.exitPointerLock();
+	                    break;
+	            }
 	    };
 
 	    iframeContext.iframeWindow.addEventListener("mousedown", e =>
@@ -10576,6 +10760,8 @@
 	            supperMenu.menuPointerReset();
 	            supperMenu.show();
 	            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
+	            iframeContext.iframeWindow.addEventListener("keydown", keyDown, true);
+	            canceled = false;
 	            supperMenu.menuElement.element.requestPointerLock({
 	                unadjustedMovement: true
 	            });
@@ -10592,8 +10778,13 @@
 	        }
 	        if (!supperMenuDisplay)
 	            return;
-	        supperMenu.triggerCurrent();
+
+	        e.stopPropagation();
+	        e.preventDefault();
+	        if (!canceled)
+	            supperMenu.triggerCurrent();
 	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+	        iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
 
 	        document.exitPointerLock();
 	        iframeContext.iframeDocument.exitPointerLock();
@@ -10602,7 +10793,18 @@
 	        {
 	            supperMenuDisplay = false;
 	            supperMenu.hide();
+
+	            document.exitPointerLock();
+	            iframeContext.iframeDocument.exitPointerLock();
 	        }, 10);
+	    }, true);
+	    iframeContext.iframeWindow.addEventListener("contextmenu", e =>
+	    {
+	        if (supperMenuDisplay)
+	        {
+	            e.stopPropagation();
+	            e.preventDefault();
+	        }
 	    }, true);
 
 	    if (iframeContext.iframeWindow?.["isMobile"])
@@ -10618,7 +10820,8 @@
 	                if (!e.hold)
 	                    setTimeout(() =>
 	                    {
-	                        supperMenu.triggerCurrent();
+	                        if (!canceled)
+	                            supperMenu.triggerCurrent();
 	                        supperMenuDisplay = false;
 	                        supperMenu.hide();
 	                    }, 10);
@@ -10646,9 +10849,104 @@
 	                refreshListItem();
 	                supperMenu.menuPointerReset();
 	                supperMenu.show();
+	                canceled = false;
 	            }
 	        }, true);
 	    }
+	}
+
+	/**
+	 * @param {Array<{id?: string;item: any;execute: () => void;}>} menuList
+	 * @param {ForgeSuperMenuColumn} column
+	 * @param {string} columnName
+	 */
+	function createSortableList(menuList, column, columnName)
+	{
+	    menuList.sort((a, b) =>
+	    {
+	        /**
+	         * @param {{ id?: string }} o
+	         */
+	        function mappingPriority(o)
+	        {
+	            if (o.id == undefined)
+	                return 0;
+	            let priorityValue = storageContext.local.superMenuPriority?.[columnName]?.[o.id];
+	            if (priorityValue == undefined)
+	                return (1 << 30);
+	            else if (priorityValue > 0)
+	                return (1 << 30) - priorityValue;
+	            else if (priorityValue < 0)
+	                return (1 << 31) - priorityValue;
+	        }
+	        return mappingPriority(a) - mappingPriority(b);
+	    }).forEach((o, index) =>
+	    {
+	        column.addChild(
+	            o.item,
+	            o.execute,
+	            () =>
+	            {
+	                if (!o.id)
+	                    return;
+	                showMenu([
+	                    NList.getElement([
+	                        "置底于无动作上方",
+	                        new NEvent("click", () =>
+	                        {
+	                            let mapObj = storageContext.local.superMenuPriority[columnName];
+	                            if (!mapObj)
+	                            {
+	                                mapObj = {};
+	                                storageContext.local.superMenuPriority[columnName] = mapObj;
+	                            }
+	                            let minValue = 0;
+	                            Object.keys(mapObj).forEach(key =>
+	                            {
+	                                if (key != o.id && mapObj[key] < 0)
+	                                    minValue = Math.min(minValue, mapObj[key]);
+	                            });
+	                            mapObj[o.id] = minValue - 1;
+	                            storageLocalSave();
+	                        })
+	                    ]),
+	                    NList.getElement([
+	                        "置顶于无动作下方",
+	                        new NEvent("click", () =>
+	                        {
+	                            let mapObj = storageContext.local.superMenuPriority[columnName];
+	                            if (!mapObj)
+	                            {
+	                                mapObj = {};
+	                                storageContext.local.superMenuPriority[columnName] = mapObj;
+	                            }
+	                            let maxValue = 0;
+	                            Object.keys(mapObj).forEach(key =>
+	                            {
+	                                if (key != o.id && mapObj[key] > 0)
+	                                    maxValue = Math.max(maxValue, mapObj[key]);
+	                            });
+	                            mapObj[o.id] = maxValue + 1;
+	                            storageLocalSave();
+	                        })
+	                    ]),
+	                    NList.getElement([
+	                        "取消自定义位置",
+	                        new NEvent("click", () =>
+	                        {
+	                            if (storageContext.local.superMenuPriority[columnName])
+	                            {
+	                                delete storageContext.local.superMenuPriority[columnName][o.id];
+	                                storageLocalSave();
+	                            }
+	                        })
+	                    ])
+	                ]);
+	            }
+	        );
+	        if (!o.id)
+	            column.currentRowIndex = index;
+	    });
 	}
 
 

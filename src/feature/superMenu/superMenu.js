@@ -7,6 +7,8 @@ import { ForgeSuperMenu } from "./ForgeSuperMenu.js";
 import { ForgeSuperMenuColumn } from "./ForgeSuperMenuColumn.js";
 import { forgeApi } from "../../forgeApi/forgeApi.js";
 import { touchBind } from "../../../lib/qwqframe.js";
+import { showMenu } from "../../ui/menu.js";
+import { storageContext, storageLocalSave } from "../../storage/storage.js";
 
 /**
  * 启用超级菜单
@@ -29,6 +31,11 @@ export function enableSuperMenu()
     supperMenu.addColumn(midColumn);
     supperMenu.addColumn(rightColumn);
     supperMenu.setCurrentColumn(1);
+
+    /**
+     * 当前选择被取消
+     */
+    let canceled = false;
 
     /**
      * 刷新列表项
@@ -68,8 +75,17 @@ export function enableSuperMenu()
         {
             rightColumn.clearChild();
 
+            /**
+             * @type {Array<{ id?: string, item: any, execute: () => void }>}
+             */
+            let menuList = [];
+
             let nowRoomId = forgeApi.operation.getUserRoomId();
-            rightColumn.addChild(createRoomListItemById(nowRoomId), () => { });
+            menuList.push({
+                item: createRoomListItemById(nowRoomId),
+                execute: () => { }
+            });
+
             try
             {
                 /** @type {Array<string>} */
@@ -78,9 +94,13 @@ export function enableSuperMenu()
                     roomHistory.forEach(o =>
                     {
                         if (o != nowRoomId)
-                            rightColumn.addChild(createRoomListItemById(o, "历史"), () =>
-                            {
-                                forgeApi.operation.switchRoom(o);
+                            menuList.push({
+                                id: o,
+                                item: createRoomListItemById(o, "历史"),
+                                execute: () =>
+                                {
+                                    forgeApi.operation.switchRoom(o);
+                                }
                             });
                     });
             }
@@ -89,43 +109,75 @@ export function enableSuperMenu()
                 console.error("forge supper menu:", err);
             }
 
-            rightColumn.currentRowIndex = 0;
+            createSortableList(menuList, rightColumn, "right");
         }
         // 左侧的列表
         {
             leftColumn.clearChild();
 
-            leftColumn.addChild(createListItem("", "无动作", ""), () => { });
-            leftColumn.addChild(createListItem("mdi-mailbox", "打开信箱", ""), () =>
-            {
-                iframeContext.iframeWindow?.["functionBtnDo"]?.(2);
-            });
-            leftColumn.addChild(createListItem("mdi-music", "切换媒体开关", ""), () =>
-            {
-                iframeContext.iframeWindow?.["functionBtnDo"]?.(90);
-            });
-            leftColumn.addChild(createListItem("mdi-music-box-multiple", "打开播放列表", ""), () =>
-            {
-                iframeContext.iframeWindow?.["functionBtnDo"]?.(1, iframeContext.iframeDocument?.createElement("div"));
-            });
-            leftColumn.addChild(createListItem("mdi-store", "打开商店", ""), () =>
-            {
-                iframeContext.iframeWindow?.["functionBtnDo"]?.(10, iframeContext.iframeDocument?.createElement("div"));
-            });
-            leftColumn.addChild(createListItem("mdi-camera-iris", "打开朋友圈", ""), () =>
-            {
-                iframeContext.iframeWindow?.["functionBtnDo"]?.(5);
-            });
-            leftColumn.addChild(createListItem("mdi-forum", "打开论坛", ""), () =>
-            {
-                iframeContext.iframeWindow?.["functionBtnDo"]?.(3);
-            });
-            leftColumn.addChild(createListItem("mdi-clipboard-check-multiple", "打开任务版", ""), () =>
-            {
-                iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
-            });
-
-            leftColumn.currentRowIndex = 0;
+            let menuList = [
+                {
+                    item: createListItem("", "无动作", ""),
+                    execute: () => { }
+                },
+                {
+                    id: "信箱",
+                    item: createListItem("mdi-mailbox", "打开信箱", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(2);
+                    }
+                },
+                {
+                    id: "媒体开关",
+                    item: createListItem("mdi-music", "切换媒体开关", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(90);
+                    }
+                },
+                {
+                    id: "播放列表",
+                    item: createListItem("mdi-music-box-multiple", "打开播放列表", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(1, iframeContext.iframeDocument?.createElement("div"));
+                    }
+                },
+                {
+                    id: "商店",
+                    item: createListItem("mdi-store", "打开商店", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(10, iframeContext.iframeDocument?.createElement("div"));
+                    }
+                },
+                {
+                    id: "朋友圈",
+                    item: createListItem("mdi-camera-iris", "打开朋友圈", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(5);
+                    }
+                },
+                {
+                    id: "论坛",
+                    item: createListItem("mdi-forum", "打开论坛", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(3);
+                    }
+                },
+                {
+                    id: "任务版",
+                    item: createListItem("mdi-clipboard-check-multiple", "打开任务版", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
+                    }
+                }
+            ];
+            createSortableList(menuList, leftColumn, "left");
         }
 
         supperMenu.setCurrentColumn(1);
@@ -136,8 +188,57 @@ export function enableSuperMenu()
      */
     let mouseMove = (e) =>
     {
-        if (supperMenuDisplay)
+        if (supperMenuDisplay && !canceled)
             supperMenu.menuPointerMove(e.movementX, e.movementY);
+    };
+    /**
+     * @param {KeyboardEvent} e
+     */
+    let keyDown = (e) =>
+    {
+        if (supperMenuDisplay && !canceled)
+            switch (e.code)
+            {
+                case "KeyW":
+                    e.preventDefault();
+                    supperMenu.menuPointerMove(0, -supperMenu.cursorScaleSizeY);
+                    break;
+                case "KeyA":
+                    e.preventDefault();
+                    supperMenu.menuPointerMove(-supperMenu.cursorScaleSizeX, 0);
+                    break;
+                case "KeyD":
+                    e.preventDefault();
+                    supperMenu.menuPointerMove(supperMenu.cursorScaleSizeX, 0);
+                    break;
+                case "KeyS":
+                    e.preventDefault();
+                    supperMenu.menuPointerMove(0, supperMenu.cursorScaleSizeY);
+                    break;
+                case "KeyE":
+                    e.preventDefault();
+
+                    supperMenu.triggerCurrentOptionMenu();
+
+                    iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+                    iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+                    supperMenu.hide();
+                    canceled = true;
+                    supperMenuDisplay = false;
+                    document.exitPointerLock();
+                    iframeContext.iframeDocument.exitPointerLock();
+                    break;
+                case "KeyQ":
+                    e.preventDefault();
+
+                    iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+                    iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+                    supperMenu.hide();
+                    canceled = true;
+                    document.exitPointerLock();
+                    iframeContext.iframeDocument.exitPointerLock();
+                    break;
+            }
     };
 
     iframeContext.iframeWindow.addEventListener("mousedown", e =>
@@ -154,6 +255,8 @@ export function enableSuperMenu()
             supperMenu.menuPointerReset();
             supperMenu.show();
             iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
+            iframeContext.iframeWindow.addEventListener("keydown", keyDown, true);
+            canceled = false;
             supperMenu.menuElement.element.requestPointerLock({
                 unadjustedMovement: true
             });
@@ -170,8 +273,13 @@ export function enableSuperMenu()
         }
         if (!supperMenuDisplay)
             return;
-        supperMenu.triggerCurrent();
+
+        e.stopPropagation();
+        e.preventDefault();
+        if (!canceled)
+            supperMenu.triggerCurrent();
         iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+        iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
 
         document.exitPointerLock();
         iframeContext.iframeDocument.exitPointerLock();
@@ -180,7 +288,18 @@ export function enableSuperMenu()
         {
             supperMenuDisplay = false;
             supperMenu.hide();
+
+            document.exitPointerLock();
+            iframeContext.iframeDocument.exitPointerLock();
         }, 10);
+    }, true);
+    iframeContext.iframeWindow.addEventListener("contextmenu", e =>
+    {
+        if (supperMenuDisplay)
+        {
+            e.stopPropagation();
+            e.preventDefault();
+        }
     }, true);
 
     if (iframeContext.iframeWindow?.["isMobile"])
@@ -196,7 +315,8 @@ export function enableSuperMenu()
                 if (!e.hold)
                     setTimeout(() =>
                     {
-                        supperMenu.triggerCurrent();
+                        if (!canceled)
+                            supperMenu.triggerCurrent();
                         supperMenuDisplay = false;
                         supperMenu.hide();
                     }, 10);
@@ -224,9 +344,104 @@ export function enableSuperMenu()
                 refreshListItem();
                 supperMenu.menuPointerReset();
                 supperMenu.show();
+                canceled = false;
             }
         }, true);
     }
+}
+
+/**
+ * @param {Array<{id?: string;item: any;execute: () => void;}>} menuList
+ * @param {ForgeSuperMenuColumn} column
+ * @param {string} columnName
+ */
+function createSortableList(menuList, column, columnName)
+{
+    menuList.sort((a, b) =>
+    {
+        /**
+         * @param {{ id?: string }} o
+         */
+        function mappingPriority(o)
+        {
+            if (o.id == undefined)
+                return 0;
+            let priorityValue = storageContext.local.superMenuPriority?.[columnName]?.[o.id];
+            if (priorityValue == undefined)
+                return (1 << 30);
+            else if (priorityValue > 0)
+                return (1 << 30) - priorityValue;
+            else if (priorityValue < 0)
+                return (1 << 31) - priorityValue;
+        }
+        return mappingPriority(a) - mappingPriority(b);
+    }).forEach((o, index) =>
+    {
+        column.addChild(
+            o.item,
+            o.execute,
+            () =>
+            {
+                if (!o.id)
+                    return;
+                showMenu([
+                    NList.getElement([
+                        "置底于无动作上方",
+                        new NEvent("click", () =>
+                        {
+                            let mapObj = storageContext.local.superMenuPriority[columnName];
+                            if (!mapObj)
+                            {
+                                mapObj = {};
+                                storageContext.local.superMenuPriority[columnName] = mapObj;
+                            }
+                            let minValue = 0;
+                            Object.keys(mapObj).forEach(key =>
+                            {
+                                if (key != o.id && mapObj[key] < 0)
+                                    minValue = Math.min(minValue, mapObj[key]);
+                            });
+                            mapObj[o.id] = minValue - 1;
+                            storageLocalSave();
+                        })
+                    ]),
+                    NList.getElement([
+                        "置顶于无动作下方",
+                        new NEvent("click", () =>
+                        {
+                            let mapObj = storageContext.local.superMenuPriority[columnName];
+                            if (!mapObj)
+                            {
+                                mapObj = {};
+                                storageContext.local.superMenuPriority[columnName] = mapObj;
+                            }
+                            let maxValue = 0;
+                            Object.keys(mapObj).forEach(key =>
+                            {
+                                if (key != o.id && mapObj[key] > 0)
+                                    maxValue = Math.max(maxValue, mapObj[key]);
+                            });
+                            mapObj[o.id] = maxValue + 1;
+                            storageLocalSave();
+                        })
+                    ]),
+                    NList.getElement([
+                        "取消自定义位置",
+                        new NEvent("click", () =>
+                        {
+                            if (storageContext.local.superMenuPriority[columnName])
+                            {
+                                delete storageContext.local.superMenuPriority[columnName][o.id];
+                                storageLocalSave();
+                            }
+                        })
+                    ])
+                ]);
+            }
+        );
+        if (!o.id)
+            column.currentRowIndex = index;
+    });
 }
 
 

@@ -12,6 +12,7 @@ import { showMenu } from "../ui/menu";
 import { showInfoBox, showInputBox } from "../ui/infobox";
 import { delayPromise } from "../../lib/qwqframe";
 
+
 /**
  * 启用补丁
  */
@@ -42,6 +43,21 @@ export async function enablePatch()
                     }
                     return false;
                 });
+            }
+        },
+        {
+            key: "f5RefreshInside",
+            cb: () =>
+            {
+                iframeContext.iframeWindow?.addEventListener("keydown", e =>
+                {
+                    if (e.key == "F5")
+                    {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        iframeContext.iframeWindow?.location?.reload?.();
+                    }
+                }, true);
             }
         }
     ]).forEach(o =>
@@ -75,13 +91,17 @@ export function showPatchMenu()
             {
                 name: "禁用右侧边缘显示聊天列表",
                 key: "disableRightEdgeTrigger"
+            },
+            {
+                name: "F5键仅刷新iframe内侧",
+                key: "f5RefreshInside"
             }
         ]).map(o => NList.getElement([
             (storageContext.local.patch[o.key] ? " (已启用)" : "(已禁用)") + o.name,
             new NEvent("click", async () =>
             {
                 let targetState = !storageContext.local.patch[o.key];
-                let confirm = await showInfoBox("设置补丁", `切换 ${o.name} 补丁到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+                let confirm = await showInfoBox("设置补丁", `切换 ${o.name} 补丁到 ${targetState ? "启用" : "禁用"} 状态\n可能需要 重载 或 深度重载(刷新页面) 以生效`, true);
                 if (confirm)
                 {
                     if (targetState)

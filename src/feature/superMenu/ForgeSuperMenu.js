@@ -41,6 +41,16 @@ export class ForgeSuperMenu
      * 菜单打开时选中的列
      */
     startColumnIndex = 0;
+
+    /**
+     * 光标移动的x方向刻度
+     */
+    cursorScaleSizeX = 375;
+    /**
+     * 光标移动的y方向刻度
+     */
+    cursorScaleSizeY = 75;
+
     /**
      * 光标指示器元素
      */
@@ -71,6 +81,23 @@ export class ForgeSuperMenu
                 backgroundColor: "rgba(230, 230, 230, 0.5)",
                 zIndex: "10000000",
             }),
+
+            (
+                !iframeContext.iframeWindow?.["isMobile"] ?
+                    [
+                        styles({
+                            width: "100%",
+                            left: "0",
+                            bottom: "2px",
+                            position: "fixed",
+                            color: "rgba(0, 0, 0, 0.8)",
+                            textAlign: "center"
+                        }),
+
+                        "鼠标 或 WASD 移动 | 松开右键 确认 | E 选项设置 | Q 放弃选择"
+                    ] :
+                    null
+            ),
 
             this.cursorIndicator.element = NList.getElement([
                 styles({
@@ -124,36 +151,32 @@ export class ForgeSuperMenu
      */
     draw()
     {
-        const sizeX = 375;
-        const sizeY = 75;
-
-
-        let minX = -(this.startColumnIndex + 0.5) * sizeX;
-        let maxX = (this.menuList.length - this.startColumnIndex - 0.5) * sizeX;
+        let minX = -(this.startColumnIndex + 0.5) * this.cursorScaleSizeX;
+        let maxX = (this.menuList.length - this.startColumnIndex - 0.5) * this.cursorScaleSizeX;
         if (this.menuPointerX >= maxX)
             this.menuPointerX = maxX - 1;
         else if (this.menuPointerX < minX)
             this.menuPointerX = minX;
 
-        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / sizeX);
+        let columnIndex = this.startColumnIndex + Math.round(this.menuPointerX / this.cursorScaleSizeX);
         this.setCurrentColumn(columnIndex);
 
 
 
         let nowColumn = this.menuList[this.currentColumnIndex];
 
-        let minY = -(nowColumn.startRowIndex + 0.5) * sizeY;
-        let maxY = (nowColumn.list.length - nowColumn.startRowIndex - 0.5) * sizeY;
+        let minY = -(nowColumn.startRowIndex + 0.5) * this.cursorScaleSizeY;
+        let maxY = (nowColumn.list.length - nowColumn.startRowIndex - 0.5) * this.cursorScaleSizeY;
         if (this.menuPointerY >= maxY)
             this.menuPointerY = maxY - 1;
         else if (this.menuPointerY < minY)
             this.menuPointerY = minY;
 
-        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / sizeY);
+        let rowIndex = nowColumn.startRowIndex + Math.round(this.menuPointerY / this.cursorScaleSizeY);
         nowColumn.setCurrentRow(rowIndex);
 
-        let verticalRemainderPercentage = (this.menuPointerY / sizeY) - Math.round(this.menuPointerY / sizeY) + 0.5;
-        let horizontalRemainderPercentage = (this.menuPointerX / sizeX) - Math.round(this.menuPointerX / sizeX) + 0.5;
+        let verticalRemainderPercentage = (this.menuPointerY / this.cursorScaleSizeY) - Math.round(this.menuPointerY / this.cursorScaleSizeY) + 0.5;
+        let horizontalRemainderPercentage = (this.menuPointerX / this.cursorScaleSizeX) - Math.round(this.menuPointerX / this.cursorScaleSizeX) + 0.5;
 
         if (this.cursorIndicator.visible)
         {
@@ -232,7 +255,29 @@ export class ForgeSuperMenu
      */
     triggerCurrent()
     {
-        this.menuList[this.currentColumnIndex]?.triggerCurrent();
+        try
+        {
+            this.menuList[this.currentColumnIndex]?.triggerCurrent();
+        }
+        catch (err)
+        {
+            console.error(err);
+        }
+    }
+
+    /**
+     * 触发当前选择的项的选项菜单
+     */
+    triggerCurrentOptionMenu()
+    {
+        try
+        {
+            this.menuList[this.currentColumnIndex]?.triggerCurrentOptionMenu();
+        }
+        catch (err)
+        {
+            console.error(err);
+        }
     }
 
     /**
@@ -244,11 +289,13 @@ export class ForgeSuperMenu
         if (rect)
         {
             const eps = 0.001;
-            if (Math.abs(rect.x - this.cursorIndicator.x) >= eps ||
+            if (
+                Math.abs(rect.x - this.cursorIndicator.x) >= eps ||
                 Math.abs(rect.y - this.cursorIndicator.y) >= eps ||
                 Math.abs(rect.width - this.cursorIndicator.width) >= eps ||
                 Math.abs(rect.height - this.cursorIndicator.height) >= eps ||
-                !this.cursorIndicator.visible)
+                !this.cursorIndicator.visible
+            )
             {
                 this.cursorIndicator.x = rect.x;
                 this.cursorIndicator.y = rect.y;
