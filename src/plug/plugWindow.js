@@ -70,10 +70,10 @@ export function createPlugWindow(noSandbox = false)
                 lineHeight: "1.5em",
                 backgroundColor: "rgba(100, 100, 100, 0.2)"
             }),
-            new NAsse(e =>
+            e =>
             {
-                var ox = 0, oy = 0;
-                var proc = (/** @type {{ sx: number, sy: number, x: number, y: number, pressing: boolean,hold: boolean }} */ o) =>
+                let ox = 0, oy = 0;
+                let proc = (/** @type {{ sx: number, sy: number, x: number, y: number, pressing: boolean,hold: boolean }} */ o) =>
                 {
                     if (o.hold)
                     {
@@ -102,7 +102,7 @@ export function createPlugWindow(noSandbox = false)
                 };
                 mouseBind(e, proc);
                 touchBind(e, proc);
-            }),
+            },
 
             new NEvent("touchend", () =>
             {

@@ -74,6 +74,8 @@ export const storageContext = {
         enableSyncChatRecord: false,
         // 启用用户备注
         enableUserRemark: true,
+        // 启用音频接管
+        enableAudioTakeover: true,
         // 启用超级菜单
         enableSuperMenu: false,
         // 启用快速房管操作

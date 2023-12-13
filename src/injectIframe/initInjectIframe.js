@@ -20,6 +20,7 @@ import { enableBeautify } from "../feature/beautify.js";
 import { enableBlacklist } from "../feature/blacklist.js";
 import { enableRoomAdminOperation } from "../feature/roomAdminOperation.js";
 import { enablePatch } from "../feature/patch.js";
+import { enableAudioTakeover } from "../feature/audioTakeover.js";
 
 
 
@@ -149,6 +150,10 @@ export function initInjectIframe()
             {
                 func: enableRoomAdminOperation,
                 condition: "enableRoomAdminOperation"
+            },
+            {
+                func: enableAudioTakeover,
+                condition: "enableAudioTakeover"
             },
             {
                 func: trySyncChatRecord,

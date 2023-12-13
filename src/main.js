@@ -44,16 +44,16 @@ if (location.host == "iirose.com")
             // 长时间连不上ws弹出提示
 
             let cannotLoad = 0;
-            let showHelpNotice = false;
+            let showedHelpNotice = false;
             setInterval(() =>
             {
                 if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
                 {
                     if (cannotLoad >= 2)
                     {
-                        if (!showHelpNotice)
+                        if (!showedHelpNotice)
                         {
-                            showHelpNotice = true;
+                            showedHelpNotice = true;
                             showNotice(
                                 "无法连接",
                                 ([
@@ -66,7 +66,7 @@ if (location.host == "iirose.com")
                                 () =>
                                 {
                                     cannotLoad = 0;
-                                    showHelpNotice = false;
+                                    showedHelpNotice = false;
                                     if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
                                     {
                                         try
@@ -92,7 +92,7 @@ if (location.host == "iirose.com")
                 else
                 {
                     cannotLoad = 0;
-                    showHelpNotice = false;
+                    showedHelpNotice = false;
                 }
             }, 3000);
 

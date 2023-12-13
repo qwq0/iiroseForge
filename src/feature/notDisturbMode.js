@@ -80,11 +80,15 @@ let notDisturbMode = false;
 
 /**
  * 设置勿扰模式
- * @param {boolean} enbale
+ * @param {boolean | "switch"} enable
  */
-function setNotDisturbMode(enbale)
+export function setNotDisturbMode(enable)
 {
-    notDisturbMode = enbale;
+    if (typeof (enable) == "boolean")
+        notDisturbMode = enable;
+    else if (enable == "switch")
+        notDisturbMode = !notDisturbMode;
+
     if (notDisturbMode)
     {
         setAutoResponse(String(storageContext.roaming.notDisturbModeAutoReply));
@@ -108,7 +112,7 @@ export function showNotDisturbModeMenu()
             (notDisturbMode ? "关闭勿扰模式" : "打开勿扰模式"),
             new NEvent("click", async () =>
             {
-                setNotDisturbMode(!notDisturbMode);
+                setNotDisturbMode("switch");
             }),
         ]),
 

@@ -314,6 +314,10 @@ export function getForgeMenu()
                                         storageKey: "enableSyncChatRecord"
                                     },
                                     {
+                                        name: "接管音频(测试)",
+                                        storageKey: "enableAudioTakeover"
+                                    },
+                                    {
                                         name: "超级菜单",
                                         storageKey: "enableSuperMenu"
                                     },

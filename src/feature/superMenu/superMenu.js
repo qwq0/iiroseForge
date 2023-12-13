@@ -9,6 +9,7 @@ import { forgeApi } from "../../forgeApi/forgeApi.js";
 import { touchBind } from "../../../lib/qwqframe.js";
 import { showMenu } from "../../ui/menu.js";
 import { storageContext, storageLocalSave } from "../../storage/storage.js";
+import { setNotDisturbMode } from "../notDisturbMode.js";
 
 /**
  * 启用超级菜单
@@ -175,7 +176,39 @@ export function enableSuperMenu()
                     {
                         iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
                     }
-                }
+                },
+                {
+                    id: "勿扰模式",
+                    item: createListItem("mdi-bell-minus-outline", "切换勿扰模式", ""),
+                    execute: () =>
+                    {
+                        setNotDisturbMode("switch");
+                    }
+                },
+                {
+                    id: "状态",
+                    item: createListItem("mdi-human", "打开状态面板", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(51);
+                    }
+                },
+                {
+                    id: "终端",
+                    item: createListItem("mdi-powershell", "打开终端", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(21);
+                    }
+                },
+                {
+                    id: "房间推荐",
+                    item: createListItem("mdi-fire", "打开房间推荐", ""),
+                    execute: () =>
+                    {
+                        iframeContext.iframeWindow?.["functionBtnDo"]?.(101);
+                    }
+                },
             ];
             createSortableList(menuList, leftColumn, "left");
         }

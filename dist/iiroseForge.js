@@ -4049,6 +4049,8 @@
 	        enableSyncChatRecord: false,
 	        // 启用用户备注
 	        enableUserRemark: true,
+	        // 启用音频接管
+	        enableAudioTakeover: true,
 	        // 启用超级菜单
 	        enableSuperMenu: false,
 	        // 启用快速房管操作
@@ -7571,10 +7573,10 @@
 	                lineHeight: "1.5em",
 	                backgroundColor: "rgba(100, 100, 100, 0.2)"
 	            }),
-	            new NAsse(e =>
+	            e =>
 	            {
-	                var ox = 0, oy = 0;
-	                var proc = (/** @type {{ sx: number, sy: number, x: number, y: number, pressing: boolean,hold: boolean }} */ o) =>
+	                let ox = 0, oy = 0;
+	                let proc = (/** @type {{ sx: number, sy: number, x: number, y: number, pressing: boolean,hold: boolean }} */ o) =>
 	                {
 	                    if (o.hold)
 	                    {
@@ -7603,7 +7605,7 @@
 	                };
 	                mouseBind(e, proc);
 	                touchBind(e, proc);
-	            }),
+	            },
 
 	            new NEvent("touchend", () =>
 	            {
@@ -8487,11 +8489,15 @@
 
 	/**
 	 * 设置勿扰模式
-	 * @param {boolean} enbale
+	 * @param {boolean | "switch"} enable
 	 */
-	function setNotDisturbMode(enbale)
+	function setNotDisturbMode(enable)
 	{
-	    notDisturbMode = enbale;
+	    if (typeof (enable) == "boolean")
+	        notDisturbMode = enable;
+	    else if (enable == "switch")
+	        notDisturbMode = !notDisturbMode;
+
 	    if (notDisturbMode)
 	    {
 	        setAutoResponse(String(storageContext.roaming.notDisturbModeAutoReply));
@@ -8515,7 +8521,7 @@
 	            (notDisturbMode ? "关闭勿扰模式" : "打开勿扰模式"),
 	            new NEvent("click", async () =>
 	            {
-	                setNotDisturbMode(!notDisturbMode);
+	                setNotDisturbMode("switch");
 	            }),
 	        ]),
 
@@ -8709,7 +8715,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.15.0"
+	    version: "alpha v1.16.0"
 	};
 
 	/**
@@ -9219,6 +9225,10 @@
 	                                    {
 	                                        name: "聊天记录同步(测试)",
 	                                        storageKey: "enableSyncChatRecord"
+	                                    },
+	                                    {
+	                                        name: "接管音频(测试)",
+	                                        storageKey: "enableAudioTakeover"
 	                                    },
 	                                    {
 	                                        name: "超级菜单",
@@ -10680,7 +10690,39 @@
 	                    {
 	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
 	                    }
-	                }
+	                },
+	                {
+	                    id: "勿扰模式",
+	                    item: createListItem("mdi-bell-minus-outline", "切换勿扰模式", ""),
+	                    execute: () =>
+	                    {
+	                        setNotDisturbMode("switch");
+	                    }
+	                },
+	                {
+	                    id: "状态",
+	                    item: createListItem("mdi-human", "打开状态面板", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(51);
+	                    }
+	                },
+	                {
+	                    id: "终端",
+	                    item: createListItem("mdi-powershell", "打开终端", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(21);
+	                    }
+	                },
+	                {
+	                    id: "房间推荐",
+	                    item: createListItem("mdi-fire", "打开房间推荐", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(101);
+	                    }
+	                },
 	            ];
 	            createSortableList(menuList, leftColumn, "left");
 	        }
@@ -11385,6 +11427,409 @@
 	    );
 	}
 
+	let showedNotice = false;
+
+	/**
+	 * 启用音频接管
+	 */
+	function enableAudioTakeover()
+	{
+	    /**
+	     * @type {NElement}
+	     */
+	    let buttonElement = null;
+	    let buttonData = createHookObj({
+	        text: ""
+	    });
+	    /**
+	     * @type {{ type: "roomMedia" } | { type: "infoMedia", src: string }}
+	     */
+	    let targetMediaState = null;
+
+	    /**
+	     * @param {HTMLAudioElement | HTMLVideoElement} audioObj
+	     */
+	    function isAudioHearable(audioObj)
+	    {
+	        return audioObj.src != "" && !audioObj.paused && audioObj.volume > 0;
+	    }
+
+	    let tryMuteRoomMedia = false;
+	    let tryMuteInfoMedia = false;
+
+	    /** @type {HTMLVideoElement} */
+	    iframeContext.iframeWindow?.["shareMediaObj"];
+	    /** @type {HTMLAudioElement} */
+	    let old_shareMediaObjAudio = iframeContext.iframeWindow?.["shareMediaObjAudio"];
+	    /** @type {HTMLAudioElement} */
+	    iframeContext.iframeWindow?.["radioPlayer"];
+
+	    /**
+	     * @type {HTMLAudioElement}
+	     */
+	    let old_infosound = iframeContext.iframeWindow?.["infosound"];
+	    old_infosound.removeAttribute("loop");
+	    old_infosound.removeAttribute("autoplay");
+	    iframeContext.iframeWindow["infosound"] = new Proxy(old_infosound, {
+	        get: (_target, key) =>
+	        {
+	            // console.log("info media do get", key);
+	            let srcValue = old_infosound[key];
+	            switch (key)
+	            {
+	                case "play": {
+	                    return () =>
+	                    {
+	                        old_infosound.play();
+	                    };
+	                }
+	                case "pause": {
+	                    return () =>
+	                    {
+	                        old_infosound.pause();
+	                    };
+	                }
+	                case "": {
+	                    return (targetMediaState?.type == "infoMedia" ? targetMediaState.src : "");
+	                }
+	                case "getAttribute": {
+	                    return (/** @type {string} */ attrKey) =>
+	                    {
+	                        // console.log("get", attrKey);
+	                        if (attrKey == "src")
+	                        {
+	                            return (targetMediaState?.type == "infoMedia" ? targetMediaState.src : "");
+	                        }
+	                        return old_infosound.getAttribute(attrKey);
+	                    };
+	                }
+	                case "setAttribute": {
+	                    return (/** @type {string} */ attrKey, /** @type {string} */ attrValue) =>
+	                    {
+	                        // console.log("set", attrKey, attrValue);
+	                        if (attrKey == "src")
+	                        {
+	                            if (attrValue == "")
+	                            {
+	                                tryMuteInfoMedia = true;
+
+	                                targetMediaState = { type: "roomMedia" };
+	                                refreshButton();
+	                            }
+	                            else
+	                            {
+	                                targetMediaState = { type: "infoMedia", src: attrValue };
+	                            }
+	                        }
+	                        else
+	                            old_infosound.setAttribute(attrKey, attrValue);
+	                    };
+	                }
+	            }
+	            if (typeof (srcValue) == "function")
+	                return srcValue.bind(old_infosound);
+	            else
+	                return srcValue;
+	        },
+	        set: (_target, key, value) =>
+	        {
+	            // console.log("info media do set", key, value);
+	            switch (key)
+	            {
+	                case "src": {
+	                    targetMediaState = { type: "infoMedia", src: value };
+	                    if (old_infosound.src == value)
+	                        ;
+	                    else if (
+	                        (
+	                            tryMuteInfoMedia
+	                        ) ||
+	                        (
+	                            tryMuteRoomMedia &&
+	                            (
+	                                isAudioHearable(old_shareMediaObjAudio)
+	                            )
+	                        )
+	                    )
+	                    {
+	                        setTimeout(() => { refreshButton(); }, 10);
+	                    }
+	                    else
+	                    {
+	                        old_infosound.src = value;
+	                        old_infosound.play();
+	                        if (tryMuteRoomMedia)
+	                        {
+	                            old_playerSoundOff();
+	                            tryMuteRoomMedia = false;
+	                        }
+	                        if (tryMuteInfoMedia)
+	                        {
+	                            old_infosound.play();
+	                            tryMuteInfoMedia = false;
+	                        }
+	                    }
+	                    break;
+	                }
+	                case "currentTime": {
+	                    if (tryMuteInfoMedia)
+	                        ;
+	                    else
+	                        old_infosound.currentTime = value;
+	                    break;
+	                }
+	                default:
+	                    old_infosound[key] = value;
+	            }
+	            return true;
+	        },
+	    });
+
+	    /**
+	     * @type {(...arg: Array<any>) => void}
+	     */
+	    let old_playerSoundOff = iframeContext.iframeWindow?.["playerSoundOff"];
+	    iframeContext.iframeWindow["playerSoundOff"] = proxyFunction(old_playerSoundOff, (param) =>
+	    {
+	        setTimeout(() =>
+	        {
+	            refreshButton();
+	        }, 10);
+
+	        if (
+	            param[0] == undefined &&
+	            (
+	                isAudioHearable(old_shareMediaObjAudio)
+	            )
+	        )
+	        {
+	            tryMuteRoomMedia = true;
+	            return true;
+	        }
+	        else if (param[0] == 1)
+	        {
+	            targetMediaState = { type: "roomMedia" };
+
+	            if (
+	                isAudioHearable(old_infosound)
+	            )
+	            {
+	                return true;
+	            }
+	        }
+	        tryMuteRoomMedia = false;
+	        return false;
+	    });
+
+
+	    /**
+	     * 刷新按钮 按需显示
+	     */
+	    function refreshButton()
+	    {
+	        if (
+	            targetMediaState?.type == "roomMedia" &&
+	            isAudioHearable(old_infosound)
+	        )
+	        {
+	            buttonData.text = "转回房间音频";
+	            showFloatingButton();
+	        }
+	        else if (
+	            targetMediaState?.type == "infoMedia" &&
+	            (
+	                targetMediaState.src != old_infosound.src ||
+	                !isAudioHearable(old_infosound)
+	            )
+	        )
+	        {
+	            buttonData.text = "转到资料音频";
+	            showFloatingButton();
+	        }
+	        else
+	            hideFloatingButton();
+	    }
+
+	    /**
+	     * 显示悬浮窗
+	     */
+	    function showFloatingButton()
+	    {
+	        if (buttonElement)
+	        {
+	            buttonElement.setDisplay("block");
+	            return;
+	        }
+
+	        if(!showedNotice)
+	        {
+	            showNotice("接管音频", "您正在使用forge测试功能(接管音频)\n如果存在问题请在 附加功能 中关闭");
+	            showedNotice = true;
+	        }
+
+	        let x = 0, y = 0;
+	        let allowClick = false;
+
+	        buttonElement = NList.getElement([
+	            createNStyleList({
+	                position: "fixed",
+	                overflow: "hidden",
+	                border: "1px white solid",
+	                backgroundColor: "rgba(30, 30, 30, 0.55)",
+	                backdropFilter: "blur(2px)",
+	                color: "rgba(255, 255, 255)",
+	                alignItems: "center",
+	                justifyContent: "center",
+	                flexFlow: "column",
+	                lineHeight: "1.1em",
+	                boxSizing: "border-box",
+	                padding: "1px",
+	                borderRadius: "2.5px",
+	                zIndex: "9000001",
+	                height: "50px",
+	                minWidth: "50px"
+	            }),
+
+	            [
+	                createNStyleList({
+	                    display: "flex",
+	                    height: "100%",
+	                    paddingLeft: "1em",
+	                    paddingRight: "1em",
+	                    justifyContent: "center",
+	                    alignItems: "center",
+	                }),
+
+	                bindValue(buttonData, "text"),
+
+	                new NEvent("mousedown", e => e.preventDefault()),
+	                new NEvent("mouseup", e => e.preventDefault()),
+	                new NEvent("click", () =>
+	                {
+	                    if (!allowClick)
+	                    {
+	                        allowClick = false;
+	                        return;
+	                    }
+
+	                    if (targetMediaState?.type == "roomMedia")
+	                    {
+	                        old_infosound.setAttribute("src", "");
+	                        // if (tryUnmuteRoomMedia)
+	                        {
+	                            old_playerSoundOff(1);
+	                        }
+	                        if (tryMuteInfoMedia)
+	                        {
+	                            tryMuteInfoMedia = false;
+	                        }
+	                        hideFloatingButton();
+	                    }
+	                    else if (targetMediaState?.type == "infoMedia")
+	                    {
+	                        showFloatingButton();
+	                        old_infosound.src = targetMediaState?.src;
+	                        old_infosound.play();
+	                        if (tryMuteRoomMedia)
+	                        {
+	                            old_playerSoundOff();
+	                            tryMuteRoomMedia = false;
+	                        }
+	                        if (tryMuteInfoMedia)
+	                        {
+	                            old_infosound.play();
+	                            tryMuteInfoMedia = false;
+	                        }
+	                        hideFloatingButton();
+	                    }
+	                })
+	            ],
+
+	            e =>
+	            {
+	                let ox = 0, oy = 0;
+
+	                /**
+	                 * 按下的时间
+	                 */
+	                let startPressTime = 0;
+	                /**
+	                 * 位置未移动
+	                 */
+	                let notMove = false;
+	                let proc = (/** @type {{ sx: number, sy: number, x: number, y: number, pressing: boolean,hold: boolean }} */ e) =>
+	                {
+	                    let now = Date.now();
+	                    if (e.pressing)
+	                    {
+	                        startPressTime = now;
+	                        notMove = true;
+	                        allowClick = false;
+	                    }
+	                    if (Math.abs(e.x - e.sx) > 10 || Math.abs(e.y - e.sy) > 10)
+	                        notMove = false;
+	                    if (!e.hold)
+	                    {
+	                        if (notMove && now - startPressTime < 150)
+	                        {
+	                            let startTargetElement = iframeContext.iframeDocument.elementFromPoint(e.sx, e.sy);
+	                            let endTargetElement = iframeContext.iframeDocument.elementFromPoint(e.x, e.y);
+	                            if (startTargetElement == endTargetElement)
+	                            {
+	                                allowClick = true;
+	                                startTargetElement.dispatchEvent(new MouseEvent("click"));
+	                            }
+	                        }
+	                    }
+
+	                    if (e.pressing)
+	                    {
+	                        ox = x;
+	                        oy = y;
+	                        // pageManager.moveToTop(this);
+	                    }
+	                    x = ox + e.x - e.sx;
+	                    y = oy + e.y - e.sy;
+	                    if (x < 0)
+	                        x = 0;
+	                    else if (x >= body.element.clientWidth - buttonElement.element.offsetWidth)
+	                        x = body.element.clientWidth - buttonElement.element.offsetWidth;
+	                    if (y < 0)
+	                        y = 0;
+	                    else if (y >= body.element.clientHeight - buttonElement.element.offsetHeight)
+	                        y = body.element.clientHeight - buttonElement.element.offsetHeight;
+	                    buttonElement.setStyle("left", `${x}px`);
+	                    buttonElement.setStyle("top", `${y}px`);
+	                };
+
+	                e.addEventListener("mousedown", e => e.preventDefault(), true);
+	                e.addEventListener("mouseup", e => e.preventDefault(), true);
+	                mouseBind(e, proc, 0, iframeContext.iframeWindow);
+	                touchBind(e, proc);
+
+	                e.addEventListener("mousedown", e => e.stopPropagation());
+	                e.addEventListener("mouseup", e => e.stopPropagation());
+	                e.addEventListener("touchstart", e => e.stopPropagation());
+	                e.addEventListener("touchend", e => e.stopPropagation());
+	                e.addEventListener("touchcancel", e => e.stopPropagation());
+	            },
+	        ]);
+
+	        iframeContext.iframeBody.addChild(buttonElement);
+	    }
+
+	    /**
+	     * 隐藏悬浮窗
+	     */
+	    function hideFloatingButton()
+	    {
+	        if (buttonElement)
+	        {
+	            buttonElement.setDisplay("none");
+	        }
+	    }
+	}
+
 	/**
 	 * 初始化注入iframe元素
 	 */
@@ -11513,6 +11958,10 @@
 	                condition: "enableRoomAdminOperation"
 	            },
 	            {
+	                func: enableAudioTakeover,
+	                condition: "enableAudioTakeover"
+	            },
+	            {
 	                func: trySyncChatRecord,
 	                condition: "enableSyncChatRecord"
 	            },
@@ -11616,16 +12065,16 @@
 	            // 长时间连不上ws弹出提示
 
 	            let cannotLoad = 0;
-	            let showHelpNotice = false;
+	            let showedHelpNotice = false;
 	            setInterval(() =>
 	            {
 	                if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
 	                {
 	                    if (cannotLoad >= 2)
 	                    {
-	                        if (!showHelpNotice)
+	                        if (!showedHelpNotice)
 	                        {
-	                            showHelpNotice = true;
+	                            showedHelpNotice = true;
 	                            showNotice(
 	                                "无法连接",
 	                                ([
@@ -11638,7 +12087,7 @@
 	                                () =>
 	                                {
 	                                    cannotLoad = 0;
-	                                    showHelpNotice = false;
+	                                    showedHelpNotice = false;
 	                                    if (mainIframe.contentWindow?.["socket"]?.readyState == 0)
 	                                    {
 	                                        try
@@ -11664,7 +12113,7 @@
 	                else
 	                {
 	                    cannotLoad = 0;
-	                    showHelpNotice = false;
+	                    showedHelpNotice = false;
 	                }
 	            }, 3000);
 
