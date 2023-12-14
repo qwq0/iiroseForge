@@ -270,7 +270,7 @@ export function enableAudioTakeover()
                 boxSizing: "border-box",
                 padding: "1px",
                 borderRadius: "2.5px",
-                zIndex: "9000001",
+                zIndex: "90000001",
                 height: "50px",
                 minWidth: "50px"
             }),

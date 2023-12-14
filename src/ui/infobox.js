@@ -147,7 +147,7 @@ export function showInfoBox(title, text, allowCancel = false, ...extraEle)
  */
 export async function showInputBox(title, text, allowCancel = false, initValue = "")
 {
-    var input = expandElement({
+    let input = expandElement({
         tagName: "input",
         assembly: [buttonAsse],
         style: {
@@ -159,7 +159,8 @@ export async function showInputBox(title, text, allowCancel = false, initValue =
         }
     });
     input.addEventListener("keydown", e => { e.stopPropagation(); }, true);
-    var confirm = await showInfoBox(title, text, allowCancel, input);
+    setTimeout(() => input.element.focus(), 100);
+    let confirm = await showInfoBox(title, text, allowCancel, input);
     return (confirm ? input.element.value : undefined);
 }
 
@@ -173,7 +174,7 @@ export async function showInputBox(title, text, allowCancel = false, initValue =
  */
 export async function showCopyBox(title, text, copyText)
 {
-    var copyTextarea = expandElement({
+    let copyTextarea = expandElement({
         tagName: "textarea",
         style: {
             resize: "none",
@@ -189,7 +190,8 @@ export async function showCopyBox(title, text, copyText)
     {
         copyTextarea.element.value = copyText;
     });
-    var confirm = await showInfoBox(title, text, false, copyTextarea);
+    setTimeout(() => copyTextarea.element.focus(), 100);
+    let confirm = await showInfoBox(title, text, false, copyTextarea);
     return (confirm ? copyTextarea.element.value : undefined);
 }
 
@@ -203,7 +205,7 @@ export async function showCopyBox(title, text, copyText)
  */
 export async function showTextareaBox(title, text, allowCancel = false, initValue = "")
 {
-    var textarea = expandElement({
+    let textarea = expandElement({
         tagName: "textarea",
         style: {
             resize: "none",
@@ -215,6 +217,7 @@ export async function showTextareaBox(title, text, allowCancel = false, initValu
         }
     });
     textarea.addEventListener("keydown", e => { e.stopPropagation(); }, true);
-    var confirm = await showInfoBox(title, text, allowCancel, textarea);
+    setTimeout(() => textarea.element.focus(), 100);
+    let confirm = await showInfoBox(title, text, allowCancel, textarea);
     return (confirm ? textarea.element.value : undefined);
 }

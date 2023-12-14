@@ -4325,7 +4325,7 @@
 	 */
 	async function showInputBox(title, text, allowCancel = false, initValue = "")
 	{
-	    var input = expandElement({
+	    let input = expandElement({
 	        tagName: "input",
 	        assembly: [buttonAsse],
 	        style: {
@@ -4337,7 +4337,8 @@
 	        }
 	    });
 	    input.addEventListener("keydown", e => { e.stopPropagation(); }, true);
-	    var confirm = await showInfoBox(title, text, allowCancel, input);
+	    setTimeout(() => input.element.focus(), 100);
+	    let confirm = await showInfoBox(title, text, allowCancel, input);
 	    return (confirm ? input.element.value : undefined);
 	}
 
@@ -4351,7 +4352,7 @@
 	 */
 	async function showCopyBox(title, text, copyText)
 	{
-	    var copyTextarea = expandElement({
+	    let copyTextarea = expandElement({
 	        tagName: "textarea",
 	        style: {
 	            resize: "none",
@@ -4367,7 +4368,8 @@
 	    {
 	        copyTextarea.element.value = copyText;
 	    });
-	    var confirm = await showInfoBox(title, text, false, copyTextarea);
+	    setTimeout(() => copyTextarea.element.focus(), 100);
+	    let confirm = await showInfoBox(title, text, false, copyTextarea);
 	    return (confirm ? copyTextarea.element.value : undefined);
 	}
 
@@ -4381,7 +4383,7 @@
 	 */
 	async function showTextareaBox(title, text, allowCancel = false, initValue = "")
 	{
-	    var textarea = expandElement({
+	    let textarea = expandElement({
 	        tagName: "textarea",
 	        style: {
 	            resize: "none",
@@ -4393,7 +4395,8 @@
 	        }
 	    });
 	    textarea.addEventListener("keydown", e => { e.stopPropagation(); }, true);
-	    var confirm = await showInfoBox(title, text, allowCancel, textarea);
+	    setTimeout(() => textarea.element.focus(), 100);
+	    let confirm = await showInfoBox(title, text, allowCancel, textarea);
 	    return (confirm ? textarea.element.value : undefined);
 	}
 
@@ -4519,10 +4522,10 @@
 	                let uid = thisObj?.dataset?.uid;
 	                let userName = param[1]?.[0];
 	                let messageId = thisObj?.parentNode?.parentNode?.dataset?.id?.split("_")?.[1];
-	                if (!uid)
-	                    return false;
 	                if (typeof (userName) != "string")
 	                    userName = undefined;
+	                if (!uid)
+	                    return false;
 
 	                srcFunction(...param);
 
@@ -4555,9 +4558,14 @@
 	                return true;
 	            }
 	            // 房间菜单
-	            else if (param.length == 1 && param[0] == 8)
+	            else if (
+	                (param.length == 1 && param[0] == 8) ||
+	                (param.length == 2 && param[0] == 8 && param[1] == 1)
+	            )
 	            {
 	                let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
+	                if((!roomId) && (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("n") == "2_1")
+	                    roomId = thisObj?.nextElementSibling?.getAttribute?.("rid");
 	                if (!roomId)
 	                    return false;
 
@@ -7434,7 +7442,37 @@
 	        }, { signal: this.#abortController.signal });
 
 
-	        iframeElementParent.appendChild(iframe);
+	        iframeElementParent.appendChild(
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            
+	            iframe);
 	        this.#iframe = iframe;
 	        this.#port = port;
 	    }
@@ -8715,7 +8753,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.16.0"
+	    version: "alpha v1.16.1"
 	};
 
 	/**
@@ -11685,7 +11723,7 @@
 	                boxSizing: "border-box",
 	                padding: "1px",
 	                borderRadius: "2.5px",
-	                zIndex: "9000001",
+	                zIndex: "90000001",
 	                height: "50px",
 	                minWidth: "50px"
 	            }),

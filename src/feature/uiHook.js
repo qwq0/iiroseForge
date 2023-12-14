@@ -112,10 +112,10 @@ function enableUiHook()
                 let uid = thisObj?.dataset?.uid;
                 let userName = param[1]?.[0];
                 let messageId = thisObj?.parentNode?.parentNode?.dataset?.id?.split("_")?.[1];
-                if (!uid)
-                    return false;
                 if (typeof (userName) != "string")
                     userName = undefined;
+                if (!uid)
+                    return false;
 
                 srcFunction(...param);
 
@@ -148,9 +148,14 @@ function enableUiHook()
                 return true;
             }
             // 房间菜单
-            else if (param.length == 1 && param[0] == 8)
+            else if (
+                (param.length == 1 && param[0] == 8) ||
+                (param.length == 2 && param[0] == 8 && param[1] == 1)
+            )
             {
                 let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
+                if((!roomId) && (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("n") == "2_1")
+                    roomId = thisObj?.nextElementSibling?.getAttribute?.("rid");
                 if (!roomId)
                     return false;
 
