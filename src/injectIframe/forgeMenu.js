@@ -7,6 +7,7 @@ import { showBlacklistMenu } from "../feature/blacklist.js";
 import { showMultiAccountMenu } from "../feature/multiAccount.js";
 import { showNotDisturbModeMenu } from "../feature/notDisturbMode.js";
 import { showPatchMenu } from "../feature/patch.js";
+import { reportGeneration } from "../feature/reportGeneration.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
@@ -103,6 +104,22 @@ export function getForgeMenu()
                     gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))"
                 }),
                 ...([ // 菜单列表项
+                    ...(
+                        // (new Date("2023/12/15")).getTime() < Date.now() && Date.now() < (new Date("2024/1/15")).getTime() ?
+                        (storageContext.local.enableExperimental && storageContext.local.experimentalOption["annualReport"]) ?
+                            [
+                                {
+                                    title: "(限时) 蔷薇年报",
+                                    text: "获取你的2023蔷薇年报",
+                                    icon: "fire",
+                                    onClick: async () =>
+                                    {
+                                        reportGeneration();
+                                    }
+                                },
+                            ] :
+                            []
+                    ),
                     {
                         title: "管理插件",
                         text: "管理插件",

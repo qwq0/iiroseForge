@@ -150,6 +150,19 @@ export async function enableBeautify()
                 ]).join("\n");
             }
         },
+        { // 提示框背景图片
+            key: "alertBackground",
+            cb: (/** @type {string} */ o) =>
+            {
+                styleStr += ([
+                    "#alertHolder > div",
+                    "{",
+                    `background-image: url("${o}") !important;`,
+                    `background-size: cover !important;`,
+                    "}",
+                ]).join("\n");
+            }
+        },
     ]).forEach(o =>
     {
         let value = storageContext.roaming.beautify[o.key];
@@ -230,7 +243,12 @@ export function showBeautifyMenu()
                 name: "面板项圆角半径",
                 key: "panelItemBorderRadius",
                 type: "number"
-            }
+            },
+            {
+                name: "提示框背景图片",
+                key: "alertBackground",
+                type: "text"
+            },
         ]).map(o => NList.getElement([
             o.name + (storageContext.roaming.beautify[o.key] ? " (已设置)" : ""),
             new NEvent("click", async () =>

@@ -33,7 +33,7 @@ export function enableAudioTakeover()
      */
     function isAudioHearable(audioObj)
     {
-        return audioObj.src != "" && !audioObj.paused && audioObj.volume > 0;
+        return audioObj && audioObj.src != "" && !audioObj.paused && audioObj.volume > 0;
     }
 
     let tryMuteRoomMedia = false;
@@ -46,11 +46,25 @@ export function enableAudioTakeover()
     let old_shareMediaObjAudio = iframeContext.iframeWindow?.["shareMediaObjAudio"];
     /** @type {HTMLAudioElement} */
     let old_radioPlayer = iframeContext.iframeWindow?.["radioPlayer"];
+    /**
+     * @type {(...arg: Array<any>) => void}
+     */
+    let old_playerSoundOff = iframeContext.iframeWindow?.["playerSoundOff"];
 
     /**
      * @type {HTMLAudioElement}
      */
     let old_infosound = iframeContext.iframeWindow?.["infosound"];
+
+    if (!(
+        old_shareMediaObj &&
+        old_shareMediaObjAudio &&
+        old_radioPlayer &&
+        old_playerSoundOff &&
+        old_infosound
+    ))
+        return;
+
     old_infosound.removeAttribute("loop");
     old_infosound.removeAttribute("autoplay");
     iframeContext.iframeWindow["infosound"] = new Proxy(old_infosound, {
@@ -168,10 +182,7 @@ export function enableAudioTakeover()
         },
     });
 
-    /**
-     * @type {(...arg: Array<any>) => void}
-     */
-    let old_playerSoundOff = iframeContext.iframeWindow?.["playerSoundOff"];
+
     iframeContext.iframeWindow["playerSoundOff"] = proxyFunction(old_playerSoundOff, (param) =>
     {
         setTimeout(() =>
@@ -245,7 +256,7 @@ export function enableAudioTakeover()
             return;
         }
 
-        if(!showedNotice)
+        if (!showedNotice)
         {
             showNotice("接管音频", "您正在使用forge测试功能(接管音频)\n如果存在问题请在 附加功能 中关闭");
             showedNotice = true;

@@ -142,7 +142,7 @@ export function enableSyncChatRecord()
  *  otherInfo: Array<string>
  * }>}
  */
-function getLocalRecordList()
+export function getLocalRecordList()
 {
     iframeContext.iframeWindow["Utils"]?.service?.saveStatus?.(7, 1);
     let rawRecordStr = localStorage.getItem(`pmLog_${forgeApi.operation.getUserUid()}`);
@@ -202,7 +202,7 @@ function setLocalRecordList(recordList)
  * @param {string | [boolean, number, ...Array<string>]} record
  * @returns {[boolean, number, ...Array<string>]}
  */
-function processSingleRecord(record)
+export function processSingleRecord(record)
 {
     if (typeof (record) == "string")
     {
