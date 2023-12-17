@@ -9157,7 +9157,7 @@
 	            // 打断连续聊天
 	            if (time - lastReceivedTime > 20 * 60 * 1000 || time - lastSendByMeTime > 20 * 60 * 1000)
 	            {
-	                let continuousChatDuration = Math.max(0, Math.max(lastReceivedTime, lastSendByMeTime) - continuousChatStartTime);
+	                let continuousChatDuration = Math.max(0, Math.min(lastReceivedTime, lastSendByMeTime) - continuousChatStartTime);
 
 	                if (continuousChatDuration > sessionObj.continuousChatMaxDuration)
 	                {
@@ -9186,22 +9186,25 @@
 	                sendCharCount += Math.min(100, content.length);
 
 	                hasRecordSendByMe = true;
-	                if (content.length < 100)
+	                if (content != "&")
 	                {
-	                    let oldValue = sendContentCountMap.get(content);
-	                    if (oldValue == undefined)
-	                        oldValue = 0;
-	                    sendContentCountMap.set(content, oldValue + 1);
-	                }
-	                if (content.length < 500)
-	                {
-	                    let imageUrl = content.match(/https?:\/\/[a-zA-Z0-9\.\_\-]+\/[a-zA-Z0-9\.\_\-\/\?\=\#\&]+?(\.(png|jpg|gif|jpeg|avif|webp))/)?.[0];
-	                    if (imageUrl)
+	                    if (content.length < 100)
 	                    {
-	                        let oldValue = sendImageCountMap.get(imageUrl);
+	                        let oldValue = sendContentCountMap.get(content);
 	                        if (oldValue == undefined)
 	                            oldValue = 0;
-	                        sendImageCountMap.set(imageUrl, oldValue + 1);
+	                        sendContentCountMap.set(content, oldValue + 1);
+	                    }
+	                    if (content.length < 500)
+	                    {
+	                        let imageUrl = content.match(/https?:\/\/[a-zA-Z0-9\.\_\-]+\/[a-zA-Z0-9\.\_\-\/\?\=\#\&]+?(\.(png|jpg|gif|jpeg|avif|webp))/)?.[0];
+	                        if (imageUrl)
+	                        {
+	                            let oldValue = sendImageCountMap.get(imageUrl);
+	                            if (oldValue == undefined)
+	                                oldValue = 0;
+	                            sendImageCountMap.set(imageUrl, oldValue + 1);
+	                        }
 	                    }
 	                }
 	            }
@@ -9240,7 +9243,7 @@
 	        });
 
 	        {
-	            let continuousChatDuration = Math.max(0, Math.max(lastReceivedTime, lastSendByMeTime) - continuousChatStartTime);
+	            let continuousChatDuration = Math.max(0, Math.min(lastReceivedTime, lastSendByMeTime) - continuousChatStartTime);
 
 	            if (continuousChatDuration > sessionObj.continuousChatMaxDuration)
 	            {
@@ -9474,14 +9477,9 @@
 	        return ret;
 	    }
 
-	    showReportPages(
-	        "2023蔷薇私聊年报",
-	        ([
-	            NList.getElement([
-	                "向上滑动\n领取你的2023蔷薇私聊年报"
-	            ]),
-	            // 1
-	            NList.getElement([
+	    let pageMainBody = ([
+	        ( // 1
+	            [
 	                [
 	                    "在2023年里,",
 	                    `你一共和 ${sessionCount} 位用户私聊过。`,
@@ -9498,157 +9496,216 @@
 	                                "获得 蔷薇花园 私聊小能手称号~"
 	                    )
 	                ].join("\n")
-	            ]),
-	            ( // 2
-	                datePeriodMaxValue > 60 ?
-	                    NList.getElement([
-	                        [
-	                            `这一年里,`,
-	                            `你进行过私聊的天数占今年总天数的 ${(Math.min(dayCount / dayOfThisYear, 1) * 100).toFixed(2)}%,`,
-	                            `${dateIndexToString(datePeriodMaxIndex)} 到 ${dateIndexToString(datePeriodMaxIndex + 1)} 是你私聊最多的时候。`,
-	                            `你在这半月内,`,
-	                            `共收发了 ${datePeriodMaxValue} 条私聊消息。`,
-	                            (datePeriodMaxValue > 800 ? "这段时间 或许你有很多话要诉说。" : "这段时间的自己 正在经历些什么呢?")
-	                        ].join("\n")
-	                    ]) :
-	                    null
-	            ),
-	            ( // 3
-	                (peakTimeSclices.length > 0) ?
-	                    NList.getElement([
-	                        [
-	                            "一天之中,",
-	                            `你偏爱的聊天时段是 ${peakTimeSclices.join(", ")}。`,
-	                            (peakTimeSclices.length > 3 ? "碎片的时光, 留存着与好友的点滴。" : "美好的时光格外令人珍惜。")
-	                        ].join("\n")
-	                    ]) :
-	                    null
-	            ),
-	            ( // 4
-	                sessionList[0] ?
-	                    NList.getElement([
-	                        [
-	                            `与你往来私信最多的人 非 ${sessionList[0].targetName} 莫属,`,
-	                            `你们之间一共往来了 ${sessionList[0].sendCount + sessionList[0].receiveCount} 条私信,`,
-	                            `你发出了 ${sessionList[0].sendCount} 条, ta发出了 ${sessionList[0].receiveCount} 条。`,
-	                            "",
-	                            (sessionList[1] ? `与你互发私信次多的是 ${sessionList[1].targetName} 共收发 ${sessionList[1].sendCount + sessionList[1].receiveCount} 条` : ""),
-	                            (sessionList[2] ? `再其次是 ${sessionList[2].targetName} 共收发 ${sessionList[2].sendCount + sessionList[2].receiveCount} 条` : "")
-	                        ].join("\n")
-	                    ]) :
-	                    null
-	            ),
-	            ( // 5
-	                (sendContentMaxValue > 5 || sendImageMaxValue > 5) ?
-	                    NList.getElement([
-	                        (
-	                            sendContentMaxValue > 5 ?
+	            ]
+	        ),
+	        ( // 2
+	            datePeriodMaxValue > 60 ?
+	                [
+	                    [
+	                        `这一年里,`,
+	                        `你进行过私聊的天数占今年总天数的 ${(Math.min(dayCount / dayOfThisYear, 1) * 100).toFixed(2)}%,`,
+	                        `${dateIndexToString(datePeriodMaxIndex)} 到 ${dateIndexToString(datePeriodMaxIndex + 1)} 是你私聊最多的时候。`,
+	                        `你在这半月内,`,
+	                        `共收发了 ${datePeriodMaxValue} 条私聊消息。`,
+	                        (datePeriodMaxValue > 800 ? "这段时间 或许你有很多话要诉说。" : "这段时间的自己 正在经历些什么呢?")
+	                    ].join("\n")
+	                ] :
+	                null
+	        ),
+	        ( // 3
+	            (peakTimeSclices.length > 0) ?
+	                [
+	                    [
+	                        "一天之中,",
+	                        `你偏爱的聊天时段是 ${peakTimeSclices.join(", ")}。`,
+	                        (peakTimeSclices.length > 3 ? "碎片的时光, 留存着与好友的点滴。" : "美好的时光格外令人珍惜。")
+	                    ].join("\n")
+	                ] :
+	                null
+	        ),
+	        ( // 4
+	            sessionList[0] ?
+	                [
+	                    [
+	                        `与你往来私信最多的人 非 ${sessionList[0].targetName} 莫属,`,
+	                        `你们之间一共往来了 ${sessionList[0].sendCount + sessionList[0].receiveCount} 条私信,`,
+	                        `你发出了 ${sessionList[0].sendCount} 条, ta发出了 ${sessionList[0].receiveCount} 条。`,
+	                        "",
+	                        (sessionList[1] ? `与你互发私信次多的是 ${sessionList[1].targetName} 共收发 ${sessionList[1].sendCount + sessionList[1].receiveCount} 条` : ""),
+	                        (sessionList[2] ? `再其次是 ${sessionList[2].targetName} 共收发 ${sessionList[2].sendCount + sessionList[2].receiveCount} 条` : "")
+	                    ].join("\n")
+	                ] :
+	                null
+	        ),
+	        ( // 5
+	            (sendContentMaxValue > 5 || sendImageMaxValue > 5) ?
+	                [
+	                    (
+	                        sendContentMaxValue > 5 ?
+	                            [
+	                                `今年里,`,
+	                                `你最喜欢发送的内容是 "${htmlSpecialCharsDecode(sendContentMaxContent)}"`,
+	                                `你一共发送过 ${sendContentMaxValue} 次。`
+	                            ].join("\n") :
+	                            null
+	                    ),
+	                    "\n",
+	                    ...(
+	                        sendImageMaxValue > 5 ?
+	                            [
+	                                `你最喜欢发送的图片是 "${htmlSpecialCharsDecode(sendImageMaxUrl)}"\n`,
+
 	                                [
-	                                    `今年里,`,
-	                                    `你最喜欢发送的内容是 "${htmlSpecialCharsDecode(sendContentMaxContent)}"`,
-	                                    `你一共发送过 ${sendContentMaxValue} 次。`
-	                                ].join("\n") :
-	                                null
-	                        ),
-	                        "\n",
-	                        (
-	                            sendImageMaxValue > 5 ?
-	                                [
+	                                    new NTagName("img"),
+	                                    new NAttr("src", htmlSpecialCharsDecode(sendImageMaxUrl)),
 	                                    createNStyleList({
-	                                        display: "inline-block"
-	                                    }),
+	                                        maxHeight: "30vh",
+	                                        maxWidth: "30vw",
+	                                        border: "1px solid white"
+	                                    })
+	                                ],
 
-	                                    `你最喜欢发送的图片是 "${htmlSpecialCharsDecode(sendImageMaxUrl)}"\n`,
+	                                `\n你一共发送过 ${sendImageMaxValue} 次。`
+	                            ] :
+	                            []
+	                    )
+	                ] :
+	                null
+	        ),
+	        ( // 6
+	            (nightMessageMaxValue > 100) ?
+	                [
+	                    [
+	                        `夜深了,`,
+	                        (nightMessageMaxValue > 3000 ? `但对你来说夜生活刚刚开始,` : `你的私聊也在继续,`),
+	                        `夜间 你常常与 ${sessionStatisticsMap.get(nightMessageMaxUid).targetName} 畅谈,`,
+	                        `你们在转钟后的收发的私聊数量达到了 ${nightMessageMaxValue} 条。`
+	                    ].join("\n")
+	                ] :
+	                null
+	        ),
+	        ( // 7
+	            (continuousChatMaxDuration > 1.5 * 60 * 60 * 1000) ?
+	                [
+	                    [
+	                        "还记得吗,",
+	                        `在 ${(new Date(continuousChatMaxStartTime)).toLocaleString()},`,
+	                        `你与 ${sessionStatisticsMap.get(continuousChatMaxUid).targetName} 展开了一段`,
+	                        `长达 ${timeDurationToString(continuousChatMaxDuration)} 的超长的连续聊天!`
+	                    ].join("\n")
+	                ] :
+	                null
+	        ),
+	        ( // 8
+	            (nightContinuousChatMaxDuration > 50 * 60 * 1000 && nightContinuousChatMaxStartTime != continuousChatMaxStartTime) ?
+	                [
+	                    [
+	                        `在 ${(new Date(nightContinuousChatMaxStartTime)).toLocaleDateString()},`,
+	                        `从 ${(new Date(nightContinuousChatMaxStartTime)).toLocaleTimeString()}`,
+	                        `到 ${(new Date(nightContinuousChatMaxStartTime + nightContinuousChatMaxDuration)).toLocaleTimeString()}`,
+	                        "星月交辉,",
+	                        `你与 ${sessionStatisticsMap.get(nightContinuousChatMaxUid).targetName} 的交流从未停歇。`
+	                    ].join("\n")
+	                ] :
+	                null
+	        ),
+	        ( // 9
+	            multipleChatMaxList.length >= 3 ?
+	                [
+	                    [
+	                        `${(new Date(multipleChatMaxTime)).toLocaleDateString()},`,
+	                        `这一天里,`,
+	                        `你曾最多同时和 ${multipleChatMaxList.length} 位好友聊天,`,
+	                        `他们分别是 ${multipleChatMaxList.map(uid => sessionStatisticsMap.get(uid).targetName).join(", ")}。`,
+	                    ].join("\n")
+	                ] :
+	                null
+	        ),
+	        ( // 10
+	            usedToChatUid ?
+	                [
+	                    [
+	                        "你有过一位好友,",
+	                        `${usedToChatSession.targetName} 曾与你互发 ${usedToChatSession.sendCount + usedToChatSession.receiveCount} 条消息,`,
+	                        "今年下半,",
+	                        "你们不曾联系过。",
+	                        "也许找时间去打个招呼?"
+	                    ].join("\n")
+	                ] :
+	                null
+	        ),
+	    ]).filter(o => o != null);
 
-	                                    [
-	                                        new NTagName("img"),
-	                                        new NAttr("src", htmlSpecialCharsDecode(sendImageMaxUrl)),
-	                                        createNStyleList({
-	                                            maxHeight: "30vh",
-	                                            maxWidth: "30vw",
-	                                            border: "1px solid white"
-	                                        })
-	                                    ],
-
-	                                    `\n你一共发送过 ${sendImageMaxValue} 次。`
-	                                ] :
-	                                null
-	                        )
-	                    ]) :
-	                    null
-	            ),
-	            ( // 6
-	                (nightMessageMaxValue > 100) ?
-	                    NList.getElement([
-	                        [
-	                            `夜深了,`,
-	                            (nightMessageMaxValue > 3000 ? `但对你来说夜生活刚刚开始,` : `你的私聊也在继续,`),
-	                            `夜间 你常常与 ${sessionStatisticsMap.get(nightMessageMaxUid).targetName} 畅谈,`,
-	                            `你们在转钟后的收发的私聊数量达到了 ${nightMessageMaxValue} 条。`
-	                        ].join("\n")
-	                    ]) :
-	                    null
-	            ),
-	            ( // 7
-	                (continuousChatMaxDuration > 1.5 * 60 * 60 * 1000) ?
-	                    NList.getElement([
-	                        [
-	                            "还记得吗,",
-	                            `在 ${(new Date(continuousChatMaxStartTime)).toLocaleString()},`,
-	                            `你与 ${sessionStatisticsMap.get(continuousChatMaxUid).targetName} 展开了一段`,
-	                            `长达 ${timeDurationToString(continuousChatMaxDuration)} 的超长的连续聊天!`
-	                        ].join("\n")
-	                    ]) :
-	                    null
-	            ),
-	            ( // 8
-	                (nightContinuousChatMaxDuration > 50 * 60 * 1000 && nightContinuousChatMaxStartTime != continuousChatMaxStartTime) ?
-	                    NList.getElement([
-	                        [
-	                            `在 ${(new Date(nightContinuousChatMaxStartTime)).toLocaleDateString()},`,
-	                            `从 ${(new Date(nightContinuousChatMaxStartTime)).toLocaleTimeString()}`,
-	                            `到 ${(new Date(nightContinuousChatMaxStartTime + nightContinuousChatMaxDuration)).toLocaleTimeString()}`,
-	                            "星月交辉,",
-	                            `你与 ${sessionStatisticsMap.get(nightContinuousChatMaxUid).targetName} 的交流从未停歇。`
-	                        ].join("\n")
-	                    ]) :
-	                    null
-	            ),
-	            ( // 9
-	                multipleChatMaxList.length >= 3 ?
-	                    NList.getElement([
-	                        [
-	                            `${(new Date(multipleChatMaxTime)).toLocaleDateString()},`,
-	                            `这一天里,`,
-	                            `你曾最多同时和 ${multipleChatMaxList.length} 位好友聊天,`,
-	                            `他们分别是 ${multipleChatMaxList.map(uid => sessionStatisticsMap.get(uid).targetName).join(", ")}。`,
-	                        ].join("\n")
-	                    ]) :
-	                    null
-	            ),
-	            ( // 10
-	                usedToChatUid ?
-	                    NList.getElement([
-	                        [
-	                            "你有过一位好友,",
-	                            `${usedToChatSession.targetName} 曾与你互发 ${usedToChatSession.sendCount + usedToChatSession.receiveCount} 条消息,`,
-	                            "今年下半,",
-	                            "你们不曾联系过。",
-	                            "也许找时间去打个招呼?"
-	                        ].join("\n")
-	                    ]) :
-	                    null
-	            ),
+	    showReportPages(
+	        "2023蔷薇私聊年报",
+	        ([
 	            NList.getElement([
-	                "后面没有啦"
+	                "向上滑动\n领取你的2023蔷薇私聊年报"
 	            ]),
-	        ]).filter(o => o != null),
+	            ...pageMainBody.map(o => NList.getElement(o)),
+	            NList.getElement([
+	                "后面没有啦\n\n",
+	                [
+	                    createNStyleList({
+	                        display: "inline-block",
+	                        padding: "6px",
+	                        border: "1px solid white",
+	                        backgroundColor: "rgba(0, 0, 0, 0.7)",
+	                        fontSize: "0.8em"
+	                    }),
+	                    "生成年报长图",
+	                    new NEvent("click", async () =>
+	                    {
+	                        let textLines = pageMainBody.map(o => o.map(o => (typeof (o) == "string" ? o : "")).join("")).join("\n\n").split("\n");
+	                        let canvas = new OffscreenCanvas(1600, 350 + textLines.length * 30);
+
+	                        console.log(textLines);
+
+	                        let canvasContext = canvas.getContext("2d");
+
+	                        canvasContext.fillStyle = "rgb(30, 30, 30)";
+	                        canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+
+
+	                        canvasContext.fillStyle = "rgb(255, 255, 255)";
+	                        canvasContext.font = `40px "Fira Sans", serif`;
+	                        canvasContext.textAlign = "center";
+	                        canvasContext.fillText("蔷薇花园2023年报", canvas.width / 2, 90);
+
+	                        textLines.forEach((lineText, index) =>
+	                        {
+	                            canvasContext.fillStyle = "rgb(255, 255, 255)";
+	                            canvasContext.font = `27px "Fira Sans", serif`;
+	                            canvasContext.textAlign = "center";
+	                            canvasContext.fillText(lineText, canvas.width / 2, 200 + index * 30);
+	                        });
+
+	                        let blob = await canvas.convertToBlob({
+	                            type: "image/png",
+	                            quality: 0.9
+	                        });
+	                        let url = URL.createObjectURL(blob);
+	                        let aElement = document.createElement("a");
+	                        aElement.download = "蔷薇私聊2023年报.png";
+	                        aElement.href = url;
+	                        aElement.click();
+	                    })
+	                ]
+	            ]),
+	        ]),
 	        [
 	            "http://r.iirose.com/i/23/10/11/21/3338-QK.jpg",
 	            "http://r.iirose.com/i/22/12/18/15/4513-0A.png",
 	            "http://r.iirose.com/i/22/5/11/15/3838-IY.jpg",
 	            "http://r.iirose.com/i/23/9/7/1/1047-5Y.jpg",
 	            "http://r.iirose.com/i/23/8/24/5/0224-LF.jpg",
+	            "http://r.iirose.com/i/23/12/17/16/2214-M1.jpg",
+	            "http://r.iirose.com/i/23/12/17/16/2223-ZH.jpg",
+	            "http://r.iirose.com/i/23/12/17/16/2229-EV.jpg",
+	            "http://r.iirose.com/i/23/12/17/16/2237-6O.jpg",
+	            "http://r.iirose.com/i/23/12/17/16/2242-AR.jpg",
+	            "http://r.iirose.com/i/23/12/17/16/2334-XA.jpg",
+	            "http://r.iirose.com/i/23/12/17/16/2319-TO.png"
 	        ]
 	    );
 	}
@@ -9698,6 +9755,8 @@
 	     */
 	    async function switchPageTo(index)
 	    {
+	        // if (index < 0 || index >= pages.length)
+	        //     index = (index + pages.length) % pages.length;
 	        if (!switchPageFinish || !pages[index])
 	            return;
 	        switchPageFinish = false;
@@ -9747,9 +9806,9 @@
 	            {
 	                backgroundColor: "rgba(0, 0, 0, 0.5)"
 	            }
-	        ], 800);
+	        ], 500);
 
-	        await delayPromise(300);
+	        await delayPromise(500);
 	        switchPageFinish = true;
 	    }
 
@@ -10058,7 +10117,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.17.0"
+	    version: "alpha v1.18.0"
 	};
 
 	/**
