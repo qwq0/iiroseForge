@@ -10117,7 +10117,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.18.0"
+	    version: "alpha v1.18.1"
 	};
 
 	/**
@@ -10425,8 +10425,10 @@
 	                }),
 	                ...([ // 菜单列表项
 	                    ...(
-	                        // (new Date("2023/12/15")).getTime() < Date.now() && Date.now() < (new Date("2024/1/15")).getTime() ?
-	                        (storageContext.local.enableExperimental && storageContext.local.experimentalOption["annualReport"]) ?
+	                        (
+	                            (new Date("2023/12/20")).getTime() < Date.now() && Date.now() < (new Date("2024/1/16")).getTime() ||
+	                            (storageContext.local.enableExperimental && storageContext.local.experimentalOption["annualReport"])
+	                        ) ?
 	                            [
 	                                {
 	                                    title: "(限时) 蔷薇年报",
