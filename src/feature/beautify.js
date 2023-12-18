@@ -162,7 +162,8 @@ export async function enableBeautify()
                     "}",
                 ]).join("\n");
             }
-        }, {// 会话消息圆角半径
+        },
+        { // 会话消息圆角半径
             key: "sessionMessageBorderRadius",
             cb: (/** @type {string} */ o) =>
             {

@@ -175,13 +175,6 @@ export async function reportGeneration()
                 hasRecordSendByMe = true;
                 if (content != "&")
                 {
-                    if (content.length < 100)
-                    {
-                        let oldValue = sendContentCountMap.get(content);
-                        if (oldValue == undefined)
-                            oldValue = 0;
-                        sendContentCountMap.set(content, oldValue + 1);
-                    }
                     if (content.length < 500)
                     {
                         let imageUrl = content.match(/https?:\/\/[a-zA-Z0-9\.\_\-]+\/[a-zA-Z0-9\.\_\-\/\?\=\#\&]+?(\.(png|jpg|gif|jpeg|avif|webp))/)?.[0];
@@ -191,6 +184,13 @@ export async function reportGeneration()
                             if (oldValue == undefined)
                                 oldValue = 0;
                             sendImageCountMap.set(imageUrl, oldValue + 1);
+                        }
+                        else if (content.length < 100)
+                        {
+                            let oldValue = sendContentCountMap.get(content);
+                            if (oldValue == undefined)
+                                oldValue = 0;
+                            sendContentCountMap.set(content, oldValue + 1);
                         }
                     }
                 }
