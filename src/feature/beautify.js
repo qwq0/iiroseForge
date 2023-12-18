@@ -171,18 +171,22 @@ export async function enableBeautify()
                     ".room_chat_content",
                     "{",
                     `border-radius: ${o}px;`,
-                    "overflow: hidden;",
                     "}",
 
                     `.room_chat_content[style*="border-right"]`,
                     "{",
-                    "overflow: visible;",
                     `border-radius: ${o}px ${o}px 0 ${o}px;`,
                     "}",
 
                     `.room_chat_content[style*="border-right"] .systemCardMediaShareImg`,
                     "{",
                     `border-radius: ${o}px 0 0 ${o}px`,
+                    "}",
+
+                    ".chatContentHolder:not(.publicMsgHasBubble)",
+                    "{",
+                        `border-radius: ${o}px;`,
+                        "overflow: hidden;",
                     "}",
 
                     `.room_chat_content[style*="border-right"]>div[style*="top:0;bottom:0;right:-6px;"]>div`,
