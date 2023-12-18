@@ -171,18 +171,22 @@ export async function enableBeautify()
                     ".room_chat_content",
                     "{",
                     `border-radius: ${o}px;`,
-                    "overflow: hidden;",
                     "}",
 
                     `.room_chat_content[style*="border-right"]`,
                     "{",
-                    "overflow: visible;",
                     `border-radius: ${o}px ${o}px 0 ${o}px;`,
                     "}",
 
                     `.room_chat_content[style*="border-right"] .systemCardMediaShareImg`,
                     "{",
                     `border-radius: ${o}px 0 0 ${o}px`,
+                    "}",
+
+                    ".chatContentHolder:not(.publicMsgHasBubble)",
+                    "{",
+                        `border-radius: ${o}px;`,
+                        "overflow: hidden;",
                     "}",
 
                     `.room_chat_content[style*="border-right"]>div[style*="top:0;bottom:0;right:-6px;"]>div`,
@@ -204,7 +208,7 @@ export async function enableBeautify()
 
                     `.room_chat_content[style*="border-left"] .systemCardMediaShareImg`,
                     "{",
-                    `border-radius: ${o}px 0 0 ${o}px`,
+                    `border-radius: 0 ${o}px ${o}px 0`,
                     "}",
 
                     `.room_chat_content[style*="border-left"]>div[style*="top:0;bottom:0;left:-6px;"]>div`,
@@ -245,11 +249,6 @@ export async function enableBeautify()
                     `.privatemsgMessagesBodyItemBodyBG[style*="border-left"]`,
                     "{",
                     `border-radius: ${o}px ${o}px ${o}px 0;`,
-                    "}",
-
-                    `.privatemsgMessagesBodyItemBodyBG[style*="border-left"] .systemCardMediaShareImg`,
-                    "{",
-                    `border-radius: 0 ${o}px ${o}px 0`,
                     "}",
 
                     `.privatemsgMessagesBodyItemBodyBG[style*="border-left"]>div[style*="left:-6px;top:0;bottom:0;"]>div`,
@@ -333,6 +332,11 @@ export function showBeautifyMenu()
                 type: "number"
             },
             {
+                name: "会话消息圆角半径",
+                key: "sessionMessageBorderRadius",
+                type: "number"
+            },
+            {
                 name: "会话选择项圆角半径",
                 key: "sessionListItemBorderRadius",
                 type: "number"
@@ -346,11 +350,6 @@ export function showBeautifyMenu()
                 name: "提示框背景图片",
                 key: "alertBackground",
                 type: "text"
-            },
-            {
-                name: "会话消息圆角半径",
-                key: "sessionMessageBorderRadius",
-                type: "number"
             },
         ]).map(o => NList.getElement([
             o.name + (storageContext.roaming.beautify[o.key] ? " (已设置)" : ""),
