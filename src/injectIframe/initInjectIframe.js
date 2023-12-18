@@ -21,6 +21,7 @@ import { enableBlacklist } from "../feature/blacklist.js";
 import { enableRoomAdminOperation } from "../feature/roomAdminOperation.js";
 import { enablePatch } from "../feature/patch.js";
 import { enableAudioTakeover } from "../feature/audioTakeover.js";
+import { enablePinSession } from "../feature/pinSession.js";
 
 
 
@@ -169,6 +170,10 @@ export function initInjectIframe()
             },
             {
                 func: enableBlacklist
+            },
+            {
+                func: enablePinSession,
+                condition: "enablePinSession"
             }
         ]).forEach(o =>
         {

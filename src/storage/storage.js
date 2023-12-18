@@ -17,6 +17,11 @@ export const storageContext = {
          * @type {Set<string>}
          */
         myAccountSet: new Set(),
+        /**
+         * 置顶会话的uid集合
+         * @type {Set<string>}
+         */
+        pinSessionSet: new Set()
     },
     roaming: {
         /**
@@ -59,6 +64,11 @@ export const storageContext = {
          */
         uidBlacklist: [],
         /**
+         * 置顶会话的uid列表
+         * @type {Array<string>}
+         */
+        pinSessionList: [],
+        /**
          * 黑名单自动回复文本
          * @type {string}
          */
@@ -80,6 +90,8 @@ export const storageContext = {
         enableSuperMenu: false,
         // 启用快速房管操作
         enableRoomAdminOperation: true,
+        // 启用置顶聊天
+        enablePinSession: true,
         // 最后一次关闭的时间
         lastCloseTime: 0,
         // 已同步聊天记录到此时间
@@ -111,6 +123,7 @@ export function storageRoamingGet()
     {
         storageContext.roaming.myAccountList = Array.from(storageContext.processed.myAccountSet);
         storageContext.roaming.uidBlacklist = Array.from(storageContext.processed.uidBlacklistSet);
+        storageContext.roaming.pinSessionList = Array.from(storageContext.processed.pinSessionSet);
     }
     catch (err)
     {
@@ -141,6 +154,7 @@ export function storageRoamingSet(storageObj)
         });
         storageContext.processed.myAccountSet = new Set(storageContext.roaming.myAccountList);
         storageContext.processed.uidBlacklistSet = new Set(storageContext.roaming.uidBlacklist);
+        storageContext.processed.pinSessionSet = new Set(storageContext.roaming.pinSessionList);
     }
     catch (err)
     {

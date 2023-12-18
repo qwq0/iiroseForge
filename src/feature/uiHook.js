@@ -16,6 +16,13 @@ let menuHookList = {
     userMenu: [],
     /**
      * @type {Array<{
+     *  creater: (e: { uid: string }) => ({ text: string, icon: string } | null),
+     *  callback: (e: { uid: string }) => void
+     * }>}
+     */
+    sessionMenu: [],
+    /**
+     * @type {Array<{
      *  creater: (e: { roomId: string }) => ({ text: string, icon: string } | null),
      *  callback: (e: { roomId: string }) => void
      * }>}
@@ -200,7 +207,7 @@ function enableUiHook()
                 srcFunction(...param);
 
                 let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-                menuHookList.userMenu.forEach(o =>
+                menuHookList.sessionMenu.concat(menuHookList.userMenu).forEach(o =>
                 {
                     let info = o.creater({ uid });
                     if (!info)

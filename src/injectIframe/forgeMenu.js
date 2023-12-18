@@ -344,6 +344,10 @@ export function getForgeMenu()
                                         name: "快捷房管操作",
                                         storageKey: "enableRoomAdminOperation"
                                     },
+                                    {
+                                        name: "置顶会话",
+                                        storageKey: "enablePinSession"
+                                    },
                                     ...(
                                         storageContext.local.enableExperimental ?
                                             [

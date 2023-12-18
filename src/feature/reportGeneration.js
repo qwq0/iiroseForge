@@ -9,6 +9,7 @@ import { delayPromise } from "../../lib/qwqframe.js";
 import { touchBind } from "../../lib/qwqframe.js";
 import { htmlSpecialCharsDecode } from "../util/htmlSpecialChars.js";
 import { NAttr } from "../../lib/qwqframe.js";
+import { showNotice } from "../ui/notice.js";
 
 /**
  * 用户年报生成
@@ -670,11 +671,31 @@ export async function reportGeneration()
                             type: "image/png",
                             quality: 0.9
                         });
-                        let url = URL.createObjectURL(blob);
-                        let aElement = document.createElement("a");
-                        aElement.download = "蔷薇私聊2023年报.png";
-                        aElement.href = url;
-                        aElement.click();
+
+                        /**
+                         * @param {Blob} blob
+                         */
+                        function blobToDataURL(blob)
+                        {
+                            return new Promise((resolve, reject) =>
+                            {
+                                const reader = new FileReader();
+                                reader.onload = () => resolve(reader.result);
+                                reader.onerror = () => reject(reader.error);
+                                reader.onabort = () => reject(new Error("Read aborted"));
+                                reader.readAsDataURL(blob);
+                            });
+                        }
+
+                        if (iframeContext.iframeWindow?.["device"] != 5)
+                        {
+                            let url = URL.createObjectURL(blob);
+                            iframeContext.iframeWindow?.["showImg"]?.(url);
+                        }
+                        else
+                        {
+                            iframeContext.iframeWindow?.["showImg"]?.(await blobToDataURL(blob));
+                        }
                     })
                 ]
             ]),
@@ -749,8 +770,8 @@ function showReportPages(title, pages, backgroundList)
      */
     async function switchPageTo(index)
     {
-        // if (index < 0 || index >= pages.length)
-        //     index = (index + pages.length) % pages.length;
+        if (index < 0 || index >= pages.length)
+            index = (index + pages.length) % pages.length;
         if (!switchPageFinish || !pages[index])
             return;
         switchPageFinish = false;

@@ -3992,6 +3992,11 @@
 	         * @type {Set<string>}
 	         */
 	        myAccountSet: new Set(),
+	        /**
+	         * 置顶会话的uid集合
+	         * @type {Set<string>}
+	         */
+	        pinSessionSet: new Set()
 	    },
 	    roaming: {
 	        /**
@@ -4034,6 +4039,11 @@
 	         */
 	        uidBlacklist: [],
 	        /**
+	         * 置顶会话的uid列表
+	         * @type {Array<string>}
+	         */
+	        pinSessionList: [],
+	        /**
 	         * 黑名单自动回复文本
 	         * @type {string}
 	         */
@@ -4055,6 +4065,8 @@
 	        enableSuperMenu: false,
 	        // 启用快速房管操作
 	        enableRoomAdminOperation: true,
+	        // 启用置顶聊天
+	        enablePinSession: true,
 	        // 最后一次关闭的时间
 	        lastCloseTime: 0,
 	        // 已同步聊天记录到此时间
@@ -4086,6 +4098,7 @@
 	    {
 	        storageContext.roaming.myAccountList = Array.from(storageContext.processed.myAccountSet);
 	        storageContext.roaming.uidBlacklist = Array.from(storageContext.processed.uidBlacklistSet);
+	        storageContext.roaming.pinSessionList = Array.from(storageContext.processed.pinSessionSet);
 	    }
 	    catch (err)
 	    {
@@ -4116,6 +4129,7 @@
 	        });
 	        storageContext.processed.myAccountSet = new Set(storageContext.roaming.myAccountList);
 	        storageContext.processed.uidBlacklistSet = new Set(storageContext.roaming.uidBlacklist);
+	        storageContext.processed.pinSessionSet = new Set(storageContext.roaming.pinSessionList);
 	    }
 	    catch (err)
 	    {
@@ -4426,6 +4440,13 @@
 	    userMenu: [],
 	    /**
 	     * @type {Array<{
+	     *  creater: (e: { uid: string }) => ({ text: string, icon: string } | null),
+	     *  callback: (e: { uid: string }) => void
+	     * }>}
+	     */
+	    sessionMenu: [],
+	    /**
+	     * @type {Array<{
 	     *  creater: (e: { roomId: string }) => ({ text: string, icon: string } | null),
 	     *  callback: (e: { roomId: string }) => void
 	     * }>}
@@ -4610,7 +4631,7 @@
 	                srcFunction(...param);
 
 	                let selectHolderBox = iframeContext.iframeDocument.getElementById("selectHolderBox");
-	                menuHookList.userMenu.forEach(o =>
+	                menuHookList.sessionMenu.concat(menuHookList.userMenu).forEach(o =>
 	                {
 	                    let info = o.creater({ uid });
 	                    if (!info)
@@ -9684,11 +9705,31 @@
 	                            type: "image/png",
 	                            quality: 0.9
 	                        });
-	                        let url = URL.createObjectURL(blob);
-	                        let aElement = document.createElement("a");
-	                        aElement.download = "蔷薇私聊2023年报.png";
-	                        aElement.href = url;
-	                        aElement.click();
+
+	                        /**
+	                         * @param {Blob} blob
+	                         */
+	                        function blobToDataURL(blob)
+	                        {
+	                            return new Promise((resolve, reject) =>
+	                            {
+	                                const reader = new FileReader();
+	                                reader.onload = () => resolve(reader.result);
+	                                reader.onerror = () => reject(reader.error);
+	                                reader.onabort = () => reject(new Error("Read aborted"));
+	                                reader.readAsDataURL(blob);
+	                            });
+	                        }
+
+	                        if (iframeContext.iframeWindow?.["device"] != 5)
+	                        {
+	                            let url = URL.createObjectURL(blob);
+	                            iframeContext.iframeWindow?.["showImg"]?.(url);
+	                        }
+	                        else
+	                        {
+	                            iframeContext.iframeWindow?.["showImg"]?.(await blobToDataURL(blob));
+	                        }
 	                    })
 	                ]
 	            ]),
@@ -9755,8 +9796,8 @@
 	     */
 	    async function switchPageTo(index)
 	    {
-	        // if (index < 0 || index >= pages.length)
-	        //     index = (index + pages.length) % pages.length;
+	        if (index < 0 || index >= pages.length)
+	            index = (index + pages.length) % pages.length;
 	        if (!switchPageFinish || !pages[index])
 	            return;
 	        switchPageFinish = false;
@@ -10657,6 +10698,10 @@
 	                                    {
 	                                        name: "快捷房管操作",
 	                                        storageKey: "enableRoomAdminOperation"
+	                                    },
+	                                    {
+	                                        name: "置顶会话",
+	                                        storageKey: "enablePinSession"
 	                                    },
 	                                    ...(
 	                                        storageContext.local.enableExperimental ?
@@ -12940,6 +12985,120 @@
 	}
 
 	/**
+	 * 启用会话置顶
+	 */
+	function enablePinSession()
+	{
+	    addMenuHook(
+	        "pinSession",
+	        "sessionMenu",
+	        e => (storageContext.processed.pinSessionSet.has(e.uid) ? { icon: "pin-off", text: "取消置顶" } : { icon: "pin", text: "置顶会话" }),
+	        e =>
+	        {
+	            if (storageContext.processed.pinSessionSet.has(e.uid))
+	            {
+	                storageContext.processed.pinSessionSet.delete(e.uid);
+	                showNotice("置顶会话", "已取消置顶会话");
+	            }
+	            else
+	            {
+	                storageContext.processed.pinSessionSet.add(e.uid);
+	                showNotice("置顶会话", "已置顶会话");
+	            }
+	            storageRoamingSave();
+	            refresh();
+	        }
+	    );
+
+
+	    let enabled = false;
+	    /**
+	     * @type {() => void}
+	     */
+	    let refreshList = null;
+
+	    if (storageContext.processed.pinSessionSet.size > 0)
+	        init();
+
+	    function init()
+	    {
+	        if (enabled)
+	            return;
+	        enabled = true;
+
+	        // 私聊选项卡列表
+	        let sessionHolderPmTaskBox = iframeContext.iframeDocument.getElementsByClassName("sessionHolderPmTaskBox")[0];
+	        let recentSessionLable = sessionHolderPmTaskBox.children[1];
+	        let pinnedSessionLable = NList.getElement([
+	            className("sessionHolderSpliter"),
+	            "置顶会话"
+	        ]).element;
+	        sessionHolderPmTaskBox.children[0].after(pinnedSessionLable);
+	        refreshList = () =>
+	        {
+	            Array.from(sessionHolderPmTaskBox.children).reverse().forEach(o =>
+	            {
+	                if (
+	                    o.classList.length == 2 &&
+	                    o.classList.contains("sessionHolderPmTaskBoxItem") &&
+	                    o.classList.contains("whoisTouch2") &&
+	                    o != sessionHolderPmTaskBox.children[0]
+	                )
+	                {
+	                    let uid = o.getAttribute("ip");
+	                    let pinned = storageContext.processed.pinSessionSet.has(uid);
+	                    let positionBitmap = recentSessionLable.compareDocumentPosition(o);
+	                    if ((positionBitmap & 2) && !pinned)
+	                    {
+	                        recentSessionLable.after(o);
+	                    }
+	                    else if ((positionBitmap & 4) && pinned)
+	                    {
+	                        pinnedSessionLable.after(o);
+	                    }
+	                }
+	            });
+	        };
+	        refreshList();
+	        (new MutationObserver(mutationsList =>
+	        {
+	            for (let mutation of mutationsList)
+	            {
+	                if (mutation.type == "childList")
+	                {
+	                    Array.from(mutation.addedNodes).forEach((/** @type {HTMLElement} */o) =>
+	                    { // 处理新增的私聊选项卡
+	                        if (o.classList != undefined && o.classList.contains("sessionHolderPmTaskBoxItem"))
+	                        {
+	                            if (
+	                                o.classList.length == 2 &&
+	                                o.classList.contains("sessionHolderPmTaskBoxItem") &&
+	                                o.classList.contains("whoisTouch2")
+	                            )
+	                            {
+	                                let uid = o.getAttribute("ip");
+	                                let pinned = storageContext.processed.pinSessionSet.has(uid);
+	                                if ((recentSessionLable.compareDocumentPosition(o) & 2) && !pinned)
+	                                {
+	                                    recentSessionLable.after(o);
+	                                }
+	                            }
+	                        }
+	                    });
+	                }
+	            }
+	        })).observe(sessionHolderPmTaskBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+	    }
+
+	    function refresh()
+	    {
+	        if (!enabled)
+	            init();
+	        refreshList();
+	    }
+	}
+
+	/**
 	 * 初始化注入iframe元素
 	 */
 	function initInjectIframe()
@@ -13084,6 +13243,10 @@
 	            },
 	            {
 	                func: enableBlacklist
+	            },
+	            {
+	                func: enablePinSession,
+	                condition: "enablePinSession"
 	            }
 	        ]).forEach(o =>
 	        {
