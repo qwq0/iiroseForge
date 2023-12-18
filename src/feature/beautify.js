@@ -204,7 +204,7 @@ export async function enableBeautify()
 
                     `.room_chat_content[style*="border-left"] .systemCardMediaShareImg`,
                     "{",
-                    `border-radius: ${o}px 0 0 ${o}px`,
+                    `border-radius: 0 ${o}px ${o}px 0`,
                     "}",
 
                     `.room_chat_content[style*="border-left"]>div[style*="top:0;bottom:0;left:-6px;"]>div`,
@@ -245,11 +245,6 @@ export async function enableBeautify()
                     `.privatemsgMessagesBodyItemBodyBG[style*="border-left"]`,
                     "{",
                     `border-radius: ${o}px ${o}px ${o}px 0;`,
-                    "}",
-
-                    `.privatemsgMessagesBodyItemBodyBG[style*="border-left"] .systemCardMediaShareImg`,
-                    "{",
-                    `border-radius: 0 ${o}px ${o}px 0`,
                     "}",
 
                     `.privatemsgMessagesBodyItemBodyBG[style*="border-left"]>div[style*="left:-6px;top:0;bottom:0;"]>div`,
