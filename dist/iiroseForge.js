@@ -9796,8 +9796,8 @@
 	     */
 	    async function switchPageTo(index)
 	    {
-	        if (index < 0 || index >= pages.length)
-	            index = (index + pages.length) % pages.length;
+	        // if (index < 0 || index >= pages.length)
+	        //     index = (index + pages.length) % pages.length;
 	        if (!switchPageFinish || !pages[index])
 	            return;
 	        switchPageFinish = false;
@@ -10158,7 +10158,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.18.2"
+	    version: "alpha v1.18.3"
 	};
 
 	/**

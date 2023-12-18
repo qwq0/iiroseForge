@@ -770,8 +770,8 @@ function showReportPages(title, pages, backgroundList)
      */
     async function switchPageTo(index)
     {
-        if (index < 0 || index >= pages.length)
-            index = (index + pages.length) % pages.length;
+        // if (index < 0 || index >= pages.length)
+        //     index = (index + pages.length) % pages.length;
         if (!switchPageFinish || !pages[index])
             return;
         switchPageFinish = false;
