@@ -7104,6 +7104,11 @@
 	                type: "number"
 	            },
 	            {
+	                name: "会话消息圆角半径",
+	                key: "sessionMessageBorderRadius",
+	                type: "number"
+	            },
+	            {
 	                name: "会话选择项圆角半径",
 	                key: "sessionListItemBorderRadius",
 	                type: "number"
@@ -7117,11 +7122,6 @@
 	                name: "提示框背景图片",
 	                key: "alertBackground",
 	                type: "text"
-	            },
-	            {
-	                name: "会话消息圆角半径",
-	                key: "sessionMessageBorderRadius",
-	                type: "number"
 	            },
 	        ]).map(o => NList.getElement([
 	            o.name + (storageContext.roaming.beautify[o.key] ? " (已设置)" : ""),
