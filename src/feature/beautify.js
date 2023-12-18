@@ -162,6 +162,104 @@ export async function enableBeautify()
                     "}",
                 ]).join("\n");
             }
+        }, {// 会话消息圆角半径
+            key: "sessionMessageBorderRadius",
+            cb: (/** @type {string} */ o) =>
+            {
+                styleStr += ([
+                    // 公屏
+                    ".room_chat_content",
+                    "{",
+                    `border-radius: ${o}px;`,
+                    "overflow: hidden;",
+                    "}",
+
+                    `.room_chat_content[style*="border-right"]`,
+                    "{",
+                    "overflow: visible;",
+                    `border-radius: ${o}px ${o}px 0 ${o}px;`,
+                    "}",
+
+                    `.room_chat_content[style*="border-right"] .systemCardMediaShareImg`,
+                    "{",
+                    `border-radius: ${o}px 0 0 ${o}px`,
+                    "}",
+
+                    `.room_chat_content[style*="border-right"]>div[style*="top:0;bottom:0;right:-6px;"]>div`,
+                    "{",
+                    `width: ${o}px !important;`,
+                    `border-radius: 0 ${o}px 0 0;`,
+                    "}",
+
+                    `.room_chat_content[style*="border-right"]>div[style*="top:0;bottom:0;right:-6px;"]>svg`,
+                    "{",
+                    "right:-7.5px !important;",
+                    "}",
+
+                    `.room_chat_content[style*="border-left"]`,
+                    "{",
+                    "overflow: visible;",
+                    `border-radius: ${o}px ${o}px ${o}px 0;`,
+                    "}",
+
+                    `.room_chat_content[style*="border-left"] .systemCardMediaShareImg`,
+                    "{",
+                    `border-radius: ${o}px 0 0 ${o}px`,
+                    "}",
+
+                    `.room_chat_content[style*="border-left"]>div[style*="top:0;bottom:0;left:-6px;"]>div`,
+                    "{",
+                    `width: ${o}px !important;`,
+                    `border-radius: ${o}px 0 0 0;`,
+                    "}",
+
+                    // 私聊
+                    ".privateMsgNoBubble",
+                    "{",
+                    `border-radius: ${o}px;`,
+                    "overflow: hidden;",
+                    "}",
+
+                    ".privatemsgMessagesBodyItemBodyBG",
+                    "{",
+                    `border-radius: ${o}px;`,
+                    "}",
+
+                    `.privatemsgMessagesBodyItemBodyBG[style*="border-right"]`,
+                    "{",
+                    "overflow: visible;",
+                    `border-radius: ${o}px ${o}px 0 ${o}px;`,
+                    "}",
+
+                    `.privatemsgMessagesBodyItemBodyBG[style*="border-right"]>div[style*="right:-6px;top:0;bottom:0;"]>div`,
+                    "{",
+                    `width: ${o}px !important;`,
+                    `border-radius: 0 ${o}px 0 0;`,
+                    "}",
+
+                    `.privatemsgMessagesBodyItemBodyBG[style*="border-right"]>div[style*="right:-6px;top:0;bottom:0;"]>svg`,
+                    "{",
+                    "right:-7.5px !important;",
+                    "}",
+
+                    `.privatemsgMessagesBodyItemBodyBG[style*="border-left"]`,
+                    "{",
+                    `border-radius: ${o}px ${o}px ${o}px 0;`,
+                    "}",
+
+                    `.privatemsgMessagesBodyItemBodyBG[style*="border-left"] .systemCardMediaShareImg`,
+                    "{",
+                    `border-radius: 0 ${o}px ${o}px 0`,
+                    "}",
+
+                    `.privatemsgMessagesBodyItemBodyBG[style*="border-left"]>div[style*="left:-6px;top:0;bottom:0;"]>div`,
+                    "{",
+                    `width: ${o}px !important;`,
+                    `border-radius: ${o}px 0 0 0;`,
+                    "}",
+
+                ]).join("\n");
+            }
         },
     ]).forEach(o =>
     {
@@ -248,6 +346,11 @@ export function showBeautifyMenu()
                 name: "提示框背景图片",
                 key: "alertBackground",
                 type: "text"
+            },
+            {
+                name: "会话消息圆角半径",
+                key: "sessionMessageBorderRadius",
+                type: "number"
             },
         ]).map(o => NList.getElement([
             o.name + (storageContext.roaming.beautify[o.key] ? " (已设置)" : ""),
