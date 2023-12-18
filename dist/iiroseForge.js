@@ -10260,7 +10260,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.18.3"
+	    version: "alpha v1.18.4"
 	};
 
 	/**
