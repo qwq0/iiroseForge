@@ -623,6 +623,22 @@ export async function reportGeneration()
         ),
     ]).filter(o => o != null);
 
+    let longPictureBackgroundList = [
+        "https://r.iirose.com/i/23/12/19/15/3650-3T.png",
+        "https://r.iirose.com/i/23/12/19/15/3658-TW.png",
+        "https://r.iirose.com/i/23/12/19/15/3707-0C.jpg",
+        "https://r.iirose.com/i/23/12/19/15/3720-73.jpg",
+        "https://r.iirose.com/i/23/12/19/15/3725-Z0.jpg",
+        "https://r.iirose.com/i/23/12/19/15/3734-09.png",
+        "https://r.iirose.com/i/23/12/19/15/3739-SD.png",
+        "https://r.iirose.com/i/23/12/19/15/3746-Q9.jpg",
+        "https://r.iirose.com/i/23/12/19/15/3756-LZ.jpg",
+        "https://r.iirose.com/i/23/12/19/15/3800-BF.jpg",
+        "https://r.iirose.com/i/23/12/19/15/3805-UG.png",
+        "https://r.iirose.com/i/23/12/19/15/3808-W0.jpg",
+        "https://r.iirose.com/i/23/12/19/15/3813-M5.jpg"
+    ];
+
     showReportPages(
         "2023蔷薇私聊年报",
         ([
@@ -643,29 +659,95 @@ export async function reportGeneration()
                     "生成年报长图",
                     new NEvent("click", async () =>
                     {
-                        let textLines = pageMainBody.map(o => o.map(o => (typeof (o) == "string" ? o : "")).join("")).join("\n\n").split("\n");
-                        let canvas = new OffscreenCanvas(1600, 350 + textLines.length * 30);
+                        let textLines = pageMainBody.map(o => o.map(o => (typeof (o) == "string" ? o : "")).join("")).join("\n\n").split("\n").map(o =>
+                        {
+                            if (o.length <= 50)
+                                return o;
+                            let section = [];
+                            for (let i = 0, sectionCount = Math.ceil(o.length / 50); i < sectionCount; i++)
+                            {
+                                section.push(o.slice(i * 50, (i + 1) * 50));
+                            }
+                            return section;
+                        }).flat();
+
+                        /**
+                         * @type {typeof OffscreenCanvas}
+                         */
+                        let OffscreenCanvasConstructor = (iframeContext.iframeWindow?.["OffscreenCanvas"] ? iframeContext.iframeWindow?.["OffscreenCanvas"] : OffscreenCanvas);
+                        let canvas = new OffscreenCanvasConstructor(1500, 350 + textLines.length * 30);
 
                         console.log(textLines);
+
+                        showNotice("生成年报", "正在生成长图");
 
                         let canvasContext = canvas.getContext("2d");
 
                         canvasContext.fillStyle = "rgb(30, 30, 30)";
                         canvasContext.fillRect(0, 0, canvas.width, canvas.height);
 
+                        /**
+                         * @type {HTMLImageElement | undefined}
+                         */
+                        let backgroundImage = await Promise.any([
+                            new Promise((resolve) =>
+                            {
+                                let image = new Image();
+                                image.addEventListener("load", () =>
+                                {
+                                    resolve(image);
+                                });
+                                image.crossOrigin = "anonymous";
+                                image.src = `${longPictureBackgroundList[Math.floor(Math.random() * longPictureBackgroundList.length)]}`;
+                            }),
+                            delayPromise(4500)
+                        ]);
 
-                        canvasContext.fillStyle = "rgb(255, 255, 255)";
-                        canvasContext.font = `40px "Fira Sans", serif`;
-                        canvasContext.textAlign = "center";
-                        canvasContext.fillText("蔷薇花园2023年报", canvas.width / 2, 90);
+                        if (backgroundImage != undefined)
+                        {
+                            let imageRatio = Math.max(canvas.width / backgroundImage.naturalWidth, canvas.height / backgroundImage.naturalHeight);
+                            let captureWidth = canvas.width / imageRatio;
+                            let captureHeight = canvas.height / imageRatio;
+                            canvasContext.drawImage(
+                                backgroundImage,
+                                (backgroundImage.naturalWidth - captureWidth) / 2, (backgroundImage.naturalHeight - captureHeight) / 2, captureWidth, captureHeight,
+                                0, 0, canvas.width, canvas.height
+                            );
+
+                            canvasContext.fillStyle = "rgba(0, 0, 0, 0.5)";
+                            canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+                        }
+
+                        {
+                            let titleText = "蔷薇花园2023年报";
+                            canvasContext.font = `40px "noto", serif`;
+                            canvasContext.textAlign = "center";
+                            canvasContext.strokeStyle = "rgba(0, 0, 0, 0.7)";
+                            canvasContext.lineWidth = 3;
+                            canvasContext.lineJoin = "round";
+                            canvasContext.strokeText(titleText, canvas.width / 2, 120);
+                            canvasContext.fillStyle = "rgb(255, 255, 255)";
+                            canvasContext.fillText(titleText, canvas.width / 2, 120);
+                        }
 
                         textLines.forEach((lineText, index) =>
                         {
-                            canvasContext.fillStyle = "rgb(255, 255, 255)";
-                            canvasContext.font = `27px "Fira Sans", serif`;
+                            canvasContext.font = `27px "noto", serif`;
                             canvasContext.textAlign = "center";
-                            canvasContext.fillText(lineText, canvas.width / 2, 200 + index * 30);
+
+                            canvasContext.strokeStyle = "rgba(0, 0, 0, 0.9)";
+                            canvasContext.lineWidth = 2;
+                            canvasContext.lineJoin = "round";
+                            canvasContext.strokeText(lineText, canvas.width / 2, 250 + index * 30);
+
+                            canvasContext.fillStyle = "rgb(255, 255, 255)";
+                            canvasContext.fillText(lineText, canvas.width / 2, 250 + index * 30);
                         });
+
+                        canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
+                        canvasContext.font = `24px "noto", serif`;
+                        canvasContext.textAlign = "center";
+                        canvasContext.fillText("由 iirose-Forge 使用 ❤ 生成", canvas.width / 2, canvas.height - 27);
 
                         let blob = await canvas.convertToBlob({
                             type: "image/png",
@@ -696,23 +778,25 @@ export async function reportGeneration()
                         {
                             iframeContext.iframeWindow?.["showImg"]?.(await blobToDataURL(blob));
                         }
+
+                        showNotice("生成年报", "重新生成可以使用不同背景哦\n长按(右键)图片保存");
                     })
                 ]
             ]),
         ]),
         [
-            "http://r.iirose.com/i/23/10/11/21/3338-QK.jpg",
-            "http://r.iirose.com/i/22/12/18/15/4513-0A.png",
-            "http://r.iirose.com/i/22/5/11/15/3838-IY.jpg",
-            "http://r.iirose.com/i/23/9/7/1/1047-5Y.jpg",
-            "http://r.iirose.com/i/23/8/24/5/0224-LF.jpg",
-            "http://r.iirose.com/i/23/12/17/16/2214-M1.jpg",
-            "http://r.iirose.com/i/23/12/17/16/2223-ZH.jpg",
-            "http://r.iirose.com/i/23/12/17/16/2229-EV.jpg",
-            "http://r.iirose.com/i/23/12/17/16/2237-6O.jpg",
-            "http://r.iirose.com/i/23/12/17/16/2242-AR.jpg",
-            "http://r.iirose.com/i/23/12/17/16/2334-XA.jpg",
-            "http://r.iirose.com/i/23/12/17/16/2319-TO.png"
+            "https://r.iirose.com/i/23/10/11/21/3338-QK.jpg",
+            "https://r.iirose.com/i/22/12/18/15/4513-0A.png",
+            "https://r.iirose.com/i/22/5/11/15/3838-IY.jpg",
+            "https://r.iirose.com/i/23/9/7/1/1047-5Y.jpg",
+            "https://r.iirose.com/i/23/8/24/5/0224-LF.jpg",
+            "https://r.iirose.com/i/23/12/17/16/2214-M1.jpg",
+            "https://r.iirose.com/i/23/12/17/16/2223-ZH.jpg",
+            "https://r.iirose.com/i/23/12/17/16/2229-EV.jpg",
+            "https://r.iirose.com/i/23/12/17/16/2237-6O.jpg",
+            "https://r.iirose.com/i/23/12/17/16/2242-AR.jpg",
+            "https://r.iirose.com/i/23/12/17/16/2334-XA.jpg",
+            "https://r.iirose.com/i/23/12/17/16/2319-TO.png"
         ]
     );
 }
@@ -753,14 +837,6 @@ function showReportPages(title, pages, backgroundList)
      * @type {NElement}
      */
     let backgroundOverlayElement = null;
-    /**
-     * @type {NElement}
-     */
-    let upButtonElement = null;
-    /**
-     * @type {NElement}
-     */
-    let downButtonElement = null;
 
     let switchPageFinish = true;
 
