@@ -6938,7 +6938,9 @@
 	                    "}",
 	                ]).join("\n");
 	            }
-	        }, {// 会话消息圆角半径
+	        }
+	        ,
+	        {// 会话消息圆角半径
 	            key: "sessionMessageBorderRadius",
 	            cb: (/** @type {string} */ o) =>
 	            {
@@ -6961,8 +6963,8 @@
 
 	                    ".chatContentHolder:not(.publicMsgHasBubble)",
 	                    "{",
-	                        `border-radius: ${o}px;`,
-	                        "overflow: hidden;",
+	                    `border-radius: ${o}px;`,
+	                    "overflow: hidden;",
 	                    "}",
 
 	                    `.room_chat_content[style*="border-right"]>div[style*="top:0;bottom:0;right:-6px;"]>div`,
