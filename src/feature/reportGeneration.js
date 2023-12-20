@@ -19,6 +19,7 @@ export async function reportGeneration()
     let record = getLocalRecordList();
 
     let userUid = forgeApi.operation.getUserUid();
+    let userName = forgeApi.operation.getUserName();
     let statisticsStartTime = (new Date("2023/1/1")).getTime();
     let statisticsEndTime = (new Date("2024/1/1")).getTime();
     const oneDay = 24 * 60 * 60 * 1000;
@@ -744,10 +745,17 @@ export async function reportGeneration()
                             canvasContext.fillText(lineText, canvas.width / 2, 250 + index * 30);
                         });
 
-                        canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
-                        canvasContext.font = `24px "noto", serif`;
-                        canvasContext.textAlign = "center";
-                        canvasContext.fillText("由 iirose-Forge 使用 ❤ 生成", canvas.width / 2, canvas.height - 27);
+                        {
+                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
+                            canvasContext.font = `24px "noto", serif`;
+                            canvasContext.textAlign = "center";
+                            canvasContext.fillText("由 iirose-Forge 使用 ❤ 生成", canvas.width / 2, canvas.height - 27);
+
+                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
+                            canvasContext.font = `24px "noto", serif`;
+                            canvasContext.textAlign = "right";
+                            canvasContext.fillText(`${userName} 的私聊年报`, canvas.width - 35, 24 + 35);
+                        }
 
                         let blob = await canvas.convertToBlob({
                             type: "image/png",

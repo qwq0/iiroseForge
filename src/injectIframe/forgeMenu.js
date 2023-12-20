@@ -8,6 +8,7 @@ import { showMultiAccountMenu } from "../feature/multiAccount.js";
 import { showNotDisturbModeMenu } from "../feature/notDisturbMode.js";
 import { showPatchMenu } from "../feature/patch.js";
 import { reportGeneration } from "../feature/reportGeneration.js";
+import { showSuperMenuOptionMenu } from "../feature/superMenu/superMenuTools.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
 import { versionInfo } from "../info.js";
 import { removeForgeFromCache, writeForgeToCache } from "../injectCache/injectCache.js";
@@ -236,6 +237,9 @@ export function getForgeMenu()
                         icon: "shopping",
                         onClick: async () =>
                         {
+                            showNotice("插件商店", "forge插件商店还未上线");
+                            return;
+
                             if (plugStone)
                             {
                                 plugStone.windowElement.setDisplay("block");
@@ -340,6 +344,19 @@ export function getForgeMenu()
                                         name: "超级菜单",
                                         storageKey: "enableSuperMenu"
                                     },
+                                    ...(
+                                        storageContext.local.enableSuperMenu ?
+                                            [
+                                                {
+                                                    name: "超级菜单设置",
+                                                    func: async () =>
+                                                    {
+                                                        showSuperMenuOptionMenu();
+                                                    }
+                                                },
+                                            ] :
+                                            []
+                                    ),
                                     {
                                         name: "快捷房管操作",
                                         storageKey: "enableRoomAdminOperation"
@@ -450,6 +467,56 @@ export function getForgeMenu()
                             removeForgeFromCache();
                             showInfoBox("卸载iiroseForge", "已完成");
                         }
+                    },
+                    {
+                        title: "分享forge",
+                        text: "复制forge地址",
+                        icon: "share-variant",
+                        onClick: async () =>
+                        {
+                            try
+                            {
+                                await navigator.clipboard.writeText("https://qwq0.github.io/iiroseForge/l.js");
+                                showNotice("分享forge", "复制forge地址成功");
+                            } catch (err)
+                            {
+                                showNotice("分享forge", "复制失败\n无法写入剪切板");
+                            }
+                        }
+                    },
+                    {
+                        title: "联系作者",
+                        text: "向forge作者团队发送私聊",
+                        icon: "account-tie",
+                        onClick: async () =>
+                        {
+                            showMenu([
+                                NList.getElement([
+                                    "QwQ\uff5e - 吉祥物 & 主作者",
+                                    new NEvent("click", () =>
+                                    {
+                                        hideForgeMenu();
+                                        iframeContext.iframeWindow?.["Utils"]?.service?.offlinePmBuildHelper?.("601c1660aa9cd");
+                                    })
+                                ]),
+                                NList.getElement([
+                                    "落零レ - ほら、カレーウドン",
+                                    new NEvent("click", () =>
+                                    {
+                                        hideForgeMenu();
+                                        iframeContext.iframeWindow?.["Utils"]?.service?.offlinePmBuildHelper?.("5b17af7a285d7");
+                                    })
+                                ]),
+                                NList.getElement([
+                                    "春风萧落 - forge作者团队成员",
+                                    new NEvent("click", () =>
+                                    {
+                                        hideForgeMenu();
+                                        iframeContext.iframeWindow?.["Utils"]?.service?.offlinePmBuildHelper?.("5b0fe8a3b1ff2");
+                                    })
+                                ]),
+                            ]);
+                        }
                     }
                 ]).map(o => [ // 菜单列表项元素
                     className("commonBox"),
@@ -545,7 +612,7 @@ export function getForgeMenu()
                     text: "< 返回",
                     onClick: () =>
                     {
-                        menu.remove();
+                        hideForgeMenu();
                     }
                 }
             ].map(o => [
@@ -696,4 +763,26 @@ export function getForgeMenu()
     menu.element.id = "iiroseForgeMenu";
 
     return menu;
+}
+
+/**
+ * @type {NElement}
+ */
+let nowForgeMenuElement = null;
+
+export function hideForgeMenu()
+{
+    if (nowForgeMenuElement)
+    {
+        nowForgeMenuElement.remove();
+        nowForgeMenuElement = null;
+    }
+}
+
+export function showForgeMenu()
+{
+    if (nowForgeMenuElement)
+        hideForgeMenu();
+    nowForgeMenuElement = getForgeMenu();
+    iframeContext.iframeBody.addChild(nowForgeMenuElement);
 }

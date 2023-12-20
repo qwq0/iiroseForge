@@ -12,20 +12,32 @@ let enabledAutoResponse = false;
 let autoResponseText = "";
 
 /**
+ * @type {Map<string, number>}
+ */
+let lastAutoReplyTime = new Map();
+
+/**
  * @param {typeof forgeApi.event.privateMessage extends EventHandler<infer T> ? T : never} e
  */
 function onPrivateMessage(e)
 {
     if (enabledAutoResponse && !messageNeedBlock(e.senderId))
     {
-        setTimeout(() =>
+        if (!lastAutoReplyTime.has(e.senderId) || lastAutoReplyTime.get(e.senderId) < Date.now() - 15 * 1000)
         {
-            forgeApi.operation.sendPrivateMessage(e.senderId, `[自动回复] ${autoResponseText}`);
-        }, 1.5 * 1000);
-        showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
-        {
-            setNotDisturbMode(false);
-        });
+            lastAutoReplyTime.set(e.senderId, Date.now());
+            let timeoutId = setTimeout(() =>
+            {
+                timeoutId = null;
+                forgeApi.operation.sendPrivateMessage(e.senderId, `[自动回复] ${autoResponseText}`);
+            }, 1.5 * 1000);
+            showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
+            {
+                setNotDisturbMode(false);
+                if (timeoutId)
+                    clearTimeout(timeoutId);
+            });
+        }
     }
 }
 
@@ -41,11 +53,15 @@ function onRoomMessage(e)
         !messageNeedBlock(e.senderId)
     )
     {
-        forgeApi.operation.sendRoomMessage(`[自动回复]  [*${e.senderName}*]  ${autoResponseText}`);
-        showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
+        if (!lastAutoReplyTime.has(e.senderId) || lastAutoReplyTime.get(e.senderId) < Date.now() - 15 * 1000)
         {
-            setNotDisturbMode(false);
-        });
+            lastAutoReplyTime.set(e.senderId, Date.now());
+            forgeApi.operation.sendRoomMessage(`[自动回复]  [*${e.senderName}*]  ${autoResponseText}`);
+            showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
+            {
+                setNotDisturbMode(false);
+            });
+        }
     }
 }
 

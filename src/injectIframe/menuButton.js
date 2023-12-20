@@ -1,6 +1,6 @@
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement } from "../../lib/qwqframe.js";
 import { body } from "../ui/body.js";
-import { getForgeMenu } from "./forgeMenu.js";
+import { getForgeMenu, showForgeMenu } from "./forgeMenu.js";
 import { iframeContext } from "./iframeContext.js";
 
 /**
@@ -34,7 +34,7 @@ export function getMenuButton()
         new NEvent("click", () =>
         {
             iframeContext.iframeWindow?.["functionHolderDarker"]?.click();
-            iframeContext.iframeBody.addChild(getForgeMenu());
+            showForgeMenu();
         }),
 
         new NEvent("mouseenter", (_e, ele) =>

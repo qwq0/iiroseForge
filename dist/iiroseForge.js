@@ -105,12 +105,12 @@
 	 * 第一个参数与任何一个之后的参数相等 返回true
 	 * 与任何一个都不相等 返回false
 	 * @param {any} k
-	 * @param  {...any} s
+	 * @param  {Array<any>} s
 	 * @returns {boolean}
 	 */
 	function isAmong(k, ...s)
 	{
-	    return forEach(s, o => o == k);
+	    return s.some(o => o === k);
 	}
 
 	/**
@@ -477,12 +477,12 @@
 	    {
 	        if (typeof (this.value) == "function")
 	        {
-	            let cbRet = this.value(e.element[this.key]);
+	            let cbRet = this.value(e);
 	            if (cbRet != undefined)
-	                e.element[this.key] = cbRet;
+	                e.element.setAttribute(this.key, cbRet);
 	        }
 	        else
-	            e.element[this.key] = this.value;
+	            e.element.setAttribute(this.key, this.value);
 	    }
 	}
 
@@ -1023,7 +1023,7 @@
 	     */
 	    setAttrs(obj)
 	    {
-	        forEach(Object.keys(obj), (key) => { this.element[key] = obj[key]; });
+	        forEach(Object.keys(obj), (key) => { this.element.setAttribute(key, obj[key]); });
 	    }
 
 	    /**
@@ -1089,7 +1089,7 @@
 	            throw "(NElelemt) animateCommit can only be used when fill forwards or both";
 	        let animate = this.element.animate(keyframes, options);
 	        await animate.finished;
-	        
+
 	        let errorObject = null;
 	        try
 	        {
@@ -1101,7 +1101,9 @@
 	        }
 	        animate.cancel();
 	        if (errorObject != null)
-	            throw errorObject;
+	        {
+	            console.error(errorObject);
+	        }
 	    }
 
 	    /**
@@ -2056,7 +2058,7 @@
 	/**
 	 * 状态
 	 */
-	let State$1 = class State
+	class State
 	{
 	    /**
 	     * 类映射
@@ -2089,23 +2091,23 @@
 	     * @type {Map<function, string>}
 	     */
 	    safetyFunctionToName = new Map();
-	};
+	}
 
 	/**
 	 * 自定义序列化函数
 	 */
-	const serializationFunctionSymbol$1 = Symbol("serialization function");
+	const serializationFunctionSymbol = Symbol("serialization function");
 	/**
 	 * 自定义反序列化函数
 	 */
-	const deserializationFunctionSymbol$1 = Symbol("deserialization function");
+	const deserializationFunctionSymbol = Symbol("deserialization function");
 
-	const textEncoder$2 = new TextEncoder();
+	const textEncoder$1 = new TextEncoder();
 
 	/**
 	 * JSOBin编码器
 	 */
-	let Encoder$1 = class Encoder
+	class Encoder
 	{
 	    /**
 	     * @type {State}
@@ -2211,7 +2213,7 @@
 	     */
 	    pushStr(str)
 	    {
-	        let strBin = textEncoder$2.encode(str);
+	        let strBin = textEncoder$1.encode(str);
 	        this.pushVint(strBin.byteLength);
 	        this.pushArr(strBin);
 	    }
@@ -2281,7 +2283,7 @@
 	                { // TODO 类的自定义处理需要大改版 目前无法在自定义序列化下使用循环引用
 	                    this.push(6);
 	                    this.pushStr(this.#state.classToName.get(Object.getPrototypeOf(now)?.constructor));
-	                    let obj = now[serializationFunctionSymbol$1] ? now[serializationFunctionSymbol$1].call(now) : now; // 处理自定义序列化函数
+	                    let obj = now[serializationFunctionSymbol] ? now[serializationFunctionSymbol].call(now) : now; // 处理自定义序列化函数
 	                    let keys = Object.getOwnPropertyNames(obj);
 	                    this.pushVint(keys.length);
 	                    keys.forEach(key =>
@@ -2407,7 +2409,7 @@
 	                return new Uint8Array(buf);
 	        }
 	    }
-	};
+	}
 
 	/**
 	 * js内置类映射
@@ -2569,12 +2571,12 @@
 	    });
 	});
 
-	const textDecoder$1 = new TextDecoder("utf-8");
+	const textDecoder = new TextDecoder("utf-8");
 
 	/**
 	 * JSOBin解码器
 	 */
-	let Decoder$1 = class Decoder
+	class Decoder
 	{
 	    /**
 	     * @type {State}
@@ -2659,7 +2661,7 @@
 	    getStr()
 	    {
 	        let len = this.getVInt();
-	        let str = textDecoder$1.decode(this.buffer.subarray(this.index, this.index + len));
+	        let str = textDecoder.decode(this.buffer.subarray(this.index, this.index + len));
 	        this.index += len;
 	        return str;
 	    }
@@ -2720,7 +2722,7 @@
 	                let classConstructor = this.#state.nameToClass.get(className);
 	                if (classConstructor == undefined)
 	                    throw `JSOBin Decode: (class) "${className}" is unregistered class in the current context in the parsing jsobin`;
-	                if (classConstructor?.[deserializationFunctionSymbol$1]) // 存在自定义反序列化函数
+	                if (classConstructor?.[deserializationFunctionSymbol]) // 存在自定义反序列化函数
 	                { // TODO 类的自定义处理需要大改版 目前无法在自定义序列化下使用循环引用
 	                    let dataObj = {};
 	                    let childCount = this.getVInt();
@@ -2731,7 +2733,7 @@
 	                        let key = this.getStr();
 	                        dataObj[key] = this.traversal();
 	                    }
-	                    let ret = classConstructor[deserializationFunctionSymbol$1](dataObj);
+	                    let ret = classConstructor[deserializationFunctionSymbol](dataObj);
 	                    this.referenceIndList[refInd] = ret;
 	                    return ret;
 	                }
@@ -2845,17 +2847,17 @@
 	        this.index += len;
 	        return ret;
 	    }
-	};
+	}
 
 	/**
 	 * JSOBin操作上下文
 	 */
-	let JSOBin$1 = class JSOBin
+	class JSOBin
 	{
 	    /**
 	     * @type {State}
 	     */
-	    #state = new State$1();
+	    #state = new State();
 
 	    /**
 	     * 添加类到上下文
@@ -2894,7 +2896,7 @@
 	        config = Object.assign({
 	            referenceString: false
 	        }, config);
-	        return (new Encoder$1(this.#state, config.referenceString)).encode(obj);
+	        return (new Encoder(this.#state, config.referenceString)).encode(obj);
 	    }
 
 	    /**
@@ -2904,9 +2906,9 @@
 	     */
 	    decode(bin)
 	    {
-	        return (new Decoder$1(this.#state, bin)).decode();
+	        return (new Decoder(this.#state, bin)).decode();
 	    }
-	};
+	}
 
 	/**
 	 * 生成唯一字符串
@@ -2915,7 +2917,7 @@
 	 * @param {number} [randomSection] 随机节数量
 	 * @returns {string}
 	 */
-	function uniqueIdentifierString$2(randomSection = 2)
+	function uniqueIdentifierString$1(randomSection = 2)
 	{
 	    var ret = Math.floor(Date.now()).toString(36);
 	    for (let i = 0; i < randomSection; i++)
@@ -2923,7 +2925,7 @@
 	    return ret;
 	}
 
-	const jsob = new JSOBin$1();
+	const jsob = new JSOBin();
 
 	/**
 	 * forge分片数据包
@@ -3069,7 +3071,7 @@
 	        {
 	            let packetTime = Date.now();
 	            let packetTimeStr = packetTime.toString(36);
-	            let packetId = uniqueIdentifierString$2();
+	            let packetId = uniqueIdentifierString$1();
 	            let sliceCount = Math.ceil(dataBase64.length / maxBodyLength);
 	            let sliceCountStr = sliceCount.toString(36);
 	            return Array(sliceCount).fill(0).map((_, i) =>
@@ -4084,7 +4086,12 @@
 	         * 超级菜单优先级
 	         * @type {Object<string, Object<string, number>>}
 	         */
-	        superMenuPriority: {}
+	        superMenuPriority: {},
+	        /**
+	         * 超级菜单选项
+	         * @type {Object<string, string>}
+	         */
+	        superMenuOption: {}
 	    }
 	};
 
@@ -5334,6 +5341,11 @@
 	    }).filter(o => o != undefined).reverse().join("<");
 	});
 
+	/**
+	 * @type {Map<string, number>}
+	 */
+	let lastAutoReplyTime$1 = new Map();
+
 	toClientTrie.addPath(`""`, (data) => // 私聊消息
 	{
 	    let userId = forgeApi.operation.getUserUid();
@@ -5413,8 +5425,14 @@
 
 	            if (messageNeedBlock(senderId, content, senderName))
 	            {
-	                if (storageContext.roaming.blacklistAutoReply)
-	                    forgeApi.operation.sendPrivateMessageSilence(senderId, `[自动回复] ${storageContext.roaming.blacklistAutoReply}`);
+	                if (storageContext.roaming.blacklistAutoReply) // 黑名单自动回复
+	                {
+	                    if (!lastAutoReplyTime$1.has(senderId) || lastAutoReplyTime$1.get(senderId) < Date.now() - 15 * 1000)
+	                    {
+	                        lastAutoReplyTime$1.set(senderId, Date.now());
+	                        forgeApi.operation.sendPrivateMessageSilence(senderId, `[自动回复] ${storageContext.roaming.blacklistAutoReply}`);
+	                    }
+	                }
 	                return undefined;
 	            }
 	        }
@@ -5469,339 +5487,7 @@
 	    JSOBin version 1.1.1
 	*/
 
-	/**
-	 * 状态
-	 */
-	class State
-	{
-	    /**
-	     * 类映射
-	     * 类名字符串标识 到 类(构造函数)
-	     * @package
-	     * @type {Map<string, object>}
-	     */
-	    nameToClass = new Map();
-
-	    /**
-	     * 类映射
-	     * 类(构造函数) 到 类名字符串标识
-	     * @package
-	     * @type {Map<object, string>}
-	     */
-	    classToName = new Map();
-
-	    /**
-	     * 安全函数映射
-	     * 安全函数字符串标识 到 函数
-	     * @package
-	     * @type {Map<string, function>}
-	     */
-	    nameToSafetyFunction = new Map();
-
-	    /**
-	     * 安全函数映射
-	     * 函数 到 安全函数字符串标识
-	     * @package
-	     * @type {Map<function, string>}
-	     */
-	    safetyFunctionToName = new Map();
-	}
-
-	/**
-	 * 自定义序列化函数
-	 */
-	const serializationFunctionSymbol = Symbol("serialization function");
-	/**
-	 * 自定义反序列化函数
-	 */
-	const deserializationFunctionSymbol = Symbol("deserialization function");
-
-	const textEncoder$1 = new TextEncoder();
-
-	/**
-	 * JSOBin编码器
-	 */
-	class Encoder
-	{
-	    /**
-	     * @type {State}
-	     */
-	    #state = null;
-
-	    /**
-	     * 缓冲区
-	     * @type {Uint8Array}
-	     */
-	    buffer = new Uint8Array(128);
-	    /**
-	     * 缓冲区结束索引
-	     * 不包括该值
-	     * @type {number}
-	     */
-	    endInd = 0;
-
-	    /**
-	     * 引用索引计数
-	     * @type {number}
-	     */
-	    referenceIndCount = -1;
-	    /**
-	     * 
-	     */
-	    referenceIndMap = new Map();
-
-
-	    /**
-	     * @param {State} state
-	     */
-	    constructor(state)
-	    {
-	        this.#state = state;
-	    }
-
-	    /**
-	     * 向缓冲区加入单个值
-	     * @param {number} c
-	     */
-	    push(c)
-	    {
-	        if (this.endInd >= this.buffer.length)
-	        {
-	            let old = this.buffer;
-	            this.buffer = new Uint8Array(this.buffer.length * 2);
-	            this.buffer.set(old);
-	        }
-	        this.buffer[this.endInd++] = c;
-	    }
-
-	    /**
-	     * 向缓冲区加入数组
-	     * @param {Uint8Array} a 
-	     */
-	    pushArr(a)
-	    {
-	        if (this.endInd + a.length > this.buffer.length)
-	        {
-	            let old = this.buffer;
-	            let newLen = old.length * 2;
-	            while (this.endInd + a.length > newLen)
-	                newLen *= 2;
-	            this.buffer = new Uint8Array(newLen);
-	            this.buffer.set(old);
-	        }
-	        this.buffer.set(a, this.endInd);
-	        this.endInd += a.length;
-	    }
-
-	    /**
-	     * 序列化一个vint
-	     * @param {number} num
-	     */
-	    pushVint(num)
-	    {
-	        while (true)
-	        {
-	            let c = (num & ((1 << 7) - 1));
-	            num >>>= 7;
-	            if (!num)
-	            {
-	                this.push(c | (1 << 7));
-	                return;
-	            }
-	            this.push(c);
-	        }
-	    }
-
-	    /**
-	     * 写入字符串
-	     * @param {string} str
-	     */
-	    pushStr(str)
-	    {
-	        let strBin = textEncoder$1.encode(str);
-	        this.pushVint(strBin.byteLength);
-	        this.pushArr(strBin);
-	    }
-
-	    /**
-	     * 遍历编码
-	     * @param {object | number | string} now
-	     */
-	    traversal(now)
-	    {
-	        ++this.referenceIndCount;
-	        if (!this.referenceIndMap.has(now))
-	            this.referenceIndMap.set(now, this.referenceIndCount);
-	        switch (typeof (now))
-	        {
-	            case "number": { // 数值型(整数或小数)
-	                if (Number.isInteger(now) && now >= -2147483648 && now <= 2147483647) // 整数
-	                {
-	                    this.push(1);
-	                    this.pushVint(now);
-	                }
-	                else // 浮点数
-	                {
-	                    this.push(2);
-	                    this.pushArr(new Uint8Array(new Float64Array([now]).buffer));
-	                }
-	                break;
-	            }
-
-	            case "string": { // 字符串
-	                this.push(3);
-	                this.pushStr(now);
-	                break;
-	            }
-
-	            case "object": { // 对象 数组 类 null
-	                if (now == null) // null
-	                    this.push(11);
-	                else if (this.referenceIndMap.get(now) < this.referenceIndCount) // 需要引用的对象
-	                {
-	                    this.push(14);
-	                    this.pushVint(this.referenceIndMap.get(now));
-	                }
-	                else if (Array.isArray(now)) // 数组
-	                {
-	                    this.push(5);
-	                    now.forEach(o =>
-	                    {
-	                        this.traversal(o);
-	                    });
-	                    this.push(0);
-	                }
-	                else if (this.#state.classToName.has(Object.getPrototypeOf(now)?.constructor)) // 类(自定义类)
-	                { // TODO 类的自定义处理需要大改版 目前无法在自定义序列化下使用循环引用
-	                    this.push(6);
-	                    this.pushStr(this.#state.classToName.get(Object.getPrototypeOf(now)?.constructor));
-	                    let obj = now[serializationFunctionSymbol] ? now[serializationFunctionSymbol].call(now) : now; // 处理自定义序列化函数
-	                    let keys = Object.getOwnPropertyNames(obj);
-	                    this.pushVint(keys.length);
-	                    keys.forEach(key =>
-	                    {
-	                        this.pushStr(key);
-	                        this.traversal(obj[key]);
-	                    });
-	                }
-	                else if (builtInClassConstructorMap.has(Object.getPrototypeOf(now)?.constructor)) // js内置类
-	                {
-	                    this.push(15);
-	                    let classInfo = builtInClassConstructorMap.get(Object.getPrototypeOf(now)?.constructor);
-	                    this.pushVint(classInfo.typeId);
-	                    classInfo.encode(this, now);
-	                }
-	                else // 对象
-	                {
-	                    this.push(4);
-	                    let keys = Object.keys(now);
-	                    this.pushVint(keys.length);
-	                    keys.forEach(key =>
-	                    {
-	                        this.pushStr(key);
-	                        this.traversal(now[key]);
-	                    });
-	                }
-	                break;
-	            }
-
-	            case "undefined": { // 未定义(undefined)
-	                this.push(7);
-	                break;
-	            }
-
-	            case "boolean": { // 布尔值
-	                this.push(now ? 9 : 8);
-	                break;
-	            }
-
-	            case "bigint": { // bigint类型
-	                /** @type {Uint8Array} */
-	                let bigintBuf = null;
-	                if (now >= 0n) // bigint正数和0
-	                {
-	                    this.push(12);
-	                    if (now == 0n) // bigint 0
-	                        bigintBuf = new Uint8Array(0);
-	                    else // bigint 正数
-	                        bigintBuf = Encoder.writeBigint(now);
-	                }
-	                else // bigint负数
-	                {
-	                    this.push(13);
-	                    bigintBuf = Encoder.writeBigint(-(/** @type {bigint} */(now)));
-	                }
-	                this.pushVint(bigintBuf.byteLength);
-	                this.pushArr(bigintBuf);
-	                break;
-	            }
-
-	            case "symbol": { // symbol类型
-	                if (this.referenceIndMap.get(now) < this.referenceIndCount) // 需要引用的symbol
-	                {
-	                    this.push(14);
-	                    this.pushVint(this.referenceIndMap.get(now));
-	                }
-	                else // 新的symbol
-	                {
-	                    this.push(10);
-	                    this.pushStr(now.description ? now.description : "");
-	                }
-	                break;
-	            }
-
-	            case "function": { // 函数
-	                if (this.#state.safetyFunctionToName.has(now)) // 安全函数
-	                {
-	                    this.push(17);
-	                    this.pushStr(this.#state.safetyFunctionToName.get(now));
-	                }
-	                else
-	                    this.push(7); // 目前不处理其他函数
-	                break;
-	            }
-
-	            default:
-	                throw "JSObin(encode): The type of value that cannot be processed.";
-	        }
-	    }
-
-	    /**
-	     * 获取最终缓冲区
-	     * @returns {Uint8Array}
-	     */
-	    getFinalBuffer()
-	    {
-	        return this.buffer.slice(0, this.endInd);
-	    }
-
-	    /**
-	     * 编码
-	     * @param {object | number | string} obj
-	     */
-	    encode(obj)
-	    {
-	        this.traversal(obj);
-	        return this.getFinalBuffer();
-	    }
-
-	    /**
-	     * 序列化一个bigint
-	     * @param {bigint} num 一个正数
-	     * @returns {Uint8Array}
-	     */
-	    static writeBigint(num)
-	    {
-	        let buf = [];
-	        while (true)
-	        {
-	            buf.push(Number(num & 255n));
-	            num >>= 8n;
-	            if (num == 0n)
-	                return new Uint8Array(buf);
-	        }
-	    }
-	}
+	new TextEncoder();
 
 	/**
 	 * js内置类映射
@@ -5963,851 +5649,7 @@
 	    });
 	});
 
-	const textDecoder = new TextDecoder("utf-8");
-
-	/**
-	 * JSOBin解码器
-	 */
-	class Decoder
-	{
-	    /**
-	     * @type {State}
-	     */
-	    #state = null;
-
-	    /**
-	     * 缓冲区
-	     * @type {Uint8Array}
-	     */
-	    buffer = null;
-	    /**
-	     * 缓冲区对应的DataView
-	     * @type {DataView}
-	     */
-	    dataView = null;
-	    /**
-	     * 当前读取到的位置
-	     */
-	    index = 0;
-
-	    /**
-	     * 引用列表
-	     * 用于记录引用索引对应的内容
-	     * @type {Array}
-	     */
-	    referenceIndList = [];
-
-	    /**
-	     * @param {State} state
-	     * @param {Uint8Array} buffer
-	     */
-	    constructor(state, buffer)
-	    {
-	        this.#state = state;
-	        this.buffer = buffer;
-	        this.dataView = new DataView(buffer.buffer);
-	    }
-
-	    /**
-	     * 获取当前位置的byte
-	     * @returns {number}
-	     */
-	    peekByte()
-	    {
-	        return this.buffer[this.index];
-	    }
-
-	    /**
-	     * 弹出当前位置的byte
-	     * 将移动索引位置
-	     * @returns {number}
-	     */
-	    popByte()
-	    {
-	        return this.buffer[this.index++];
-	    }
-
-	    /**
-	     * 读一个vint
-	     * @returns {number}
-	     */
-	    getVInt()
-	    {
-	        let ret = 0;
-	        let bitPointer = 0;
-	        while (!(this.peekByte() & (1 << 7)))
-	        {
-	            ret |= this.popByte() << bitPointer;
-	            bitPointer += 7;
-	            if (bitPointer > 32) // (bitPointer > 28)
-	                throw "JSOBin Decode: Unexpected vint length";
-	        }
-	        ret |= (this.popByte() & ((1 << 7) - 1)) << bitPointer;
-	        return ret;
-	    }
-
-	    /**
-	    * 获取一个字符串(带有表示长度的vint)
-	    * @returns {string}
-	    */
-	    getStr()
-	    {
-	        let len = this.getVInt();
-	        let str = textDecoder.decode(this.buffer.subarray(this.index, this.index + len));
-	        this.index += len;
-	        return str;
-	    }
-
-	    /**
-	     * 遍历解码
-	     * @returns {any}
-	     */
-	    traversal()
-	    {
-	        if (this.index >= this.buffer.length)
-	            throw "JSOBin Decode: Wrong format";
-	        let typeId = this.popByte();
-	        switch (typeId)
-	        {
-	            case 1: { // 变长型整数
-	                let num = this.getVInt();
-	                this.referenceIndList.push(num);
-	                return num;
-	            }
-
-	            case 2: { // 浮点数
-	                let num = this.dataView.getFloat64(this.index, true);
-	                this.referenceIndList.push(num);
-	                this.index += 8;
-	                return num;
-	            }
-
-	            case 3: { // 字符串
-	                let str = this.getStr();
-	                this.referenceIndList.push(str);
-	                return str;
-	            }
-
-	            case 4: { // 对象
-	                let ret = {};
-	                let childCount = this.getVInt();
-	                this.referenceIndList.push(ret);
-	                for (let i = 0; i < childCount; i++)
-	                {
-	                    let key = this.getStr();
-	                    ret[key] = this.traversal();
-	                }
-	                return ret;
-	            }
-
-	            case 5: { // 数组
-	                let ret = [];
-	                this.referenceIndList.push(ret);
-	                while (this.peekByte())
-	                    ret.push(this.traversal());
-	                this.index++;
-	                return ret;
-	            }
-
-	            case 6: { // 类
-	                let className = this.getStr();
-	                let classConstructor = this.#state.nameToClass.get(className);
-	                if (classConstructor == undefined)
-	                    throw `JSOBin Decode: (class) "${className}" is unregistered class in the current context in the parsing jsobin`;
-	                if (classConstructor?.[deserializationFunctionSymbol]) // 存在自定义反序列化函数
-	                { // TODO 类的自定义处理需要大改版 目前无法在自定义序列化下使用循环引用
-	                    let dataObj = {};
-	                    let childCount = this.getVInt();
-	                    let refInd = this.referenceIndList.length;
-	                    this.referenceIndList.push(dataObj);
-	                    for (let i = 0; i < childCount; i++)
-	                    {
-	                        let key = this.getStr();
-	                        dataObj[key] = this.traversal();
-	                    }
-	                    let ret = classConstructor[deserializationFunctionSymbol](dataObj);
-	                    this.referenceIndList[refInd] = ret;
-	                    return ret;
-	                }
-	                else // 自定义类默认序列化方案
-	                {
-	                    let ret = Object.create(classConstructor.prototype);
-	                    let childCount = this.getVInt();
-	                    this.referenceIndList.push(ret);
-	                    for (let i = 0; i < childCount; i++)
-	                    {
-	                        let key = this.getStr();
-	                        ret[key] = this.traversal();
-	                    }
-	                    return ret;
-	                }
-	            }
-
-	            case 7: { // 未定义(undefined)
-	                this.referenceIndList.push(undefined);
-	                return undefined;
-	            }
-
-	            case 8: { // 布尔值假
-	                this.referenceIndList.push(false);
-	                return false;
-	            }
-
-	            case 9: { // 布尔值真
-	                this.referenceIndList.push(true);
-	                return true;
-	            }
-
-	            case 10: { // symbol类型
-	                let symbol = Symbol(this.getStr());
-	                this.referenceIndList.push(symbol);
-	                return symbol;
-	            }
-
-	            case 11: { // 无效对象(null)
-	                this.referenceIndList.push(null);
-	                return null;
-	            }
-
-	            case 12: { // bigint类型(正数)
-	                let len = this.getVInt();
-	                let num = this.readBigInt(len);
-	                this.referenceIndList.push(num);
-	                return num;
-	            }
-
-	            case 13: { // bigint类型(负数)
-	                let len = this.getVInt();
-	                let num = this.readBigInt(len);
-	                this.referenceIndList.push(num);
-	                return -num;
-	            }
-
-	            case 14: { // 引用
-	                let referenceInd = this.getVInt();
-	                let ret = this.referenceIndList[referenceInd];
-	                this.referenceIndList.push(ret);
-	                return ret;
-	            }
-
-	            case 15: { // js内置类
-	                let builtInClassId = this.getVInt();
-	                let decodeFunction = builtInClassTypeIdMap.get(builtInClassId);
-	                if (decodeFunction)
-	                    return decodeFunction(this);
-	                else
-	                    throw "JSOBin Decode: Unsupported js built-in class type.";
-	            }
-
-	            case 16: { // 函数 目前不支持
-	                throw "JSOBin Decode: Function is not supported in the current version";
-	            }
-
-	            case 17: { // 安全函数
-	                let func = this.#state.nameToSafetyFunction.get(this.getStr());
-	                this.referenceIndList.push(func);
-	                return func;
-	            }
-
-	            default:
-	                throw "JSOBin Decode: Wrong format";
-	        }
-	    }
-
-	    /**
-	     * 解码
-	     * @returns {object | number | string}
-	     */
-	    decode()
-	    {
-	        return this.traversal();
-	    }
-
-	    /**
-	     * 反序列化一个Bigint
-	     * @param {number} len
-	     * @returns {bigint} 正数bigint 或 负数bigint的相反数
-	     */
-	    readBigInt(len)
-	    {
-	        let ret = 0n;
-	        for (let ptr = this.index + len - 1; ptr >= this.index; ptr--)
-	        {
-	            ret <<= 8n;
-	            ret += BigInt(this.buffer[ptr]);
-	        }
-	        this.index += len;
-	        return ret;
-	    }
-	}
-
-	/**
-	 * JSOBin操作上下文
-	 */
-	class JSOBin
-	{
-	    /**
-	     * @type {State}
-	     */
-	    #state = new State();
-
-	    /**
-	     * 添加类到上下文
-	     * 注册标识符和类(构造器)的相互映射
-	     * @param {string} identifier 类标识符
-	     * @param {function} classConstructor 类的构造器
-	     */
-	    addClass(identifier, classConstructor)
-	    {
-	        this.#state.nameToClass.set(identifier, classConstructor);
-	        this.#state.classToName.set(classConstructor, identifier);
-	    }
-
-	    /**
-	     * 添加安全函数到上下文
-	     * 允许确保安全的函数注册标识符和函数的相互映射
-	     * @param {string} identifier 安全函数标识符
-	     * @param {function} safetyFunction 函数
-	     */
-	    addSafetyFunction(identifier, safetyFunction)
-	    {
-	        this.#state.nameToSafetyFunction.set(identifier, safetyFunction);
-	        this.#state.safetyFunctionToName.set(safetyFunction, identifier);
-	    }
-
-	    /**
-	     * 编码
-	     * @param {object | number | string} obj
-	     * @returns {Uint8Array}
-	     */
-	    encode(obj)
-	    {
-	        return (new Encoder(this.#state)).encode(obj);
-	    }
-
-	    /**
-	     * 解码
-	     * @param {Uint8Array} bin
-	     * @returns {object | number | string}
-	     */
-	    decode(bin)
-	    {
-	        return (new Decoder(this.#state, bin)).decode();
-	    }
-	}
-
-	/**
-	 * 传入上下文的函数 被目标暂时holding时 用于储存信息的类
-	 * 这些对象随时准备被目标调用
-	 * 
-	 * 传入上下文的函数 包括 调用目标的函数时传入的函数 被目标调用函数时返回的函数
-	 * 随目标对函数的释放 同时释放此对象
-	 */
-	class TmpFunctionInfo
-	{
-	    /**
-	     * 单次调用
-	     * 表示此函数被调用后就会释放
-	     * 通常用于resolve和reject
-	     */
-	    once = false;
-
-	    /**
-	     * 调用后释放目标对象
-	     * 通常用于一对resolve与reject相互释放
-	     * 调用本函数后释放此id的函数 但本函数释放时不会自动释放此函数
-	     */
-	    releaseTarget = "";
-
-	    /**
-	     * 转入的函数本身
-	     * @type {function}
-	     */
-	    func = null;
-
-	    /**
-	     * @param {Function} func
-	     * @param {boolean} once
-	     * @param {string} releaseTarget
-	     */
-	    constructor(func, once, releaseTarget)
-	    {
-	        this.func = func;
-	        this.once = once;
-	        this.releaseTarget = releaseTarget;
-	    }
-	}
-
-	/**
-	 * base64字符串转Uint8Array
-	 * @param {string} base64String
-	 * @returns {Uint8Array}
-	 */
-	function base64ToUint8Array(base64String)
-	{
-	    let binStr = atob(base64String);
-	    let length = binStr.length;
-	    let ret = new Uint8Array(length);
-	    for (let i = 0; i < length; i++)
-	        ret[i] = binStr.charCodeAt(i);
-	    return ret;
-	}
-
-	/**
-	 * Uint8Array转base64字符串
-	 * @param {Uint8Array} uint8Array
-	 * @returns {string}
-	 */
-	function uint8ArrayToBase64(uint8Array)
-	{
-	    let length = uint8Array.length;
-	    let binStr = "";
-	    for (let i = 0; i < length; i++)
-	        binStr = binStr + String.fromCharCode(uint8Array[i]);
-	    let ret = btoa(binStr);
-	    return ret;
-	}
-
-	/**
-	 * 生成唯一字符串
-	 * 基于毫秒级时间和随机数
-	 * 不保证安全性
-	 * @param {number} [randomSection] 随机节数量
-	 * @returns {string}
-	 */
-	function uniqueIdentifierString$1(randomSection = 2)
-	{
-	    var ret = Math.floor(Date.now()).toString(36);
-	    for (let i = 0; i < randomSection; i++)
-	        ret += "-" + Math.floor(Math.random() * 1e12).toString(36);
-	    return ret;
-	}
-
-	let jsobContext = new JSOBin();
-
-	/**
-	 * rco操作上下文
-	 */
-	class RcoCcontext
-	{
-	    /**
-	     * 全局命名函数
-	     * @type {Map<string, function>}
-	     */
-	    #globalNamedFunctionMap = new Map();
-
-	    /**
-	     * 运行中传递的函数
-	     * (对方持有的本地的函数)
-	     * @type {Map<string, TmpFunctionInfo>}
-	     */
-	    #idFunctionMap = new Map();
-
-	    /**
-	     * 持有的对方的函数
-	     * @type {Map<string, WeakRef<function>>}
-	     */
-	    #holdingFunctionMap = new Map();
-
-	    /**
-	     * 输出流
-	     * @param {string | Uint8Array | object} data
-	     * @returns {void}
-	     */
-	    #outStream = (data) => { throw "RcoCcontext: not bound to an output stream"; };
-
-	    /**
-	     * 输出流类型
-	     * 0 raw Object
-	     * 1 jsobin Uint8array
-	     * 2 base64(jsobin) string
-	     * @type {0 | 1 | 2}
-	     */
-	    #outStreamType = 1;
-
-	    /**
-	     * 回收持有的目标的函数
-	     * 当不再持有时通知目标进行释放
-	     * @type {FinalizationRegistry<string>}
-	     */
-	    #holdingFunctionRegistry = null;
-
-	    constructor()
-	    {
-	        this.#holdingFunctionRegistry = new FinalizationRegistry((id) =>
-	        {
-	            this.#holdingFunctionMap.delete(id);
-	            this.#outputPacket([ // 通知目标释放函数
-	                2,
-	                id
-	            ]);
-	        });
-	    }
-
-	    /**
-	     * 输出数据包
-	     * @param {Object} data
-	     */
-	    #outputPacket(data)
-	    {
-	        switch (this.#outStreamType)
-	        {
-	            case 0:
-	                this.#outStream(data);
-	                break;
-	            case 1:
-	                this.#outStream(jsobContext.encode(data));
-	                break;
-	            case 2:
-	                this.#outStream(uint8ArrayToBase64(jsobContext.encode(data)));
-	                break;
-	        }
-	    }
-
-	    /**
-	     * 绑定输出流
-	     * 会覆盖之前绑定的输出流
-	     * @param {(data: string | Uint8Array | object) => void} onDataCallback 
-	     * @param { "jsob" | "jsobin" | "base64" | "raw" } [type]
-	     */
-	    bindOutStream(onDataCallback, type = "jsob")
-	    {
-	        this.#outStream = onDataCallback;
-
-	        if (type == "raw")
-	            this.#outStreamType = 0;
-	        else if (type == "jsob" || type == "jsobin")
-	            this.#outStreamType = 1;
-	        else if (type == "base64")
-	            this.#outStreamType = 2;
-	        else
-	            throw "RcoCcontext(bindOutStream): Unsupported output stream types";
-	    }
-
-	    /**
-	     * 添加全局命名函数
-	     * @param {Object<string, function>} functionMapObj 
-	     */
-	    addGlobalNamedFunctions(functionMapObj)
-	    {
-	        Object.keys(functionMapObj).forEach(functionName =>
-	        {
-	            this.#globalNamedFunctionMap.set(functionName, functionMapObj[functionName]);
-	        });
-	    }
-
-	    /**
-	     * 收到数据包
-	     * @param {object} data
-	     */
-	    async #onPacket(data)
-	    {
-	        if (Array.isArray(data))
-	        {
-	            let type = data[0];
-	            switch (type)
-	            {
-	                case 0: { // 调用命名函数
-	                    let func = this.#globalNamedFunctionMap.get(data[1]); // arr[1] 函数名
-	                    if (func)
-	                    {
-	                        let param = (
-	                            data[3] ? // arr[3] 函数参数中包含的函数对应的id表
-	                                this.#injectFunction(data[2], data[3]).result :
-	                                data[2] // arr[2] 函数的参数
-	                        );
-
-	                        try
-	                        {
-	                            let retValue = await func(...param);
-	                            if (data[4]) // arr[4] 返回时调用的函数 
-	                            {
-	                                let result = this.#extractFunction(retValue);
-	                                this.#outputPacket([
-	                                    1, // 执行id函数 (resolve函数)
-	                                    data[4],
-	                                    [result.result],
-	                                    (result.fnMap.size > 0 ? result.fnMap : undefined)
-	                                ]);
-	                            }
-	                        }
-	                        catch (err)
-	                        {
-	                            if (data[5]) // arr[5] 出错时调用的函数
-	                                this.#outputPacket([
-	                                    1, // 执行id函数 (reject函数)
-	                                    data[5],
-	                                    [err]
-	                                ]);
-	                        }
-	                    }
-	                    else
-	                    {
-	                        if (data[5]) // arr[5] 出错时调用的函数
-	                            this.#outputPacket([
-	                                1,
-	                                data[5],
-	                                ["function does not exist"]
-	                            ]);
-	                    }
-	                    break;
-	                }
-	                case 1: { // 调用id函数
-	                    let id = data[1];
-	                    let funcInfo = this.#idFunctionMap.get(id); // arr[1] 函数id
-	                    if (funcInfo)
-	                    {
-	                        let param = (
-	                            data[3] ? // arr[3] 函数参数中包含的函数对应的id表
-	                                this.#injectFunction(data[2], data[3]).result :
-	                                data[2] // arr[2] 函数的参数
-	                        );
-
-	                        let func = funcInfo.func;
-	                        if (funcInfo.once)
-	                            this.#idFunctionMap.delete(id);
-	                        if (funcInfo.releaseTarget)
-	                            this.#idFunctionMap.delete(funcInfo.releaseTarget);
-
-	                        try
-	                        {
-	                            let retValue = await func(...param);
-	                            if (data[4]) // arr[4] 返回时调用的函数 
-	                            {
-	                                let result = this.#extractFunction(retValue);
-	                                this.#outputPacket([
-	                                    1,
-	                                    data[4],
-	                                    [result.result],
-	                                    (result.fnMap.size > 0 ? result.fnMap : undefined)
-	                                ]);
-	                            }
-	                        }
-	                        catch (err)
-	                        {
-	                            if (data[5]) // arr[5] 出错时调用的函数
-	                                this.#outputPacket([
-	                                    1,
-	                                    data[5],
-	                                    [err]
-	                                ]);
-	                        }
-	                    }
-	                    else
-	                    {
-	                        if (data[5]) // arr[5] 出错时调用的函数
-	                            this.#outputPacket([
-	                                1,
-	                                data[5],
-	                                ["function does not exist"]
-	                            ]);
-	                    }
-	                    break;
-	                }
-	                case 2: { // 释放id函数
-	                    data.slice(1).forEach(id =>
-	                    {
-	                        this.#idFunctionMap.delete(id);
-	                    });
-	                    break;
-	                }
-	            }
-	        }
-	    }
-
-	    /**
-	     * 输入流收到数据应调用
-	     * @param {string | Uint8Array | object} data 
-	     */
-	    onData(data)
-	    {
-	        if (typeof (data) == "string")
-	            this.#onPacket(jsobContext.decode(base64ToUint8Array(data)));
-	        else if (data instanceof Uint8Array)
-	            this.#onPacket(jsobContext.decode(data));
-	        else if (typeof (data) == "object")
-	            this.#onPacket(data);
-	        else
-	            throw "RcoCcontext(onData): Unable to process this data type";
-	    }
-
-	    /**
-	     * 调用命名函数
-	     * 
-	     * @async
-	     * 
-	     * @param {string} name
-	     * @param {Array<any>} param
-	     */
-	    callNamedFunction(name, ...param)
-	    {
-	        return new Promise((resolve, reject) =>
-	        {
-	            let result = this.#extractFunction(param);
-	            let resolveId = uniqueIdentifierString$1();
-	            let rejectId = uniqueIdentifierString$1();
-	            this.#idFunctionMap.set(resolveId, new TmpFunctionInfo(resolve, true, rejectId));
-	            this.#idFunctionMap.set(rejectId, new TmpFunctionInfo(reject, true, resolveId));
-	            this.#outputPacket([
-	                0, // 执行命名函数
-	                name,
-	                result.result,
-	                (result.fnMap.size > 0 ? result.fnMap : undefined),
-	                resolveId,
-	                rejectId
-	            ]);
-	        });
-	    }
-
-	    /**
-	     * 获取一个代理对象
-	     * 以函数名为key 返回的函数用于调用命名函数
-	     * @returns {Object<string, function>}
-	     */
-	    getGlobalNamedFunctionProxy()
-	    {
-	        return new Proxy({}, {
-	            set: () => false,
-	            get: (_target, /** @type {string} */ key) =>
-	            {
-	                return (/** @type {Array<any>} */ ...param) =>
-	                {
-	                    return this.callNamedFunction(key, ...param);
-	                };
-	            }
-	        });
-	    }
-
-	    /**
-	     * 将函数注入回对象
-	     * @param {Object} obj 
-	     * @param {Map<Object, string>} fnMap 
-	     */
-	    #injectFunction(obj, fnMap)
-	    {
-	        /**
-	         * 函数id 到 生成出的函数 映射
-	         * @type {Map<string, Function>}
-	         */
-	        let generatedFunctionMap = new Map();
-	        fnMap.forEach((id, _functionObj) =>
-	        {
-	            if (!generatedFunctionMap.has(id))
-	            {
-	                let generatedFunction = (/** @type {Array<any>} */ ...param) =>
-	                {
-	                    return new Promise((resolve, reject) =>
-	                    {
-	                        let result = this.#extractFunction(param);
-	                        let resolveId = uniqueIdentifierString$1();
-	                        let rejectId = uniqueIdentifierString$1();
-	                        this.#idFunctionMap.set(resolveId, new TmpFunctionInfo(resolve, true, rejectId));
-	                        this.#idFunctionMap.set(rejectId, new TmpFunctionInfo(reject, true, resolveId));
-	                        this.#outputPacket([
-	                            1, // 执行id函数
-	                            id,
-	                            result.result,
-	                            (result.fnMap.size > 0 ? result.fnMap : undefined),
-	                            resolveId,
-	                            rejectId
-	                        ]);
-	                    });
-	                };
-	                generatedFunctionMap.set(id, generatedFunction);
-
-	                this.#holdingFunctionMap.set(id, new WeakRef(generatedFunction));
-	                this.#holdingFunctionRegistry.register(generatedFunction, id);
-	            }
-	        });
-
-	        /**
-	         * 遍历对象嵌入函数
-	         * @param {any} now 
-	         * @returns {any}
-	         */
-	        const traversal = (now) =>
-	        {
-	            if (typeof (now) == "object")
-	            {
-	                if (fnMap.has(now))
-	                {
-	                    return generatedFunctionMap.get(fnMap.get(now));
-	                }
-	                else if (Array.isArray(now))
-	                {
-	                    return now.map(traversal);
-	                }
-	                else
-	                {
-	                    let ret = {};
-	                    Object.keys(now).forEach(key =>
-	                    {
-	                        ret[key] = traversal(now[key]);
-	                    });
-	                    return ret;
-	                }
-	            }
-	            else
-	                return now;
-	        };
-	        let result = traversal(obj);
-
-	        return ({
-	            result: result
-	        });
-	    }
-
-	    /**
-	     * 提取对象中的函数
-	     * (并生成函数对应表)
-	     * @param {Object} obj
-	     */
-	    #extractFunction(obj)
-	    {
-	        let functionMap = new Map();
-
-	        /**
-	         * 遍历对象过滤函数
-	         * @param {any} now 
-	         * @returns {any}
-	         */
-	        const traversal = (now) =>
-	        {
-	            if (typeof (now) == "function")
-	            {
-	                let ret = {};
-	                let functionId = uniqueIdentifierString$1();
-	                this.#idFunctionMap.set(functionId, new TmpFunctionInfo(now, false, ""));
-	                functionMap.set(ret, functionId);
-	                return ret;
-	            }
-	            else if (typeof (now) == "object")
-	            {
-	                if (Array.isArray(now))
-	                {
-	                    return now.map(traversal);
-	                }
-	                else
-	                {
-	                    let ret = {};
-	                    Object.keys(now).forEach(key =>
-	                    {
-	                        ret[key] = traversal(now[key]);
-	                    });
-	                    return ret;
-	                }
-	            }
-	            else
-	                return now;
-	        };
-	        let result = traversal(obj);
-
-	        return ({
-	            result: result,
-	            fnMap: functionMap
-	        });
-	    }
-	}
+	new TextDecoder("utf-8");
 
 	/**
 	 * 启用美化功能
@@ -8211,7 +7053,7 @@
 	                new NEvent("click", () =>
 	                {
 	                    showNotice("多账户", "正在尝试获取配置");
-	                    let requestId = uniqueIdentifierString$2();
+	                    let requestId = uniqueIdentifierString$1();
 	                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
 	                        plug: "forge",
 	                        type: "multiAccount",
@@ -8238,7 +7080,7 @@
 	                    }
 
 	                    showNotice("多账户", `正在连接 ${targetUid}`);
-	                    monitorId = uniqueIdentifierString$2();
+	                    monitorId = uniqueIdentifierString$1();
 	                    monitorUserId = targetUid;
 	                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
 	                        plug: "forge",
@@ -8601,20 +7443,32 @@
 	let autoResponseText = "";
 
 	/**
+	 * @type {Map<string, number>}
+	 */
+	let lastAutoReplyTime = new Map();
+
+	/**
 	 * @param {typeof forgeApi.event.privateMessage extends EventHandler<infer T> ? T : never} e
 	 */
 	function onPrivateMessage(e)
 	{
 	    if (enabledAutoResponse && !messageNeedBlock(e.senderId))
 	    {
-	        setTimeout(() =>
+	        if (!lastAutoReplyTime.has(e.senderId) || lastAutoReplyTime.get(e.senderId) < Date.now() - 15 * 1000)
 	        {
-	            forgeApi.operation.sendPrivateMessage(e.senderId, `[自动回复] ${autoResponseText}`);
-	        }, 1.5 * 1000);
-	        showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
-	        {
-	            setNotDisturbMode(false);
-	        });
+	            lastAutoReplyTime.set(e.senderId, Date.now());
+	            let timeoutId = setTimeout(() =>
+	            {
+	                timeoutId = null;
+	                forgeApi.operation.sendPrivateMessage(e.senderId, `[自动回复] ${autoResponseText}`);
+	            }, 1.5 * 1000);
+	            showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
+	            {
+	                setNotDisturbMode(false);
+	                if (timeoutId)
+	                    clearTimeout(timeoutId);
+	            });
+	        }
 	    }
 	}
 
@@ -8630,11 +7484,15 @@
 	        !messageNeedBlock(e.senderId)
 	    )
 	    {
-	        forgeApi.operation.sendRoomMessage(`[自动回复]  [*${e.senderName}*]  ${autoResponseText}`);
-	        showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
+	        if (!lastAutoReplyTime.has(e.senderId) || lastAutoReplyTime.get(e.senderId) < Date.now() - 15 * 1000)
 	        {
-	            setNotDisturbMode(false);
-	        });
+	            lastAutoReplyTime.set(e.senderId, Date.now());
+	            forgeApi.operation.sendRoomMessage(`[自动回复]  [*${e.senderName}*]  ${autoResponseText}`);
+	            showNotice("勿扰模式", "您已开启勿扰模式\n将会发送自动回复消息\n点击关闭", undefined, () =>
+	            {
+	                setNotDisturbMode(false);
+	            });
+	        }
 	    }
 	}
 
@@ -8835,7 +7693,7 @@
 	function trySyncChatRecord()
 	{
 	    showNotice("聊天记录同步", "正在尝试获取聊天记录");
-	    let requestId = uniqueIdentifierString$2();
+	    let requestId = uniqueIdentifierString$1();
 	    forgeApi.operation.sendSelfPrivateForgePacket({
 	        plug: "forge",
 	        type: "syncPrivateChatRecordRQ",
@@ -9156,6 +8014,7 @@
 	    let record = getLocalRecordList();
 
 	    let userUid = forgeApi.operation.getUserUid();
+	    let userName = forgeApi.operation.getUserName();
 	    let statisticsStartTime = (new Date("2023/1/1")).getTime();
 	    let statisticsEndTime = (new Date("2024/1/1")).getTime();
 	    const oneDay = 24 * 60 * 60 * 1000;
@@ -9881,10 +8740,17 @@
 	                            canvasContext.fillText(lineText, canvas.width / 2, 250 + index * 30);
 	                        });
 
-	                        canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
-	                        canvasContext.font = `24px "noto", serif`;
-	                        canvasContext.textAlign = "center";
-	                        canvasContext.fillText("由 iirose-Forge 使用 ❤ 生成", canvas.width / 2, canvas.height - 27);
+	                        {
+	                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
+	                            canvasContext.font = `24px "noto", serif`;
+	                            canvasContext.textAlign = "center";
+	                            canvasContext.fillText("由 iirose-Forge 使用 ❤ 生成", canvas.width / 2, canvas.height - 27);
+
+	                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
+	                            canvasContext.font = `24px "noto", serif`;
+	                            canvasContext.textAlign = "right";
+	                            canvasContext.fillText(`${userName} 的私聊年报`, canvas.width - 35, 24 + 35);
+	                        }
 
 	                        let blob = await canvas.convertToBlob({
 	                            type: "image/png",
@@ -10274,1045 +9140,6 @@
 	        ]
 	    ]);
 	    iframeContext.iframeBody.addChild(page);
-	}
-
-	let waitForId = "";
-
-	/**
-	 * 尝试同步配置
-	 */
-	function trySyncConfig()
-	{
-	    showNotice("配置同步", "正在尝试获取配置");
-	    let requestId = uniqueIdentifierString$2();
-	    forgeApi.operation.sendSelfPrivateForgePacket({
-	        plug: "forge",
-	        type: "syncConfigRQ",
-	        id: requestId
-	    });
-	    waitForId = requestId;
-	}
-
-	let registedReturnConfig = false;
-	/**
-	 * 启用配置同步
-	 */
-	function enableSyncConfig()
-	{
-	    if (registedReturnConfig)
-	        return;
-	    registedReturnConfig = true;
-	    protocolEvent.forge.selfPrivateForgePacket.add(e =>
-	    {
-	        if (waitForId)
-	        {
-	            if (e.content.type == "syncConfigCB" && e.content.id == waitForId)
-	            {
-	                waitForId = "";
-	                /**
-	                 * @type {typeof storageContext.roaming}
-	                 */
-	                let storageObj = e.content.storageObject;
-	                if (storageObj)
-	                {
-	                    if (storageObj?.userRemark)
-	                    { // 覆盖备注配置
-	                        Object.keys(storageContext.roaming.userRemark).forEach(userId =>
-	                        {
-	                            if (!storageObj.userRemark[userId])
-	                                storageObj.userRemark[userId] = storageContext.roaming.userRemark[userId];
-	                        });
-	                    }
-	                    storageRoamingSet(storageObj);
-	                    storageRoamingSave();
-	                    showNotice("配置同步", "拉取配置成功");
-	                }
-	            }
-	        }
-
-	        if (e.content.type == "syncConfigRQ")
-	        {
-	            let requestId = e.content.id;
-	            forgeApi.operation.sendSelfPrivateForgePacket({
-	                plug: "forge",
-	                type: "syncConfigCB",
-	                id: requestId,
-	                storageObject: storageContext.roaming
-	            });
-	            showNotice("配置同步", "其他设备正在拉取本机配置");
-	        }
-	    });
-	}
-
-	const versionInfo = {
-	    version: "alpha v1.18.6"
-	};
-
-	/**
-	 * 插件请求的权限列表
-	 */
-	const apiPermission = {
-	    operation: {
-	        showForgeNotice: "显示forge通知",
-	        getUserName: "获取你的昵称",
-	        getUserUid: "获取你的uid",
-	        getUserRoomId: "获取所在房间id",
-	        getUserProfilePictureUrl: "获取你的头像",
-	        getUserInputColor: "获取你的主题色",
-	        sendRoomMessage: "在房间中发送信息",
-	        sendRoomForgePacket: "在房间中发送forge数据包",
-	        sendPrivateMessageSilence: "[危险]静默发送私聊消息",
-	        sendPrivateMessage: "[危险]发送私聊消息",
-	        sendSelfPrivateMessageSilence: "向自己静默发送私聊消息(同账号多设备间通信)",
-	        giveALike: "进行点赞",
-	        switchRoom: "切换所在房间"
-	    },
-	    event: {
-	        roomMessage: "接收房间消息",
-	        roomForgePacket: "接收房间forge数据包",
-	        privateMessage: "[危险]接收私聊消息",
-	        selfPrivateMessage: "接收自己(其他设备)发送给自己的私聊消息"
-	    }
-	};
-
-	/**
-	 * 加载插件
-	 * @param {string} plugName
-	 * @param {string} scriptUrl
-	 * @param {{operationPermissionSet: Set, eventPermissionSet: Set }} [permission]
-	 */
-	async function loadPlugIn(plugName, scriptUrl, permission)
-	{
-	    let { sandbox, windowElement } = createPlugSandboxWithWindow();
-	    await sandbox.waitAvailable();
-	    let operationPermissionSet = (permission?.operationPermissionSet ? permission?.operationPermissionSet : new Set());
-	    let eventPermissionSet = (permission?.eventPermissionSet ? permission?.eventPermissionSet : new Set());
-	    let apiBindObj = {};
-	    /**
-	     * 申请权限
-	     * @param {Array<string>} operationList 
-	     * @param {Array<string>} eventList 
-	     * @returns {Promise<boolean>}
-	     */
-	    apiBindObj.applyPermission = async (operationList, eventList) =>
-	    {
-	        operationList = operationList.filter(o => Boolean(apiPermission.operation[o]));
-	        eventList = eventList.filter(o => Boolean(apiPermission.event[o]));
-	        if (operationList.every(o => operationPermissionSet.has(o)) && eventList.every(o => eventPermissionSet.has(o)))
-	            return true;
-	        let permit = await showInfoBox("权限申请", ([
-	            `是否允许 ${plugName} 获取以下权限?`,
-	            ...operationList.map(o => "+ " + apiPermission.operation[o]),
-	            ...eventList.map(o => "+ " + apiPermission.event[o])
-	        ]).join("\n"), true);
-	        if (permit)
-	        {
-	            operationList.forEach(o =>
-	            {
-	                if (apiPermission.operation[o])
-	                    operationPermissionSet.add(o);
-	            });
-	            eventList.forEach(o =>
-	            {
-	                if (apiPermission.event[o])
-	                    eventPermissionSet.add(o);
-	            });
-	            plugList.savePlugList();
-	        }
-	        return (permit ? true : false);
-	    };
-	    Object.keys(forgeApi.operation).forEach(key =>
-	    {
-	        if (apiPermission.operation[key])
-	            apiBindObj[key] = (...param) =>
-	            {
-	                if (operationPermissionSet.has(key))
-	                {
-	                    try
-	                    {
-	                        forgeApi.state.plug = { name: plugName };
-	                        let ret = forgeApi.operation[key](...param);
-	                        forgeApi.state.plug = null;
-	                        return ret;
-	                    }
-	                    catch (err)
-	                    {
-	                        forgeApi.state.plug = null;
-	                        return undefined;
-	                    }
-	                }
-	            };
-	    });
-	    apiBindObj.addEventListener = (eventName, callback) =>
-	    {
-	        if (apiPermission.event[eventName] && forgeApi.event[eventName] && eventPermissionSet.has(eventName))
-	            forgeApi.event[eventName].add(callback);
-	    };
-	    sandbox.apiObj = {
-	        iiroseForge: apiBindObj
-	    };
-	    let scriptCode = `document.body.innerHTML='<div style="color:white">network_error</div>';`;
-	    try
-	    {
-	        scriptCode = await (await fetch(scriptUrl)).text();
-	    }
-	    catch (err)
-	    {
-	    }
-	    sandbox.execJs(scriptCode);
-
-	    return {
-	        sandbox: sandbox,
-	        windowElement: windowElement,
-	        operationPermissionSet: operationPermissionSet,
-	        eventPermissionSet: eventPermissionSet
-	    };
-	}
-
-	/**
-	 * 插件列表
-	 */
-	class PlugList
-	{
-	    /**
-	     * @type {Map<string, { url: string, sandbox: SandboxContext, windowElement: NElement, operationPermissionSet: Set, eventPermissionSet: Set }>}
-	     */
-	    map = new Map();
-
-	    /**
-	     * 添加插件
-	     * @param {string} name
-	     * @param {string} url
-	     * @param {{operationPermissionSet: Set, eventPermissionSet: Set }} [permission]
-	     */
-	    async addPlug(name, url, permission)
-	    {
-	        if (!this.map.has(name))
-	            this.map.set(name, { url: url, ...(await loadPlugIn(name, url, permission)) });
-	    }
-
-	    /**
-	     * 显示插件窗口
-	     * @param {string} name 
-	     */
-	    showPlugWindow(name)
-	    {
-	        if (this.map.has(name))
-	        {
-	            let windowElement = this.map.get(name).windowElement;
-	            windowElement.setDisplay("block");
-	            windowElement.setStyle("pointerEvents", "auto");
-	        }
-	    }
-
-	    /**
-	     * 移除插件
-	     * @param {string} name
-	     */
-	    removePlug(name)
-	    {
-	        if (this.map.has(name))
-	        {
-	            this.map.get(name).sandbox.destroy();
-	            this.map.delete(name);
-	        }
-	    }
-
-	    /**
-	     * 保存插件列表
-	     */
-	    savePlugList()
-	    {
-	        /**
-	         * @type {Array<[string, string, Array<string>, Array<string>]>}
-	         */
-	        let plugInfo = [];
-	        this.map.forEach((o, name) =>
-	        {
-	            plugInfo.push([
-	                name,
-	                o.url,
-	                Array.from(o.operationPermissionSet.values()),
-	                Array.from(o.eventPermissionSet.values())
-	            ]);
-	        });
-	        storageContext.roaming.plugInfo = plugInfo;
-	        storageRoamingSave();
-	    }
-
-	    /**
-	     * 读取插件列表
-	     */
-	    readPlugList()
-	    {
-	        try
-	        {
-	            let plugInfo = storageContext.roaming.plugInfo;
-	            if (plugInfo.length > 0)
-	            {
-	                plugInfo.forEach(([name, url, operationPermissionList, eventPermissionList]) =>
-	                {
-	                    this.addPlug(name, url, {
-	                        operationPermissionSet: new Set(operationPermissionList),
-	                        eventPermissionSet: new Set(eventPermissionList)
-	                    });
-	                });
-	                showNotice("iiroseForge plug-in", `已加载 ${plugInfo.length} 个插件`);
-	            }
-	        }
-	        catch (err)
-	        {
-	        }
-	    }
-	}
-
-	const plugList = new PlugList();
-
-	/**
-	 * @type {ReturnType<createPlugWindow>}
-	 */
-	let plugStone = null;
-
-	/**
-	 * 获取forge菜单
-	 * @returns {NElement}
-	 */
-	function getForgeMenu()
-	{
-	    let menu = NList.getElement([ // 整个菜单
-	        createNStyle("position", "fixed"),
-	        createNStyle("top", "0"),
-	        createNStyle("left", "0"),
-	        createNStyle("zIndex", "91000"),
-	        createNStyle("height", "100%"),
-	        createNStyle("width", "100%"),
-	        createNStyle("backgroundColor", "rgba(255, 255, 255, 0.75)"),
-	        createNStyle("backdropFilter", "blur(3px)"),
-
-	        [ // 标题栏
-	            createNStyle("opacity", "0.8"),
-	            createNStyle("backgroundColor", "#303030"),
-	            createNStyle("width", "100%"),
-	            createNStyle("boxShadow", "0 0 1px rgb(0, 0, 0, 0.12), 0 1px 1px rgb(0, 0, 0, 0.24)"),
-	            createNStyle("zIndex", "2"),
-	            createNStyle("fontFamily", "md"),
-	            createNStyle("height", "40px"),
-	            createNStyle("lineHeight", "40px"),
-	            createNStyle("fontSize", "26px"),
-	            createNStyle("padding", "0 16px 0 16px"),
-	            createNStyle("whiteSpace", "nowrap"),
-	            createNStyle("boxSizing", "border-box"),
-	            createNStyle("position", "relative"),
-	            createNStyle("color", "#fff"),
-
-	            [
-	                className("mdi-anvil"),
-	                createNStyleList({
-	                    display: "inline",
-	                    opacity: "0.8",
-	                    backgroundColor: "#303030",
-	                    boxShadow: "0 0 1px rgb(0,0,0,0.12), 0 1px 1px rgb(0,0,0,0.24)",
-	                    zIndex: "2",
-	                    fontFamily: "md",
-	                    height: "40px",
-	                    lineHeight: "40px",
-	                    fontSize: "26px",
-	                    padding: "0 0 0 0",
-	                    whiteSpace: "nowrap",
-	                    boxSizing: "border-box",
-	                    position: "relative",
-	                    color: "#fff",
-	                })
-	            ],
-	            [
-	                createNStyle("display", "inline"),
-	                createNStyle("fontSize", "16px"),
-	                createNStyle("opacity", "0.7"),
-	                createNStyle("fontWeight", "bold"),
-	                createNStyle("marginLeft", "16px"),
-	                createNStyle("height", "100%"),
-	                createNStyle("lineHeight", "40px"),
-	                createNStyle("display", "inline"),
-	                createNStyle("verticalAlign", "top"),
-
-	                `欢迎使用 iirose-Forge   version ${versionInfo.version}`
-	            ]
-	        ],
-
-	        [ // 菜单主体
-	            createNStyle("position", "absolute"),
-	            createNStyle("width", "100%"),
-	            createNStyle("top", "40px"),
-	            createNStyle("bottom", "40px"),
-	            createNStyle("overflow", "auto"),
-
-	            [
-	                createNStyleList({
-	                    display: "grid",
-	                    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))"
-	                }),
-	                ...([ // 菜单列表项
-	                    ...(
-	                        (
-	                            (new Date("2023/12/20")).getTime() < Date.now() && Date.now() < (new Date("2024/1/16")).getTime() ||
-	                            (storageContext.local.enableExperimental && storageContext.local.experimentalOption["annualReport"])
-	                        ) ?
-	                            [
-	                                {
-	                                    title: "(限时) 蔷薇年报",
-	                                    text: "获取你的2023蔷薇年报",
-	                                    icon: "fire",
-	                                    onClick: async () =>
-	                                    {
-	                                        reportGeneration();
-	                                    }
-	                                },
-	                            ] :
-	                            []
-	                    ),
-	                    {
-	                        title: "管理插件",
-	                        text: "管理插件",
-	                        icon: "puzzle",
-	                        onClick: async () =>
-	                        {
-	                            showMenu([
-	                                NList.getElement([
-	                                    "[ 添加插件 ]",
-	                                    new NEvent("click", async () =>
-	                                    {
-	                                        let pluginUrl = await showInputBox("添加插件", "请输入插件地址\n插件会自动进行更新", true);
-	                                        if (pluginUrl != undefined)
-	                                        {
-	                                            await plugList.addPlug(pluginUrl, pluginUrl);
-	                                            plugList.savePlugList();
-	                                        }
-	                                    }),
-	                                ]),
-	                                ...(Array.from(plugList.map.keys())).map(name => NList.getElement([
-	                                    `${name}`,
-	                                    new NEvent("click", async () =>
-	                                    {
-	                                        showMenu([
-	                                            NList.getElement([
-	                                                "显示插件窗口",
-	                                                new NEvent("click", () =>
-	                                                {
-	                                                    plugList.showPlugWindow(name);
-	                                                })
-	                                            ]),
-	                                            NList.getElement([
-	                                                "移除插件",
-	                                                new NEvent("click", () =>
-	                                                {
-	                                                    plugList.removePlug(name);
-	                                                    plugList.savePlugList();
-	                                                })
-	                                            ])
-	                                        ]);
-	                                    }),
-	                                ]))
-	                            ]);
-
-	                        }
-	                    },
-	                    {
-	                        title: "侧载脚本",
-	                        text: "管理侧载js",
-	                        icon: "script",
-	                        onClick: async () =>
-	                        {
-	                            await showInfoBox("警告", [
-	                                "! 侧载外部脚本是高危操作 !",
-	                                "侧载的脚本不接受forge权限管理",
-	                                "外部脚本能获取您在此网站的所有信息",
-	                                "恶意外部脚本可能盗取您的账号",
-	                                "请勿加载他人提供的闭源脚本",
-	                                "继续操作前 您应该了解自己正在做什么"
-	                            ].join("\n"));
-	                            showMenu([
-	                                NList.getElement([
-	                                    "[ 添加iframe外侧侧载脚本 ]",
-	                                    new NEvent("click", async () =>
-	                                    {
-	                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随forge启动运行", true);
-	                                        if (scriptUrl != undefined)
-	                                        {
-	                                            storageContext.roaming.sideLoadedScript.push([scriptUrl, scriptUrl, false]);
-	                                            storageRoamingSave();
-	                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启时生效");
-	                                        }
-	                                    }),
-	                                ]),
-	                                NList.getElement([
-	                                    "[ 添加iframe内侧侧载脚本 ]",
-	                                    new NEvent("click", async () =>
-	                                    {
-	                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随iframe重载运行", true);
-	                                        if (scriptUrl != undefined)
-	                                        {
-	                                            storageContext.roaming.sideLoadedScript.push([scriptUrl, scriptUrl, true]);
-	                                            storageRoamingSave();
-	                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启或iframe重载时生效");
-	                                        }
-	                                    }),
-	                                ]),
-	                                ...(storageContext.roaming.sideLoadedScript.map(([name, url, insideIframe], ind) => NList.getElement([
-	                                    `${insideIframe ? "内" : "外"} | ${name}`,
-	                                    new NEvent("click", async () =>
-	                                    {
-	                                        showMenu([
-	                                            NList.getElement([
-	                                                "移除插件",
-	                                                new NEvent("click", () =>
-	                                                {
-	                                                    storageContext.roaming.sideLoadedScript.splice(ind, 1);
-	                                                    storageRoamingSave();
-	                                                    showNotice("删除侧载脚本", "已将脚本从侧载列表移除\n将在下次重启时生效");
-	                                                })
-	                                            ])
-	                                        ]);
-	                                    }),
-	                                ])))
-	                            ]);
-
-	                        }
-	                    },
-	                    {
-	                        title: "插件商店",
-	                        text: "打开插件商店",
-	                        icon: "shopping",
-	                        onClick: async () =>
-	                        {
-	                            if (plugStone)
-	                            {
-	                                plugStone.windowElement.setDisplay("block");
-	                                plugStone.windowElement.setStyle("pointerEvents", "auto");
-	                                return;
-	                            }
-
-	                            plugStone = createPlugWindow(true);
-	                            plugStone.iframe.element.src = "https://iplugin.reifuu.icu";
-
-	                            let channel = new MessageChannel();
-	                            let port = channel.port1;
-
-	                            let rcoContext = new RcoCcontext();
-	                            rcoContext.addGlobalNamedFunctions(/** @satisfies {import("../../doc/plugStoreApi").iiroseForgePlugStoreApi} */({
-	                                getForgeVersion: async () => versionInfo.version,
-	                                getPlugList: async () => Array.from(plugList.map.entries()).map(o => ({
-	                                    name: o[0],
-	                                    url: o[1].url
-	                                })),
-	                                installPlug: async (name, url) =>
-	                                {
-	                                    return 3;
-	                                },
-	                                uninstallPlug: async (name) =>
-	                                {
-	                                    return 3;
-	                                },
-	                            }));
-	                            port.addEventListener("message", data => { rcoContext.onData(data); });
-	                            rcoContext.bindOutStream(data => { port.postMessage(data); }, "raw");
-
-	                            plugStone.iframe.addEventListener("load", () =>
-	                            {
-	                                {
-	                                    port.start();
-	                                    plugStone.iframe.element.contentWindow.postMessage({
-	                                        type: "setMessagePort",
-	                                        port: channel.port2
-	                                    }, "*", [channel.port2]); // 初始化通信管道
-	                                }
-	                            });
-
-	                            plugStone.windowElement.setDisplay("block");
-	                            plugStone.windowElement.setStyle("pointerEvents", "auto");
-	                        }
-	                    },
-	                    {
-	                        title: "勿扰模式",
-	                        text: "设置自动回复",
-	                        icon: "bell-minus-outline",
-	                        onClick: async () =>
-	                        {
-	                            showNotDisturbModeMenu();
-	                        }
-	                    },
-	                    {
-	                        title: "拉取配置",
-	                        text: "获取您其他在线设备的配置",
-	                        icon: "sync",
-	                        onClick: async () =>
-	                        {
-	                            trySyncConfig();
-	                        }
-	                    },
-	                    {
-	                        title: "美化设置",
-	                        text: "定制你的界面",
-	                        icon: "brush-outline",
-	                        onClick: async () =>
-	                        {
-	                            showBeautifyMenu();
-	                        }
-	                    },
-	                    {
-	                        title: "附加功能",
-	                        text: "设置本机的附加功能",
-	                        icon: "cog",
-	                        onClick: async () =>
-	                        {
-	                            showMenu([
-	                                ...([
-	                                    {
-	                                        name: "用户备注",
-	                                        storageKey: "enableUserRemark"
-	                                    },
-	                                    {
-	                                        name: "聊天记录同步(测试)",
-	                                        storageKey: "enableSyncChatRecord"
-	                                    },
-	                                    {
-	                                        name: "接管音频(测试)",
-	                                        storageKey: "enableAudioTakeover"
-	                                    },
-	                                    {
-	                                        name: "超级菜单",
-	                                        storageKey: "enableSuperMenu"
-	                                    },
-	                                    {
-	                                        name: "快捷房管操作",
-	                                        storageKey: "enableRoomAdminOperation"
-	                                    },
-	                                    {
-	                                        name: "置顶会话",
-	                                        storageKey: "enablePinSession"
-	                                    },
-	                                    ...(
-	                                        storageContext.local.enableExperimental ?
-	                                            [
-	                                                {
-	                                                    name: "实验性功能",
-	                                                    storageKey: "enableExperimental"
-	                                                },
-	                                                {
-	                                                    name: "实验性功能设置",
-	                                                    func: async () =>
-	                                                    {
-	                                                        let optionJson = JSON.stringify(storageContext.local.experimentalOption, undefined, 4);
-	                                                        let newValue = await showTextareaBox("实验性功能设置", "设置实验性功能的json", true, optionJson);
-	                                                        if (newValue != undefined && newValue != optionJson)
-	                                                        {
-	                                                            try
-	                                                            {
-	                                                                storageContext.local.experimentalOption = JSON.parse(newValue);
-	                                                                storageLocalSave();
-	                                                                showNotice("实验性功能", "已更新实验性功能设置");
-	                                                            }
-	                                                            catch (err)
-	                                                            {
-	                                                                showNotice("实验性功能", `实验性功能设置更新失败\n${err instanceof Error ? err.message : ""}`);
-	                                                            }
-	                                                        }
-	                                                    }
-	                                                },
-	                                            ] :
-	                                            []
-	                                    )
-	                                ]).map(o => NList.getElement([
-	                                    `${o.storageKey ? (storageContext.local[o.storageKey] ? "(已启用)" : "(已禁用)") : ""}${o.name}`,
-	                                    new NEvent("click", async () =>
-	                                    {
-	                                        if (o.storageKey)
-	                                        {
-	                                            let targetState = !storageContext.local[o.storageKey];
-	                                            let confirm = await showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
-	                                            if (confirm)
-	                                            {
-	                                                storageContext.local[o.storageKey] = targetState;
-	                                                storageLocalSave();
-	                                            }
-	                                        }
-	                                        else if (o.func)
-	                                        {
-	                                            o.func();
-	                                        }
-	                                    }),
-	                                ]))
-	                            ]);
-	                        }
-	                    },
-	                    {
-	                        title: "补丁设置",
-	                        text: "启用或禁用补丁",
-	                        icon: "bandage",
-	                        onClick: async () =>
-	                        {
-	                            showPatchMenu();
-	                        }
-	                    },
-	                    {
-	                        title: "账号管理",
-	                        text: "管理你的其他账号",
-	                        icon: "account-cog",
-	                        onClick: async () =>
-	                        {
-	                            await showMultiAccountMenu();
-	                        }
-	                    },
-	                    {
-	                        title: "黑名单",
-	                        text: "管理黑名单",
-	                        icon: "account-cancel-outline",
-	                        onClick: async () =>
-	                        {
-	                            await showBlacklistMenu();
-	                        }
-	                    },
-	                    {
-	                        title: "安装iiroseForge",
-	                        text: "下次使用无需注入",
-	                        icon: "puzzle",
-	                        onClick: async () =>
-	                        {
-	                            localStorage.setItem("installForge", "true");
-	                            writeForgeToCache(true);
-	                            showInfoBox("安装iiroseForge", "已完成");
-	                        }
-	                    },
-	                    {
-	                        title: "卸载iiroseForge",
-	                        text: "下次启动清除iiroseForge",
-	                        icon: "puzzle",
-	                        onClick: async () =>
-	                        {
-	                            localStorage.removeItem("installForge");
-	                            removeForgeFromCache();
-	                            showInfoBox("卸载iiroseForge", "已完成");
-	                        }
-	                    }
-	                ]).map(o => [ // 菜单列表项元素
-	                    className("commonBox"),
-	                    createNStyle("maxWidth", "calc(100% - 24px)"),
-	                    createNStyle("minWidth", "355.2px"),
-	                    createNStyle("minHeight", "200px"),
-	                    createNStyle("float", "none"),
-	                    createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
-	                    createNStyle("margin", "24px 12px 0px 12px"),
-	                    createNStyle("position", "relative"),
-	                    [ // 元素标题行
-	                        className("commonBoxHead"),
-	                        createNStyle("backgroundColor", "rgba(255,255,255,0.2)"),
-	                        createNStyle("color", "rgba(0,0,0,0.4)"),
-	                        createNStyle("height", "100px"),
-	                        createNStyle("width", "100%"),
-	                        createNStyle("display", "flex"),
-	                        createNStyle("justifyContent", "center"),
-	                        createNStyle("padding", "0 24px"),
-	                        createNStyle("boxSizing", "border-box"),
-	                        [ // 图标
-	                            className("mdi-" + o.icon),
-	                            createNStyle("lineHeight", "100px"),
-	                            createNStyle("fontSize", "30px"),
-	                            createNStyle("fontFamily", "md"),
-	                            createNStyle("display", "inline-block"),
-	                            createNStyle("verticalAlign", "top"),
-	                            createNStyle("height", "100%"),
-	                            createNStyle("opacity", "0.7"),
-	                        ],
-	                        [ // 标题文本
-	                            createNStyle("lineHeight", "100px"),
-	                            createNStyle("fontSize", "20px"),
-	                            createNStyle("display", "inline-block"),
-	                            createNStyle("verticalAlign", "top"),
-	                            createNStyle("height", "100%"),
-	                            createNStyle("fontWeight", "bold"),
-	                            createNStyle("marginLeft", "22px"),
-	                            createNStyle("overflow", "hidden"),
-	                            createNStyle("whiteSpace", "pre"),
-	                            createNStyle("textOverflow", "ellipsis"),
-
-	                            o.title
-	                        ]
-	                    ],
-	                    [ // 元素正文
-	                        className("textColor"),
-	                        createNStyle("width", "100%"),
-	                        createNStyle("minHeight", "100px"),
-	                        createNStyle("backgroundColor", "rgba(255,255,255,0.5)"),
-	                        createNStyle("color", "rgba(0,0,0,0.75)"),
-	                        [
-	                            createNStyle("fontWeight", "bold"),
-	                            createNStyle("width", "100%"),
-	                            createNStyle("height", "100%"),
-	                            createNStyle("lineHeight", "1.8em"),
-	                            createNStyle("textAlign", "center"),
-	                            createNStyle("padding", "2.2em"),
-	                            createNStyle("boxSizing", "border-box"),
-	                            createNStyle("whiteSpace", "pre-wrap"),
-	                            createNStyle("fontSize", "16px"),
-	                            createNStyle("color", "rgba(0,0,0,0.7)"),
-
-	                            o.text
-	                        ]
-	                    ],
-
-	                    new NEvent("click", o.onClick)
-	                ]),
-
-	            ],
-	            [ // 菜单主体下方的填充
-	                createNStyleList({
-	                    height: "25px"
-	                })
-	            ]
-	        ],
-
-	        [ // 底栏
-	            createNStyle("color", "#303030"),
-	            createNStyle("background", "#fff"),
-	            createNStyle("opacity", "0.8"),
-	            createNStyle("display", "flex"),
-	            createNStyle("height", "40px"),
-	            createNStyle("position", "absolute"),
-	            createNStyle("bottom", "0"),
-	            createNStyle("width", "100%"),
-	            createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
-	            createNStyle("zIndex", "2"),
-
-	            ...([
-	                {
-	                    text: "< 返回",
-	                    onClick: () =>
-	                    {
-	                        menu.remove();
-	                    }
-	                }
-	            ].map(o => [
-	                createNStyle("width", "0"),
-	                createNStyle("flexGrow", "1"),
-	                createNStyle("justifyContent", "center"),
-	                createNStyle("padding", "0 24px"),
-	                createNStyle("boxSizing", "border-box"),
-
-	                new NEvent("click", o.onClick),
-
-	                [],
-
-	                [
-	                    createNStyle("display", "inline-block"),
-	                    createNStyle("verticalAlign", "top"),
-	                    createNStyle("height", "100%"),
-	                    createNStyle("fontWeight", "bold"),
-	                    createNStyle("marginLeft", "22px"),
-	                    createNStyle("fontSize", "14px"),
-	                    createNStyle("lineHeight", "40px"),
-	                    createNStyle("overflow", "hidden"),
-	                    createNStyle("whiteSpace", "pre"),
-	                    createNStyle("textOverflow", "ellipsis"),
-
-	                    o.text
-	                ]
-	            ]))
-	        ],
-
-	        ele => // 实验性功能手势
-	        {
-	            const gestureTable = [
-	                "left",
-	                "leftDown",
-	                "down",
-	                "rightUp",
-	                "right",
-	                "rightDown",
-	                "up",
-	                "leftUp",
-	                "none"
-	            ];
-	            /**
-	             * @type {Array<typeof gestureTable[number]>}
-	             */
-	            let gestureList = [];
-	            // 跟踪点的累计值
-	            let trackPointX = 0;
-	            let trackPointY = 0;
-	            /**
-	             * @type {null | number | NodeJS.Timeout}
-	             */
-	            let intervalId = null;
-	            /**
-	             * @type {typeof gestureTable[number]}
-	             */
-	            let nowDirection = "none";
-
-	            /**
-	             * @param {import("../../lib/qwqframe").PointerData} e
-	             */
-	            function pointerMove(e)
-	            {
-	                if (e.pressing)
-	                {
-	                    trackPointX = 0;
-	                    trackPointY = 0;
-	                    nowDirection = "none";
-	                    if (intervalId == null)
-	                        intervalId = setInterval(checkPath, 85);
-	                }
-	                else
-	                {
-	                    trackPointX += e.vx;
-	                    trackPointY += e.vy;
-	                }
-
-	                if (!e.hold)
-	                {
-	                    if (intervalId != null)
-	                    {
-	                        clearInterval(intervalId);
-	                        intervalId = null;
-	                    }
-	                }
-	            }
-
-	            function checkPath()
-	            {
-	                let nowTickDirection = "none";
-	                if (Math.abs(trackPointX) >= 10 || Math.abs(trackPointY) >= 10)
-	                {
-	                    nowTickDirection = gestureTable[
-	                        Math.floor(((Math.floor(
-	                            ((Math.atan2(-trackPointY, trackPointX)) / (2 * Math.PI) + 0.5) * 16
-	                        ) + 1) % 16) / 2)
-	                    ];
-	                }
-	                trackPointX = 0;
-	                trackPointY = 0;
-
-	                if (nowTickDirection != nowDirection)
-	                {
-	                    nowDirection = nowTickDirection;
-	                    if (nowDirection != "none")
-	                        gestureList.push(nowDirection);
-	                }
-
-	                while (gestureList.length > 200)
-	                    gestureList.shift();
-
-	                /**
-	                 * @type {Array<typeof gestureTable[number]>}
-	                 */
-	                const targetGesture = [
-	                    "down",
-
-	                    "down",
-
-	                    "leftDown",
-	                    "right",
-	                    "down"
-	                ];
-
-	                if (targetGesture.every((o, index) => o == gestureList.at(index - targetGesture.length)))
-	                {
-	                    gestureList = [];
-
-	                    storageContext.local.enableExperimental = true;
-	                    storageLocalSave();
-	                    showNotice("实验性功能", "已激活实验性功能\n部分功能需要重载以启用");
-	                }
-	            }
-
-	            mouseBind(ele, pointerMove, 0, iframeContext.iframeWindow);
-	            touchBind(ele, pointerMove, false);
-	            ele.addEventListener("mousedown", e => { e.stopPropagation(); });
-	            ele.addEventListener("mouseup", e => { e.stopPropagation(); });
-	            ele.addEventListener("touchstart", e => { e.stopPropagation(); });
-	            ele.addEventListener("touchend", e => { e.stopPropagation(); });
-	            ele.addEventListener("touchmove", e => { e.stopPropagation(); });
-	            ele.addEventListener("touchcancel", e => { e.stopPropagation(); });
-	        }
-	    ]);
-	    menu.element.id = "iiroseForgeMenu";
-
-	    return menu;
-	}
-
-	/**
-	 * 获取forge按钮
-	 * @returns {NElement}
-	 */
-	function getMenuButton()
-	{
-	    let referElement = iframeContext.iframeDocument?.querySelector("div#functionHolder div.functionButton.functionButtonGroup");
-
-	    let buttonBackgroundColor = (referElement ? getComputedStyle(referElement).backgroundColor : "rgb(255, 255, 255)");
-	    let buttonTextColor = (referElement ? getComputedStyle(referElement).color : "rgb(33, 33, 33)");
-
-	    let button = NList.getElement([
-	        createNStyle("backgroundColor", buttonBackgroundColor),
-	        createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
-	        createNStyle("position", "relative"),
-	        createNStyle("zIndex", "1"),
-
-	        createNStyle("color", buttonTextColor),
-	        createNStyle("paddingLeft", "16px"),
-	        createNStyle("paddingRight", "56px"),
-	        createNStyle("transition", "background-color 0.1s ease 0s, color 0.1s ease 0s"),
-	        createNStyle("cursor", "url(images/cursor/2.cur), pointer"),
-	        createNStyle("width", "100%"),
-	        createNStyle("height", "56px"),
-	        createNStyle("boxSizing", "border-box"),
-	        createNStyle("lineHeight", "56px"),
-	        createNStyle("whiteSpace", "nowrap"),
-
-	        new NEvent("click", () =>
-	        {
-	            iframeContext.iframeWindow?.["functionHolderDarker"]?.click();
-	            iframeContext.iframeBody.addChild(getForgeMenu());
-	        }),
-
-	        new NEvent("mouseenter", (_e, ele) =>
-	        {
-	            if (ele.getStyle("backgroundColor") == "transparent")
-	            {
-	                buttonBackgroundColor = "transparent";
-	                ele.setStyle("backgroundColor", "rgba(127, 127, 127, 0.3)");
-	            }
-	            else
-	                ele.setStyle("backgroundColor", (
-	                    (
-	                        buttonBackgroundColor == "#202020" ||
-	                        buttonBackgroundColor == "rgb(32, 32, 32)"
-	                    ) ?
-	                        "rgb(42, 42, 42)" :
-	                        "rgb(245, 245, 245)"
-	                ));
-	            iframeContext.iframeWindow?.["Utils"]?.Sound?.play?.(0);
-	        }),
-	        new NEvent("mouseleave", (_e, ele) =>
-	        {
-	            ele.setStyle("backgroundColor", buttonBackgroundColor);
-	        }),
-
-	        [
-	            new NTagName("span"),
-	            new NAsse(e => e.element.classList.add("functionBtnIcon", "mdi-anvil"))
-	        ],
-	        [
-	            new NTagName("span"),
-	            "Forge菜单",
-	            new NAsse(e => e.element.classList.add("functionBtnFont"))
-	        ],
-	        [
-	            new NTagName("span"),
-	            createNStyle("transform", "rotate(-90deg)"),
-	            new NAsse(e => e.element.classList.add("functionBtnGroupIcon"))
-	        ]
-	    ]);
-	    button.element.id = "iiroseForgeMenuButton";
-
-	    return button;
 	}
 
 	/**
@@ -11856,378 +9683,6 @@
 	}
 
 	/**
-	 * 启用超级菜单
-	 */
-	function enableSuperMenu()
-	{
-	    let supperMenuDisplay = false;
-	    /**
-	     * @type {null | number | NodeJS.Timeout}
-	     */
-	    let supperMenuDisplayTimeOutId = null;
-
-	    let supperMenu = new ForgeSuperMenu();
-
-	    let leftColumn = new ForgeSuperMenuColumn();
-	    let midColumn = new ForgeSuperMenuColumn();
-	    let rightColumn = new ForgeSuperMenuColumn();
-
-	    supperMenu.addColumn(leftColumn);
-	    supperMenu.addColumn(midColumn);
-	    supperMenu.addColumn(rightColumn);
-	    supperMenu.setCurrentColumn(1);
-
-	    /**
-	     * 当前选择被取消
-	     */
-	    let canceled = false;
-
-	    /**
-	     * 刷新列表项
-	     */
-	    function refreshListItem()
-	    {
-	        // 中间的列表
-	        {
-	            midColumn.clearChild();
-	            let currentIndex = 0;
-	            let nowIndex = 0;
-	            Array.from(
-	                iframeContext.iframeDocument.querySelector("div#sessionHolder > div.sessionHolderPmTaskBox")?.children
-	            ).forEach(o =>
-	            {
-	                if (o.classList.contains("sessionHolderPmTaskBoxItem"))
-	                {
-	                    let copyElement = /** @type {HTMLElement} */(o.cloneNode(true));
-	                    copyElement.classList.remove("whoisTouch2");
-	                    let onClick = copyElement.onclick;
-	                    copyElement.removeAttribute("onclick");
-	                    copyElement.removeAttribute("oncontextmenu");
-	                    midColumn.addChild(getNElement(copyElement), () =>
-	                    {
-	                        onClick.call(o, new MouseEvent(""));
-	                    });
-
-	                    let cornerMark =  /** @type {HTMLElement} */(domPath(o, [-1]));
-	                    if (cornerMark.style.display != "none" && cornerMark.innerText == "@")
-	                        currentIndex = nowIndex;
-	                    nowIndex++;
-	                }
-	            });
-	            midColumn.currentRowIndex = currentIndex;
-	        }
-	        // 右侧的列表
-	        {
-	            rightColumn.clearChild();
-
-	            /**
-	             * @type {Array<{ id?: string, item: any, execute: () => void }>}
-	             */
-	            let menuList = [];
-
-	            let nowRoomId = forgeApi.operation.getUserRoomId();
-	            menuList.push({
-	                item: createRoomListItemById(nowRoomId),
-	                execute: () => { }
-	            });
-
-	            try
-	            {
-	                /** @type {Array<string>} */
-	                let roomHistory = JSON.parse(localStorage.getItem("database"))?.["roomHistory"]?.split?.(",");
-	                if (roomHistory)
-	                    roomHistory.forEach(o =>
-	                    {
-	                        if (o != nowRoomId)
-	                            menuList.push({
-	                                id: o,
-	                                item: createRoomListItemById(o, "历史"),
-	                                execute: () =>
-	                                {
-	                                    forgeApi.operation.switchRoom(o);
-	                                }
-	                            });
-	                    });
-	            }
-	            catch (err)
-	            {
-	                console.error("forge supper menu:", err);
-	            }
-
-	            createSortableList(menuList, rightColumn, "right");
-	        }
-	        // 左侧的列表
-	        {
-	            leftColumn.clearChild();
-
-	            let menuList = [
-	                {
-	                    item: createListItem("", "无动作", ""),
-	                    execute: () => { }
-	                },
-	                {
-	                    id: "信箱",
-	                    item: createListItem("mdi-mailbox", "打开信箱", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(2);
-	                    }
-	                },
-	                {
-	                    id: "媒体开关",
-	                    item: createListItem("mdi-music", "切换媒体开关", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(90);
-	                    }
-	                },
-	                {
-	                    id: "播放列表",
-	                    item: createListItem("mdi-music-box-multiple", "打开播放列表", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(1, iframeContext.iframeDocument?.createElement("div"));
-	                    }
-	                },
-	                {
-	                    id: "商店",
-	                    item: createListItem("mdi-store", "打开商店", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(10, iframeContext.iframeDocument?.createElement("div"));
-	                    }
-	                },
-	                {
-	                    id: "朋友圈",
-	                    item: createListItem("mdi-camera-iris", "打开朋友圈", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(5);
-	                    }
-	                },
-	                {
-	                    id: "论坛",
-	                    item: createListItem("mdi-forum", "打开论坛", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(3);
-	                    }
-	                },
-	                {
-	                    id: "任务版",
-	                    item: createListItem("mdi-clipboard-check-multiple", "打开任务版", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
-	                    }
-	                },
-	                {
-	                    id: "勿扰模式",
-	                    item: createListItem("mdi-bell-minus-outline", "切换勿扰模式", ""),
-	                    execute: () =>
-	                    {
-	                        setNotDisturbMode("switch");
-	                    }
-	                },
-	                {
-	                    id: "状态",
-	                    item: createListItem("mdi-human", "打开状态面板", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(51);
-	                    }
-	                },
-	                {
-	                    id: "终端",
-	                    item: createListItem("mdi-powershell", "打开终端", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(21);
-	                    }
-	                },
-	                {
-	                    id: "房间推荐",
-	                    item: createListItem("mdi-fire", "打开房间推荐", ""),
-	                    execute: () =>
-	                    {
-	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(101);
-	                    }
-	                },
-	            ];
-	            createSortableList(menuList, leftColumn, "left");
-	        }
-
-	        supperMenu.setCurrentColumn(1);
-	    }
-
-	    /**
-	     * @param {{ movementX: number, movementY: number }} e
-	     */
-	    let mouseMove = (e) =>
-	    {
-	        if (supperMenuDisplay && !canceled)
-	            supperMenu.menuPointerMove(e.movementX, e.movementY);
-	    };
-	    /**
-	     * @param {KeyboardEvent} e
-	     */
-	    let keyDown = (e) =>
-	    {
-	        if (supperMenuDisplay && !canceled)
-	            switch (e.code)
-	            {
-	                case "KeyW":
-	                    e.preventDefault();
-	                    supperMenu.menuPointerMove(0, -supperMenu.cursorScaleSizeY);
-	                    break;
-	                case "KeyA":
-	                    e.preventDefault();
-	                    supperMenu.menuPointerMove(-supperMenu.cursorScaleSizeX, 0);
-	                    break;
-	                case "KeyD":
-	                    e.preventDefault();
-	                    supperMenu.menuPointerMove(supperMenu.cursorScaleSizeX, 0);
-	                    break;
-	                case "KeyS":
-	                    e.preventDefault();
-	                    supperMenu.menuPointerMove(0, supperMenu.cursorScaleSizeY);
-	                    break;
-	                case "KeyE":
-	                    e.preventDefault();
-
-	                    supperMenu.triggerCurrentOptionMenu();
-
-	                    iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
-	                    iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
-	                    supperMenu.hide();
-	                    canceled = true;
-	                    supperMenuDisplay = false;
-	                    document.exitPointerLock();
-	                    iframeContext.iframeDocument.exitPointerLock();
-	                    break;
-	                case "KeyQ":
-	                    e.preventDefault();
-
-	                    iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
-	                    iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
-	                    supperMenu.hide();
-	                    canceled = true;
-	                    document.exitPointerLock();
-	                    iframeContext.iframeDocument.exitPointerLock();
-	                    break;
-	            }
-	    };
-
-	    iframeContext.iframeWindow.addEventListener("mousedown", e =>
-	    {
-	        if (e.button != 2)
-	            return;
-	        if (supperMenuDisplay)
-	            return;
-	        supperMenuDisplayTimeOutId = setTimeout(() =>
-	        {
-	            supperMenuDisplay = true;
-	            supperMenuDisplayTimeOutId = null;
-	            refreshListItem();
-	            supperMenu.menuPointerReset();
-	            supperMenu.show();
-	            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
-	            iframeContext.iframeWindow.addEventListener("keydown", keyDown, true);
-	            canceled = false;
-	            supperMenu.menuElement.element.requestPointerLock({
-	                unadjustedMovement: true
-	            });
-	        }, 125);
-	    }, true);
-	    iframeContext.iframeWindow.addEventListener("mouseup", e =>
-	    {
-	        if (e.button != 2)
-	            return;
-	        if (supperMenuDisplayTimeOutId != null)
-	        {
-	            clearTimeout(supperMenuDisplayTimeOutId);
-	            supperMenuDisplayTimeOutId = null;
-	        }
-	        if (!supperMenuDisplay)
-	            return;
-
-	        e.stopPropagation();
-	        e.preventDefault();
-	        if (!canceled)
-	            supperMenu.triggerCurrent();
-	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
-	        iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
-
-	        document.exitPointerLock();
-	        iframeContext.iframeDocument.exitPointerLock();
-
-	        setTimeout(() =>
-	        {
-	            supperMenuDisplay = false;
-	            supperMenu.hide();
-
-	            document.exitPointerLock();
-	            iframeContext.iframeDocument.exitPointerLock();
-	        }, 10);
-	    }, true);
-	    iframeContext.iframeWindow.addEventListener("contextmenu", e =>
-	    {
-	        if (supperMenuDisplay)
-	        {
-	            e.stopPropagation();
-	            e.preventDefault();
-	        }
-	    }, true);
-
-	    if (iframeContext.iframeWindow?.["isMobile"])
-	    { // 适配手机版
-	        touchBind(getNElement(iframeContext.iframeDocument.body), e =>
-	        {
-	            if (supperMenuDisplay)
-	            {
-	                mouseMove({
-	                    movementX: e.vx * 1.8,
-	                    movementY: e.vy * 1.8
-	                });
-	                if (!e.hold)
-	                    setTimeout(() =>
-	                    {
-	                        if (!canceled)
-	                            supperMenu.triggerCurrent();
-	                        supperMenuDisplay = false;
-	                        supperMenu.hide();
-	                    }, 10);
-	            }
-	        }, false);
-	        let msgholderElement = iframeContext.iframeDocument.getElementById("msgholder");
-	        msgholderElement?.addEventListener("contextmenu", e =>
-	        {
-	            let target = /** @type {HTMLElement} */(e.target);
-	            if (
-	                (
-	                    target.classList.contains("fullBox") ||
-	                    target.classList.contains("pubMsgTime")
-	                ) &&
-	                (
-	                    target == msgholderElement ||
-	                    target.parentElement == msgholderElement ||
-	                    target.parentElement?.parentElement == msgholderElement ||
-	                    target.parentElement?.parentElement?.parentElement == msgholderElement
-	                )
-	            )
-	            {
-	                e.stopImmediatePropagation();
-	                supperMenuDisplay = true;
-	                refreshListItem();
-	                supperMenu.menuPointerReset();
-	                supperMenu.show();
-	                canceled = false;
-	            }
-	        }, true);
-	    }
-	}
-
-	/**
 	 * @param {Array<{id?: string;item: any;execute: () => void;}>} menuList
 	 * @param {ForgeSuperMenuColumn} column
 	 * @param {string} columnName
@@ -12470,6 +9925,1652 @@
 	            cornerMark
 	        ]
 	    ]);
+	}
+
+	let superMenuOptionInfoList = [
+	    {
+	        name: "右键延迟显示时间",
+	        key: "rightButtonDelay",
+	        type: "number",
+	        min: 50,
+	        max: 500,
+	        default: 125
+	    },
+	    {
+	        name: "右Alt键打开超级菜单",
+	        key: "rightAltEnable",
+	        type: "boolean",
+	    },
+	];
+	let superMenuOptionInfoMap = new Map(superMenuOptionInfoList.map(o => [o.key, o]));
+
+	/**
+	 * 获取超级菜单选项值
+	 * @param {string} key
+	 */
+	function getSuperMenuOption(key)
+	{
+	    let info = superMenuOptionInfoMap.get(key);
+	    if (!info)
+	        throw "A non-existent option key was accessed";
+	    let rawValue = storageContext.local.superMenuOption[key];
+	    switch (info.type)
+	    {
+	        case "text":
+	            return (rawValue ? rawValue : info.default);
+	        case "number":
+	            return (rawValue ? Number(rawValue) : info.default);
+	        case "boolean":
+	            return (rawValue == "true" ? true : false);
+	        default:
+	            return rawValue;
+	    }
+	}
+
+	/**
+	 * 显示超级菜单选项菜单
+	 */
+	function showSuperMenuOptionMenu()
+	{
+	    showMenu([
+	        ...(superMenuOptionInfoList.map(o => NList.getElement([
+	            o.name + (storageContext.local.superMenuOption[o.key] ? " (已设置)" : ""),
+	            new NEvent("click", async () =>
+	            {
+	                if (o.type == "boolean")
+	                {
+	                    let targetValue = (storageContext.local.superMenuOption[o.key] == "true" ? "" : "true");
+	                    let targetValueText = (targetValue == "true" ? "启用" : "禁用");
+	                    let confirm = await showInfoBox("超级菜单设置", `设置 ${o.name} 为 ${targetValueText} ?`, true);
+	                    if (confirm)
+	                    {
+	                        if (targetValue != "")
+	                        {
+	                            storageContext.local.superMenuOption[o.key] = targetValue;
+	                            storageLocalSave();
+	                        }
+	                        else
+	                        {
+	                            delete storageContext.local.superMenuOption[o.key];
+	                            storageLocalSave();
+	                        }
+	                    }
+	                }
+	                else if (isAmong(o.type, "number", "text"))
+	                {
+	                    let promptText = (
+	                        o.type == "number" ?
+	                            "填写一个数字" :
+	                            ""
+	                    );
+	                    if (
+	                        o.min != undefined ||
+	                        o.max != undefined ||
+	                        o.default != undefined
+	                    )
+	                    {
+	                        if (promptText != "")
+	                            promptText += "\n";
+
+	                        if (o.min != undefined)
+	                            promptText += `最小值 ${o.min} `;
+	                        if (o.max != undefined)
+	                            promptText += `最大值 ${o.max} `;
+	                        if (o.default != undefined)
+	                            promptText += `默认值 ${o.default} `;
+	                    }
+	                    let oldValue = storageContext.local.superMenuOption[o.key];
+
+	                    let value = await showInputBox("超级菜单设置", `设置 ${o.name}${promptText ? "\n" + promptText : ""}`, true, (oldValue ? oldValue : ""));
+	                    if (value != undefined)
+	                    {
+	                        if (value != "")
+	                        {
+	                            if (o.type == "number")
+	                            {
+	                                let valueNumber = Number(value);
+	                                if (!Number.isFinite(valueNumber))
+	                                {
+	                                    showNotice("超级菜单设置", "设置的值不是一个数字");
+	                                    return;
+	                                }
+	                                if (
+	                                    (o.min != undefined && valueNumber < o.min) ||
+	                                    (o.max != undefined && valueNumber > o.max)
+	                                )
+	                                {
+	                                    showNotice("超级菜单设置", "设置的值不满足范围要求");
+	                                    return;
+	                                }
+	                            }
+	                            storageContext.local.superMenuOption[o.key] = value;
+	                            storageLocalSave();
+	                        }
+	                        else
+	                        {
+	                            delete storageContext.local.superMenuOption[o.key];
+	                            storageLocalSave();
+	                        }
+	                    }
+	                }
+	            }),
+	        ])))
+	    ]);
+	}
+
+	let waitForId = "";
+
+	/**
+	 * 尝试同步配置
+	 */
+	function trySyncConfig()
+	{
+	    showNotice("配置同步", "正在尝试获取配置");
+	    let requestId = uniqueIdentifierString$1();
+	    forgeApi.operation.sendSelfPrivateForgePacket({
+	        plug: "forge",
+	        type: "syncConfigRQ",
+	        id: requestId
+	    });
+	    waitForId = requestId;
+	}
+
+	let registedReturnConfig = false;
+	/**
+	 * 启用配置同步
+	 */
+	function enableSyncConfig()
+	{
+	    if (registedReturnConfig)
+	        return;
+	    registedReturnConfig = true;
+	    protocolEvent.forge.selfPrivateForgePacket.add(e =>
+	    {
+	        if (waitForId)
+	        {
+	            if (e.content.type == "syncConfigCB" && e.content.id == waitForId)
+	            {
+	                waitForId = "";
+	                /**
+	                 * @type {typeof storageContext.roaming}
+	                 */
+	                let storageObj = e.content.storageObject;
+	                if (storageObj)
+	                {
+	                    if (storageObj?.userRemark)
+	                    { // 覆盖备注配置
+	                        Object.keys(storageContext.roaming.userRemark).forEach(userId =>
+	                        {
+	                            if (!storageObj.userRemark[userId])
+	                                storageObj.userRemark[userId] = storageContext.roaming.userRemark[userId];
+	                        });
+	                    }
+	                    storageRoamingSet(storageObj);
+	                    storageRoamingSave();
+	                    showNotice("配置同步", "拉取配置成功");
+	                }
+	            }
+	        }
+
+	        if (e.content.type == "syncConfigRQ")
+	        {
+	            let requestId = e.content.id;
+	            forgeApi.operation.sendSelfPrivateForgePacket({
+	                plug: "forge",
+	                type: "syncConfigCB",
+	                id: requestId,
+	                storageObject: storageContext.roaming
+	            });
+	            showNotice("配置同步", "其他设备正在拉取本机配置");
+	        }
+	    });
+	}
+
+	const versionInfo = {
+	    version: "alpha v1.19.0"
+	};
+
+	/**
+	 * 插件请求的权限列表
+	 */
+	const apiPermission = {
+	    operation: {
+	        showForgeNotice: "显示forge通知",
+	        getUserName: "获取你的昵称",
+	        getUserUid: "获取你的uid",
+	        getUserRoomId: "获取所在房间id",
+	        getUserProfilePictureUrl: "获取你的头像",
+	        getUserInputColor: "获取你的主题色",
+	        sendRoomMessage: "在房间中发送信息",
+	        sendRoomForgePacket: "在房间中发送forge数据包",
+	        sendPrivateMessageSilence: "[危险]静默发送私聊消息",
+	        sendPrivateMessage: "[危险]发送私聊消息",
+	        sendSelfPrivateMessageSilence: "向自己静默发送私聊消息(同账号多设备间通信)",
+	        giveALike: "进行点赞",
+	        switchRoom: "切换所在房间"
+	    },
+	    event: {
+	        roomMessage: "接收房间消息",
+	        roomForgePacket: "接收房间forge数据包",
+	        privateMessage: "[危险]接收私聊消息",
+	        selfPrivateMessage: "接收自己(其他设备)发送给自己的私聊消息"
+	    }
+	};
+
+	/**
+	 * 加载插件
+	 * @param {string} plugName
+	 * @param {string} scriptUrl
+	 * @param {{operationPermissionSet: Set, eventPermissionSet: Set }} [permission]
+	 */
+	async function loadPlugIn(plugName, scriptUrl, permission)
+	{
+	    let { sandbox, windowElement } = createPlugSandboxWithWindow();
+	    await sandbox.waitAvailable();
+	    let operationPermissionSet = (permission?.operationPermissionSet ? permission?.operationPermissionSet : new Set());
+	    let eventPermissionSet = (permission?.eventPermissionSet ? permission?.eventPermissionSet : new Set());
+	    let apiBindObj = {};
+	    /**
+	     * 申请权限
+	     * @param {Array<string>} operationList 
+	     * @param {Array<string>} eventList 
+	     * @returns {Promise<boolean>}
+	     */
+	    apiBindObj.applyPermission = async (operationList, eventList) =>
+	    {
+	        operationList = operationList.filter(o => Boolean(apiPermission.operation[o]));
+	        eventList = eventList.filter(o => Boolean(apiPermission.event[o]));
+	        if (operationList.every(o => operationPermissionSet.has(o)) && eventList.every(o => eventPermissionSet.has(o)))
+	            return true;
+	        let permit = await showInfoBox("权限申请", ([
+	            `是否允许 ${plugName} 获取以下权限?`,
+	            ...operationList.map(o => "+ " + apiPermission.operation[o]),
+	            ...eventList.map(o => "+ " + apiPermission.event[o])
+	        ]).join("\n"), true);
+	        if (permit)
+	        {
+	            operationList.forEach(o =>
+	            {
+	                if (apiPermission.operation[o])
+	                    operationPermissionSet.add(o);
+	            });
+	            eventList.forEach(o =>
+	            {
+	                if (apiPermission.event[o])
+	                    eventPermissionSet.add(o);
+	            });
+	            plugList.savePlugList();
+	        }
+	        return (permit ? true : false);
+	    };
+	    Object.keys(forgeApi.operation).forEach(key =>
+	    {
+	        if (apiPermission.operation[key])
+	            apiBindObj[key] = (...param) =>
+	            {
+	                if (operationPermissionSet.has(key))
+	                {
+	                    try
+	                    {
+	                        forgeApi.state.plug = { name: plugName };
+	                        let ret = forgeApi.operation[key](...param);
+	                        forgeApi.state.plug = null;
+	                        return ret;
+	                    }
+	                    catch (err)
+	                    {
+	                        forgeApi.state.plug = null;
+	                        return undefined;
+	                    }
+	                }
+	            };
+	    });
+	    apiBindObj.addEventListener = (eventName, callback) =>
+	    {
+	        if (apiPermission.event[eventName] && forgeApi.event[eventName] && eventPermissionSet.has(eventName))
+	            forgeApi.event[eventName].add(callback);
+	    };
+	    sandbox.apiObj = {
+	        iiroseForge: apiBindObj
+	    };
+	    let scriptCode = `document.body.innerHTML='<div style="color:white">network_error</div>';`;
+	    try
+	    {
+	        scriptCode = await (await fetch(scriptUrl)).text();
+	    }
+	    catch (err)
+	    {
+	    }
+	    sandbox.execJs(scriptCode);
+
+	    return {
+	        sandbox: sandbox,
+	        windowElement: windowElement,
+	        operationPermissionSet: operationPermissionSet,
+	        eventPermissionSet: eventPermissionSet
+	    };
+	}
+
+	/**
+	 * 插件列表
+	 */
+	class PlugList
+	{
+	    /**
+	     * @type {Map<string, { url: string, sandbox: SandboxContext, windowElement: NElement, operationPermissionSet: Set, eventPermissionSet: Set }>}
+	     */
+	    map = new Map();
+
+	    /**
+	     * 添加插件
+	     * @param {string} name
+	     * @param {string} url
+	     * @param {{operationPermissionSet: Set, eventPermissionSet: Set }} [permission]
+	     */
+	    async addPlug(name, url, permission)
+	    {
+	        if (!this.map.has(name))
+	            this.map.set(name, { url: url, ...(await loadPlugIn(name, url, permission)) });
+	    }
+
+	    /**
+	     * 显示插件窗口
+	     * @param {string} name 
+	     */
+	    showPlugWindow(name)
+	    {
+	        if (this.map.has(name))
+	        {
+	            let windowElement = this.map.get(name).windowElement;
+	            windowElement.setDisplay("block");
+	            windowElement.setStyle("pointerEvents", "auto");
+	        }
+	    }
+
+	    /**
+	     * 移除插件
+	     * @param {string} name
+	     */
+	    removePlug(name)
+	    {
+	        if (this.map.has(name))
+	        {
+	            this.map.get(name).sandbox.destroy();
+	            this.map.delete(name);
+	        }
+	    }
+
+	    /**
+	     * 保存插件列表
+	     */
+	    savePlugList()
+	    {
+	        /**
+	         * @type {Array<[string, string, Array<string>, Array<string>]>}
+	         */
+	        let plugInfo = [];
+	        this.map.forEach((o, name) =>
+	        {
+	            plugInfo.push([
+	                name,
+	                o.url,
+	                Array.from(o.operationPermissionSet.values()),
+	                Array.from(o.eventPermissionSet.values())
+	            ]);
+	        });
+	        storageContext.roaming.plugInfo = plugInfo;
+	        storageRoamingSave();
+	    }
+
+	    /**
+	     * 读取插件列表
+	     */
+	    readPlugList()
+	    {
+	        try
+	        {
+	            let plugInfo = storageContext.roaming.plugInfo;
+	            if (plugInfo.length > 0)
+	            {
+	                plugInfo.forEach(([name, url, operationPermissionList, eventPermissionList]) =>
+	                {
+	                    this.addPlug(name, url, {
+	                        operationPermissionSet: new Set(operationPermissionList),
+	                        eventPermissionSet: new Set(eventPermissionList)
+	                    });
+	                });
+	                showNotice("iiroseForge plug-in", `已加载 ${plugInfo.length} 个插件`);
+	            }
+	        }
+	        catch (err)
+	        {
+	        }
+	    }
+	}
+
+	const plugList = new PlugList();
+
+	/**
+	 * 获取forge菜单
+	 * @returns {NElement}
+	 */
+	function getForgeMenu()
+	{
+	    let menu = NList.getElement([ // 整个菜单
+	        createNStyle("position", "fixed"),
+	        createNStyle("top", "0"),
+	        createNStyle("left", "0"),
+	        createNStyle("zIndex", "91000"),
+	        createNStyle("height", "100%"),
+	        createNStyle("width", "100%"),
+	        createNStyle("backgroundColor", "rgba(255, 255, 255, 0.75)"),
+	        createNStyle("backdropFilter", "blur(3px)"),
+
+	        [ // 标题栏
+	            createNStyle("opacity", "0.8"),
+	            createNStyle("backgroundColor", "#303030"),
+	            createNStyle("width", "100%"),
+	            createNStyle("boxShadow", "0 0 1px rgb(0, 0, 0, 0.12), 0 1px 1px rgb(0, 0, 0, 0.24)"),
+	            createNStyle("zIndex", "2"),
+	            createNStyle("fontFamily", "md"),
+	            createNStyle("height", "40px"),
+	            createNStyle("lineHeight", "40px"),
+	            createNStyle("fontSize", "26px"),
+	            createNStyle("padding", "0 16px 0 16px"),
+	            createNStyle("whiteSpace", "nowrap"),
+	            createNStyle("boxSizing", "border-box"),
+	            createNStyle("position", "relative"),
+	            createNStyle("color", "#fff"),
+
+	            [
+	                className("mdi-anvil"),
+	                createNStyleList({
+	                    display: "inline",
+	                    opacity: "0.8",
+	                    backgroundColor: "#303030",
+	                    boxShadow: "0 0 1px rgb(0,0,0,0.12), 0 1px 1px rgb(0,0,0,0.24)",
+	                    zIndex: "2",
+	                    fontFamily: "md",
+	                    height: "40px",
+	                    lineHeight: "40px",
+	                    fontSize: "26px",
+	                    padding: "0 0 0 0",
+	                    whiteSpace: "nowrap",
+	                    boxSizing: "border-box",
+	                    position: "relative",
+	                    color: "#fff",
+	                })
+	            ],
+	            [
+	                createNStyle("display", "inline"),
+	                createNStyle("fontSize", "16px"),
+	                createNStyle("opacity", "0.7"),
+	                createNStyle("fontWeight", "bold"),
+	                createNStyle("marginLeft", "16px"),
+	                createNStyle("height", "100%"),
+	                createNStyle("lineHeight", "40px"),
+	                createNStyle("display", "inline"),
+	                createNStyle("verticalAlign", "top"),
+
+	                `欢迎使用 iirose-Forge   version ${versionInfo.version}`
+	            ]
+	        ],
+
+	        [ // 菜单主体
+	            createNStyle("position", "absolute"),
+	            createNStyle("width", "100%"),
+	            createNStyle("top", "40px"),
+	            createNStyle("bottom", "40px"),
+	            createNStyle("overflow", "auto"),
+
+	            [
+	                createNStyleList({
+	                    display: "grid",
+	                    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))"
+	                }),
+	                ...([ // 菜单列表项
+	                    ...(
+	                        (
+	                            (new Date("2023/12/20")).getTime() < Date.now() && Date.now() < (new Date("2024/1/16")).getTime() ||
+	                            (storageContext.local.enableExperimental && storageContext.local.experimentalOption["annualReport"])
+	                        ) ?
+	                            [
+	                                {
+	                                    title: "(限时) 蔷薇年报",
+	                                    text: "获取你的2023蔷薇年报",
+	                                    icon: "fire",
+	                                    onClick: async () =>
+	                                    {
+	                                        reportGeneration();
+	                                    }
+	                                },
+	                            ] :
+	                            []
+	                    ),
+	                    {
+	                        title: "管理插件",
+	                        text: "管理插件",
+	                        icon: "puzzle",
+	                        onClick: async () =>
+	                        {
+	                            showMenu([
+	                                NList.getElement([
+	                                    "[ 添加插件 ]",
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        let pluginUrl = await showInputBox("添加插件", "请输入插件地址\n插件会自动进行更新", true);
+	                                        if (pluginUrl != undefined)
+	                                        {
+	                                            await plugList.addPlug(pluginUrl, pluginUrl);
+	                                            plugList.savePlugList();
+	                                        }
+	                                    }),
+	                                ]),
+	                                ...(Array.from(plugList.map.keys())).map(name => NList.getElement([
+	                                    `${name}`,
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        showMenu([
+	                                            NList.getElement([
+	                                                "显示插件窗口",
+	                                                new NEvent("click", () =>
+	                                                {
+	                                                    plugList.showPlugWindow(name);
+	                                                })
+	                                            ]),
+	                                            NList.getElement([
+	                                                "移除插件",
+	                                                new NEvent("click", () =>
+	                                                {
+	                                                    plugList.removePlug(name);
+	                                                    plugList.savePlugList();
+	                                                })
+	                                            ])
+	                                        ]);
+	                                    }),
+	                                ]))
+	                            ]);
+
+	                        }
+	                    },
+	                    {
+	                        title: "侧载脚本",
+	                        text: "管理侧载js",
+	                        icon: "script",
+	                        onClick: async () =>
+	                        {
+	                            await showInfoBox("警告", [
+	                                "! 侧载外部脚本是高危操作 !",
+	                                "侧载的脚本不接受forge权限管理",
+	                                "外部脚本能获取您在此网站的所有信息",
+	                                "恶意外部脚本可能盗取您的账号",
+	                                "请勿加载他人提供的闭源脚本",
+	                                "继续操作前 您应该了解自己正在做什么"
+	                            ].join("\n"));
+	                            showMenu([
+	                                NList.getElement([
+	                                    "[ 添加iframe外侧侧载脚本 ]",
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随forge启动运行", true);
+	                                        if (scriptUrl != undefined)
+	                                        {
+	                                            storageContext.roaming.sideLoadedScript.push([scriptUrl, scriptUrl, false]);
+	                                            storageRoamingSave();
+	                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启时生效");
+	                                        }
+	                                    }),
+	                                ]),
+	                                NList.getElement([
+	                                    "[ 添加iframe内侧侧载脚本 ]",
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        let scriptUrl = await showInputBox("添加侧载脚本", "请输入脚本地址\n每次载入会重新获取脚本\n脚本将随iframe重载运行", true);
+	                                        if (scriptUrl != undefined)
+	                                        {
+	                                            storageContext.roaming.sideLoadedScript.push([scriptUrl, scriptUrl, true]);
+	                                            storageRoamingSave();
+	                                            showNotice("添加侧载脚本", "已将脚本添加到侧载列表\n将在下次重启或iframe重载时生效");
+	                                        }
+	                                    }),
+	                                ]),
+	                                ...(storageContext.roaming.sideLoadedScript.map(([name, url, insideIframe], ind) => NList.getElement([
+	                                    `${insideIframe ? "内" : "外"} | ${name}`,
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        showMenu([
+	                                            NList.getElement([
+	                                                "移除插件",
+	                                                new NEvent("click", () =>
+	                                                {
+	                                                    storageContext.roaming.sideLoadedScript.splice(ind, 1);
+	                                                    storageRoamingSave();
+	                                                    showNotice("删除侧载脚本", "已将脚本从侧载列表移除\n将在下次重启时生效");
+	                                                })
+	                                            ])
+	                                        ]);
+	                                    }),
+	                                ])))
+	                            ]);
+
+	                        }
+	                    },
+	                    {
+	                        title: "插件商店",
+	                        text: "打开插件商店",
+	                        icon: "shopping",
+	                        onClick: async () =>
+	                        {
+	                            showNotice("插件商店", "forge插件商店还未上线");
+	                            return;
+	                        }
+	                    },
+	                    {
+	                        title: "勿扰模式",
+	                        text: "设置自动回复",
+	                        icon: "bell-minus-outline",
+	                        onClick: async () =>
+	                        {
+	                            showNotDisturbModeMenu();
+	                        }
+	                    },
+	                    {
+	                        title: "拉取配置",
+	                        text: "获取您其他在线设备的配置",
+	                        icon: "sync",
+	                        onClick: async () =>
+	                        {
+	                            trySyncConfig();
+	                        }
+	                    },
+	                    {
+	                        title: "美化设置",
+	                        text: "定制你的界面",
+	                        icon: "brush-outline",
+	                        onClick: async () =>
+	                        {
+	                            showBeautifyMenu();
+	                        }
+	                    },
+	                    {
+	                        title: "附加功能",
+	                        text: "设置本机的附加功能",
+	                        icon: "cog",
+	                        onClick: async () =>
+	                        {
+	                            showMenu([
+	                                ...([
+	                                    {
+	                                        name: "用户备注",
+	                                        storageKey: "enableUserRemark"
+	                                    },
+	                                    {
+	                                        name: "聊天记录同步(测试)",
+	                                        storageKey: "enableSyncChatRecord"
+	                                    },
+	                                    {
+	                                        name: "接管音频(测试)",
+	                                        storageKey: "enableAudioTakeover"
+	                                    },
+	                                    {
+	                                        name: "超级菜单",
+	                                        storageKey: "enableSuperMenu"
+	                                    },
+	                                    ...(
+	                                        storageContext.local.enableSuperMenu ?
+	                                            [
+	                                                {
+	                                                    name: "超级菜单设置",
+	                                                    func: async () =>
+	                                                    {
+	                                                        showSuperMenuOptionMenu();
+	                                                    }
+	                                                },
+	                                            ] :
+	                                            []
+	                                    ),
+	                                    {
+	                                        name: "快捷房管操作",
+	                                        storageKey: "enableRoomAdminOperation"
+	                                    },
+	                                    {
+	                                        name: "置顶会话",
+	                                        storageKey: "enablePinSession"
+	                                    },
+	                                    ...(
+	                                        storageContext.local.enableExperimental ?
+	                                            [
+	                                                {
+	                                                    name: "实验性功能",
+	                                                    storageKey: "enableExperimental"
+	                                                },
+	                                                {
+	                                                    name: "实验性功能设置",
+	                                                    func: async () =>
+	                                                    {
+	                                                        let optionJson = JSON.stringify(storageContext.local.experimentalOption, undefined, 4);
+	                                                        let newValue = await showTextareaBox("实验性功能设置", "设置实验性功能的json", true, optionJson);
+	                                                        if (newValue != undefined && newValue != optionJson)
+	                                                        {
+	                                                            try
+	                                                            {
+	                                                                storageContext.local.experimentalOption = JSON.parse(newValue);
+	                                                                storageLocalSave();
+	                                                                showNotice("实验性功能", "已更新实验性功能设置");
+	                                                            }
+	                                                            catch (err)
+	                                                            {
+	                                                                showNotice("实验性功能", `实验性功能设置更新失败\n${err instanceof Error ? err.message : ""}`);
+	                                                            }
+	                                                        }
+	                                                    }
+	                                                },
+	                                            ] :
+	                                            []
+	                                    )
+	                                ]).map(o => NList.getElement([
+	                                    `${o.storageKey ? (storageContext.local[o.storageKey] ? "(已启用)" : "(已禁用)") : ""}${o.name}`,
+	                                    new NEvent("click", async () =>
+	                                    {
+	                                        if (o.storageKey)
+	                                        {
+	                                            let targetState = !storageContext.local[o.storageKey];
+	                                            let confirm = await showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+	                                            if (confirm)
+	                                            {
+	                                                storageContext.local[o.storageKey] = targetState;
+	                                                storageLocalSave();
+	                                            }
+	                                        }
+	                                        else if (o.func)
+	                                        {
+	                                            o.func();
+	                                        }
+	                                    }),
+	                                ]))
+	                            ]);
+	                        }
+	                    },
+	                    {
+	                        title: "补丁设置",
+	                        text: "启用或禁用补丁",
+	                        icon: "bandage",
+	                        onClick: async () =>
+	                        {
+	                            showPatchMenu();
+	                        }
+	                    },
+	                    {
+	                        title: "账号管理",
+	                        text: "管理你的其他账号",
+	                        icon: "account-cog",
+	                        onClick: async () =>
+	                        {
+	                            await showMultiAccountMenu();
+	                        }
+	                    },
+	                    {
+	                        title: "黑名单",
+	                        text: "管理黑名单",
+	                        icon: "account-cancel-outline",
+	                        onClick: async () =>
+	                        {
+	                            await showBlacklistMenu();
+	                        }
+	                    },
+	                    {
+	                        title: "安装iiroseForge",
+	                        text: "下次使用无需注入",
+	                        icon: "puzzle",
+	                        onClick: async () =>
+	                        {
+	                            localStorage.setItem("installForge", "true");
+	                            writeForgeToCache(true);
+	                            showInfoBox("安装iiroseForge", "已完成");
+	                        }
+	                    },
+	                    {
+	                        title: "卸载iiroseForge",
+	                        text: "下次启动清除iiroseForge",
+	                        icon: "puzzle",
+	                        onClick: async () =>
+	                        {
+	                            localStorage.removeItem("installForge");
+	                            removeForgeFromCache();
+	                            showInfoBox("卸载iiroseForge", "已完成");
+	                        }
+	                    },
+	                    {
+	                        title: "分享forge",
+	                        text: "复制forge地址",
+	                        icon: "share-variant",
+	                        onClick: async () =>
+	                        {
+	                            try
+	                            {
+	                                await navigator.clipboard.writeText("https://qwq0.github.io/iiroseForge/l.js");
+	                                showNotice("分享forge", "复制forge地址成功");
+	                            } catch (err)
+	                            {
+	                                showNotice("分享forge", "复制失败\n无法写入剪切板");
+	                            }
+	                        }
+	                    },
+	                    {
+	                        title: "联系作者",
+	                        text: "向forge作者团队发送私聊",
+	                        icon: "account-tie",
+	                        onClick: async () =>
+	                        {
+	                            showMenu([
+	                                NList.getElement([
+	                                    "QwQ\uff5e - 吉祥物 & 主作者",
+	                                    new NEvent("click", () =>
+	                                    {
+	                                        hideForgeMenu();
+	                                        iframeContext.iframeWindow?.["Utils"]?.service?.offlinePmBuildHelper?.("601c1660aa9cd");
+	                                    })
+	                                ]),
+	                                NList.getElement([
+	                                    "落零レ - ほら、カレーウドン",
+	                                    new NEvent("click", () =>
+	                                    {
+	                                        hideForgeMenu();
+	                                        iframeContext.iframeWindow?.["Utils"]?.service?.offlinePmBuildHelper?.("5b17af7a285d7");
+	                                    })
+	                                ]),
+	                                NList.getElement([
+	                                    "春风萧落 - forge作者团队成员",
+	                                    new NEvent("click", () =>
+	                                    {
+	                                        hideForgeMenu();
+	                                        iframeContext.iframeWindow?.["Utils"]?.service?.offlinePmBuildHelper?.("5b0fe8a3b1ff2");
+	                                    })
+	                                ]),
+	                            ]);
+	                        }
+	                    }
+	                ]).map(o => [ // 菜单列表项元素
+	                    className("commonBox"),
+	                    createNStyle("maxWidth", "calc(100% - 24px)"),
+	                    createNStyle("minWidth", "355.2px"),
+	                    createNStyle("minHeight", "200px"),
+	                    createNStyle("float", "none"),
+	                    createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
+	                    createNStyle("margin", "24px 12px 0px 12px"),
+	                    createNStyle("position", "relative"),
+	                    [ // 元素标题行
+	                        className("commonBoxHead"),
+	                        createNStyle("backgroundColor", "rgba(255,255,255,0.2)"),
+	                        createNStyle("color", "rgba(0,0,0,0.4)"),
+	                        createNStyle("height", "100px"),
+	                        createNStyle("width", "100%"),
+	                        createNStyle("display", "flex"),
+	                        createNStyle("justifyContent", "center"),
+	                        createNStyle("padding", "0 24px"),
+	                        createNStyle("boxSizing", "border-box"),
+	                        [ // 图标
+	                            className("mdi-" + o.icon),
+	                            createNStyle("lineHeight", "100px"),
+	                            createNStyle("fontSize", "30px"),
+	                            createNStyle("fontFamily", "md"),
+	                            createNStyle("display", "inline-block"),
+	                            createNStyle("verticalAlign", "top"),
+	                            createNStyle("height", "100%"),
+	                            createNStyle("opacity", "0.7"),
+	                        ],
+	                        [ // 标题文本
+	                            createNStyle("lineHeight", "100px"),
+	                            createNStyle("fontSize", "20px"),
+	                            createNStyle("display", "inline-block"),
+	                            createNStyle("verticalAlign", "top"),
+	                            createNStyle("height", "100%"),
+	                            createNStyle("fontWeight", "bold"),
+	                            createNStyle("marginLeft", "22px"),
+	                            createNStyle("overflow", "hidden"),
+	                            createNStyle("whiteSpace", "pre"),
+	                            createNStyle("textOverflow", "ellipsis"),
+
+	                            o.title
+	                        ]
+	                    ],
+	                    [ // 元素正文
+	                        className("textColor"),
+	                        createNStyle("width", "100%"),
+	                        createNStyle("minHeight", "100px"),
+	                        createNStyle("backgroundColor", "rgba(255,255,255,0.5)"),
+	                        createNStyle("color", "rgba(0,0,0,0.75)"),
+	                        [
+	                            createNStyle("fontWeight", "bold"),
+	                            createNStyle("width", "100%"),
+	                            createNStyle("height", "100%"),
+	                            createNStyle("lineHeight", "1.8em"),
+	                            createNStyle("textAlign", "center"),
+	                            createNStyle("padding", "2.2em"),
+	                            createNStyle("boxSizing", "border-box"),
+	                            createNStyle("whiteSpace", "pre-wrap"),
+	                            createNStyle("fontSize", "16px"),
+	                            createNStyle("color", "rgba(0,0,0,0.7)"),
+
+	                            o.text
+	                        ]
+	                    ],
+
+	                    new NEvent("click", o.onClick)
+	                ]),
+
+	            ],
+	            [ // 菜单主体下方的填充
+	                createNStyleList({
+	                    height: "25px"
+	                })
+	            ]
+	        ],
+
+	        [ // 底栏
+	            createNStyle("color", "#303030"),
+	            createNStyle("background", "#fff"),
+	            createNStyle("opacity", "0.8"),
+	            createNStyle("display", "flex"),
+	            createNStyle("height", "40px"),
+	            createNStyle("position", "absolute"),
+	            createNStyle("bottom", "0"),
+	            createNStyle("width", "100%"),
+	            createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
+	            createNStyle("zIndex", "2"),
+
+	            ...([
+	                {
+	                    text: "< 返回",
+	                    onClick: () =>
+	                    {
+	                        hideForgeMenu();
+	                    }
+	                }
+	            ].map(o => [
+	                createNStyle("width", "0"),
+	                createNStyle("flexGrow", "1"),
+	                createNStyle("justifyContent", "center"),
+	                createNStyle("padding", "0 24px"),
+	                createNStyle("boxSizing", "border-box"),
+
+	                new NEvent("click", o.onClick),
+
+	                [],
+
+	                [
+	                    createNStyle("display", "inline-block"),
+	                    createNStyle("verticalAlign", "top"),
+	                    createNStyle("height", "100%"),
+	                    createNStyle("fontWeight", "bold"),
+	                    createNStyle("marginLeft", "22px"),
+	                    createNStyle("fontSize", "14px"),
+	                    createNStyle("lineHeight", "40px"),
+	                    createNStyle("overflow", "hidden"),
+	                    createNStyle("whiteSpace", "pre"),
+	                    createNStyle("textOverflow", "ellipsis"),
+
+	                    o.text
+	                ]
+	            ]))
+	        ],
+
+	        ele => // 实验性功能手势
+	        {
+	            const gestureTable = [
+	                "left",
+	                "leftDown",
+	                "down",
+	                "rightUp",
+	                "right",
+	                "rightDown",
+	                "up",
+	                "leftUp",
+	                "none"
+	            ];
+	            /**
+	             * @type {Array<typeof gestureTable[number]>}
+	             */
+	            let gestureList = [];
+	            // 跟踪点的累计值
+	            let trackPointX = 0;
+	            let trackPointY = 0;
+	            /**
+	             * @type {null | number | NodeJS.Timeout}
+	             */
+	            let intervalId = null;
+	            /**
+	             * @type {typeof gestureTable[number]}
+	             */
+	            let nowDirection = "none";
+
+	            /**
+	             * @param {import("../../lib/qwqframe").PointerData} e
+	             */
+	            function pointerMove(e)
+	            {
+	                if (e.pressing)
+	                {
+	                    trackPointX = 0;
+	                    trackPointY = 0;
+	                    nowDirection = "none";
+	                    if (intervalId == null)
+	                        intervalId = setInterval(checkPath, 85);
+	                }
+	                else
+	                {
+	                    trackPointX += e.vx;
+	                    trackPointY += e.vy;
+	                }
+
+	                if (!e.hold)
+	                {
+	                    if (intervalId != null)
+	                    {
+	                        clearInterval(intervalId);
+	                        intervalId = null;
+	                    }
+	                }
+	            }
+
+	            function checkPath()
+	            {
+	                let nowTickDirection = "none";
+	                if (Math.abs(trackPointX) >= 10 || Math.abs(trackPointY) >= 10)
+	                {
+	                    nowTickDirection = gestureTable[
+	                        Math.floor(((Math.floor(
+	                            ((Math.atan2(-trackPointY, trackPointX)) / (2 * Math.PI) + 0.5) * 16
+	                        ) + 1) % 16) / 2)
+	                    ];
+	                }
+	                trackPointX = 0;
+	                trackPointY = 0;
+
+	                if (nowTickDirection != nowDirection)
+	                {
+	                    nowDirection = nowTickDirection;
+	                    if (nowDirection != "none")
+	                        gestureList.push(nowDirection);
+	                }
+
+	                while (gestureList.length > 200)
+	                    gestureList.shift();
+
+	                /**
+	                 * @type {Array<typeof gestureTable[number]>}
+	                 */
+	                const targetGesture = [
+	                    "down",
+
+	                    "down",
+
+	                    "leftDown",
+	                    "right",
+	                    "down"
+	                ];
+
+	                if (targetGesture.every((o, index) => o == gestureList.at(index - targetGesture.length)))
+	                {
+	                    gestureList = [];
+
+	                    storageContext.local.enableExperimental = true;
+	                    storageLocalSave();
+	                    showNotice("实验性功能", "已激活实验性功能\n部分功能需要重载以启用");
+	                }
+	            }
+
+	            mouseBind(ele, pointerMove, 0, iframeContext.iframeWindow);
+	            touchBind(ele, pointerMove, false);
+	            ele.addEventListener("mousedown", e => { e.stopPropagation(); });
+	            ele.addEventListener("mouseup", e => { e.stopPropagation(); });
+	            ele.addEventListener("touchstart", e => { e.stopPropagation(); });
+	            ele.addEventListener("touchend", e => { e.stopPropagation(); });
+	            ele.addEventListener("touchmove", e => { e.stopPropagation(); });
+	            ele.addEventListener("touchcancel", e => { e.stopPropagation(); });
+	        }
+	    ]);
+	    menu.element.id = "iiroseForgeMenu";
+
+	    return menu;
+	}
+
+	/**
+	 * @type {NElement}
+	 */
+	let nowForgeMenuElement = null;
+
+	function hideForgeMenu()
+	{
+	    if (nowForgeMenuElement)
+	    {
+	        nowForgeMenuElement.remove();
+	        nowForgeMenuElement = null;
+	    }
+	}
+
+	function showForgeMenu()
+	{
+	    if (nowForgeMenuElement)
+	        hideForgeMenu();
+	    nowForgeMenuElement = getForgeMenu();
+	    iframeContext.iframeBody.addChild(nowForgeMenuElement);
+	}
+
+	/**
+	 * 获取forge按钮
+	 * @returns {NElement}
+	 */
+	function getMenuButton()
+	{
+	    let referElement = iframeContext.iframeDocument?.querySelector("div#functionHolder div.functionButton.functionButtonGroup");
+
+	    let buttonBackgroundColor = (referElement ? getComputedStyle(referElement).backgroundColor : "rgb(255, 255, 255)");
+	    let buttonTextColor = (referElement ? getComputedStyle(referElement).color : "rgb(33, 33, 33)");
+
+	    let button = NList.getElement([
+	        createNStyle("backgroundColor", buttonBackgroundColor),
+	        createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
+	        createNStyle("position", "relative"),
+	        createNStyle("zIndex", "1"),
+
+	        createNStyle("color", buttonTextColor),
+	        createNStyle("paddingLeft", "16px"),
+	        createNStyle("paddingRight", "56px"),
+	        createNStyle("transition", "background-color 0.1s ease 0s, color 0.1s ease 0s"),
+	        createNStyle("cursor", "url(images/cursor/2.cur), pointer"),
+	        createNStyle("width", "100%"),
+	        createNStyle("height", "56px"),
+	        createNStyle("boxSizing", "border-box"),
+	        createNStyle("lineHeight", "56px"),
+	        createNStyle("whiteSpace", "nowrap"),
+
+	        new NEvent("click", () =>
+	        {
+	            iframeContext.iframeWindow?.["functionHolderDarker"]?.click();
+	            showForgeMenu();
+	        }),
+
+	        new NEvent("mouseenter", (_e, ele) =>
+	        {
+	            if (ele.getStyle("backgroundColor") == "transparent")
+	            {
+	                buttonBackgroundColor = "transparent";
+	                ele.setStyle("backgroundColor", "rgba(127, 127, 127, 0.3)");
+	            }
+	            else
+	                ele.setStyle("backgroundColor", (
+	                    (
+	                        buttonBackgroundColor == "#202020" ||
+	                        buttonBackgroundColor == "rgb(32, 32, 32)"
+	                    ) ?
+	                        "rgb(42, 42, 42)" :
+	                        "rgb(245, 245, 245)"
+	                ));
+	            iframeContext.iframeWindow?.["Utils"]?.Sound?.play?.(0);
+	        }),
+	        new NEvent("mouseleave", (_e, ele) =>
+	        {
+	            ele.setStyle("backgroundColor", buttonBackgroundColor);
+	        }),
+
+	        [
+	            new NTagName("span"),
+	            new NAsse(e => e.element.classList.add("functionBtnIcon", "mdi-anvil"))
+	        ],
+	        [
+	            new NTagName("span"),
+	            "Forge菜单",
+	            new NAsse(e => e.element.classList.add("functionBtnFont"))
+	        ],
+	        [
+	            new NTagName("span"),
+	            createNStyle("transform", "rotate(-90deg)"),
+	            new NAsse(e => e.element.classList.add("functionBtnGroupIcon"))
+	        ]
+	    ]);
+	    button.element.id = "iiroseForgeMenuButton";
+
+	    return button;
+	}
+
+	/**
+	 * 启用超级菜单
+	 */
+	function enableSuperMenu()
+	{
+	    let supperMenuDisplay = false;
+	    /**
+	     * @type {null | number | NodeJS.Timeout}
+	     */
+	    let supperMenuDisplayTimeOutId = null;
+
+	    let supperMenu = new ForgeSuperMenu();
+
+	    let leftColumn = new ForgeSuperMenuColumn();
+	    let midColumn = new ForgeSuperMenuColumn();
+	    let rightColumn = new ForgeSuperMenuColumn();
+
+	    supperMenu.addColumn(leftColumn);
+	    supperMenu.addColumn(midColumn);
+	    supperMenu.addColumn(rightColumn);
+	    supperMenu.setCurrentColumn(1);
+
+	    /**
+	     * 当前选择被取消
+	     */
+	    let canceled = false;
+
+	    /**
+	     * 刷新列表项
+	     */
+	    function refreshListItem()
+	    {
+	        // 中间的列表
+	        {
+	            midColumn.clearChild();
+	            let currentIndex = 0;
+	            let nowIndex = 0;
+	            Array.from(
+	                iframeContext.iframeDocument.querySelector("div#sessionHolder > div.sessionHolderPmTaskBox")?.children
+	            ).forEach(o =>
+	            {
+	                if (o.classList.contains("sessionHolderPmTaskBoxItem"))
+	                {
+	                    let copyElement = /** @type {HTMLElement} */(o.cloneNode(true));
+	                    copyElement.classList.remove("whoisTouch2");
+	                    let onClick = copyElement.onclick;
+	                    copyElement.removeAttribute("onclick");
+	                    copyElement.removeAttribute("oncontextmenu");
+	                    midColumn.addChild(getNElement(copyElement), () =>
+	                    {
+	                        onClick.call(o, new MouseEvent(""));
+	                    });
+
+	                    let cornerMark =  /** @type {HTMLElement} */(domPath(o, [-1]));
+	                    if (cornerMark.style.display != "none" && cornerMark.innerText == "@")
+	                        currentIndex = nowIndex;
+	                    nowIndex++;
+	                }
+	            });
+	            midColumn.currentRowIndex = currentIndex;
+	        }
+	        // 右侧的列表
+	        {
+	            rightColumn.clearChild();
+
+	            /**
+	             * @type {Array<{ id?: string, item: any, execute: () => void }>}
+	             */
+	            let menuList = [];
+
+	            let nowRoomId = forgeApi.operation.getUserRoomId();
+	            menuList.push({
+	                item: createRoomListItemById(nowRoomId),
+	                execute: () => { }
+	            });
+
+	            try
+	            {
+	                /** @type {Array<string>} */
+	                let roomHistory = JSON.parse(localStorage.getItem("database"))?.["roomHistory"]?.split?.(",");
+	                if (roomHistory)
+	                    roomHistory.forEach(o =>
+	                    {
+	                        if (o != nowRoomId)
+	                            menuList.push({
+	                                id: o,
+	                                item: createRoomListItemById(o, "历史"),
+	                                execute: () =>
+	                                {
+	                                    forgeApi.operation.switchRoom(o);
+	                                }
+	                            });
+	                    });
+	            }
+	            catch (err)
+	            {
+	                console.error("forge supper menu:", err);
+	            }
+
+	            createSortableList(menuList, rightColumn, "right");
+	        }
+	        // 左侧的列表
+	        {
+	            leftColumn.clearChild();
+
+	            let menuList = [
+	                {
+	                    item: createListItem("", "无动作", ""),
+	                    execute: () => { }
+	                },
+	                {
+	                    id: "信箱",
+	                    item: createListItem("mdi-mailbox", "打开信箱", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(2);
+	                    }
+	                },
+	                {
+	                    id: "媒体开关",
+	                    item: createListItem("mdi-music", "切换媒体开关", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(90);
+	                    }
+	                },
+	                {
+	                    id: "播放列表",
+	                    item: createListItem("mdi-music-box-multiple", "打开播放列表", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(1, iframeContext.iframeDocument?.createElement("div"));
+	                    }
+	                },
+	                {
+	                    id: "商店",
+	                    item: createListItem("mdi-store", "打开商店", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(10, iframeContext.iframeDocument?.createElement("div"));
+	                    }
+	                },
+	                {
+	                    id: "朋友圈",
+	                    item: createListItem("mdi-camera-iris", "打开朋友圈", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(5);
+	                    }
+	                },
+	                {
+	                    id: "论坛",
+	                    item: createListItem("mdi-forum", "打开论坛", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(3);
+	                    }
+	                },
+	                {
+	                    id: "任务版",
+	                    item: createListItem("mdi-clipboard-check-multiple", "打开任务版", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(4);
+	                    }
+	                },
+	                {
+	                    id: "勿扰模式",
+	                    item: createListItem("mdi-bell-minus-outline", "切换勿扰模式", ""),
+	                    execute: () =>
+	                    {
+	                        setNotDisturbMode("switch");
+	                    }
+	                },
+	                {
+	                    id: "状态",
+	                    item: createListItem("mdi-human", "打开状态面板", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(51);
+	                    }
+	                },
+	                {
+	                    id: "终端",
+	                    item: createListItem("mdi-powershell", "打开终端", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(21);
+	                    }
+	                },
+	                {
+	                    id: "房间推荐",
+	                    item: createListItem("mdi-fire", "打开房间推荐", ""),
+	                    execute: () =>
+	                    {
+	                        iframeContext.iframeWindow?.["functionBtnDo"]?.(101);
+	                    }
+	                },
+	            ];
+	            createSortableList(menuList, leftColumn, "left");
+	        }
+
+	        supperMenu.setCurrentColumn(1);
+	    }
+
+	    /**
+	     * 鼠标移动事件
+	     * @param {{ movementX: number, movementY: number }} e
+	     */
+	    let mouseMove = (e) =>
+	    {
+	        if (supperMenuDisplay && !canceled)
+	            supperMenu.menuPointerMove(e.movementX, e.movementY);
+	    };
+	    /**
+	     * 键盘操作事件
+	     * @param {KeyboardEvent} e
+	     */
+	    let keyDown = (e) =>
+	    {
+	        if (supperMenuDisplay && !canceled)
+	            switch (e.code)
+	            {
+	                case "KeyW":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+	                    
+	                    supperMenu.menuPointerMove(0, -supperMenu.cursorScaleSizeY);
+	                    break;
+	                case "KeyA":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuPointerMove(-supperMenu.cursorScaleSizeX, 0);
+	                    break;
+	                case "KeyD":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuPointerMove(supperMenu.cursorScaleSizeX, 0);
+	                    break;
+	                case "KeyS":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuPointerMove(0, supperMenu.cursorScaleSizeY);
+	                    break;
+	                case "KeyE":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.triggerCurrentOptionMenu();
+
+	                    iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+	                    iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+	                    supperMenu.hide();
+	                    canceled = true;
+	                    supperMenuDisplay = false;
+	                    document.exitPointerLock();
+	                    iframeContext.iframeDocument.exitPointerLock();
+	                    break;
+	                case "KeyQ":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+	                    iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+	                    supperMenu.hide();
+	                    canceled = true;
+	                    document.exitPointerLock();
+	                    iframeContext.iframeDocument.exitPointerLock();
+	                    break;
+	            }
+	    };
+
+	    iframeContext.iframeWindow.addEventListener("mousedown", e =>
+	    { // 鼠标右键打开超级菜单
+	        if (e.button != 2)
+	            return;
+	        if (supperMenuDisplay)
+	            return;
+	        supperMenuDisplayTimeOutId = setTimeout(() =>
+	        {
+	            supperMenuDisplay = true;
+	            supperMenuDisplayTimeOutId = null;
+	            refreshListItem();
+	            supperMenu.menuPointerReset();
+	            supperMenu.show();
+	            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
+	            iframeContext.iframeWindow.addEventListener("keydown", keyDown, true);
+	            canceled = false;
+	            supperMenu.menuElement.element.requestPointerLock({
+	                unadjustedMovement: true
+	            });
+	        }, /** @type {number} */(getSuperMenuOption("rightButtonDelay")));
+	    }, true);
+	    iframeContext.iframeWindow.addEventListener("keydown", e =>
+	    { // 右Alt键打开超级菜单
+	        if (e.code != "AltRight" || !getSuperMenuOption("rightAltEnable"))
+	            return;
+	        if (e.repeat)
+	        {
+	            e.preventDefault();
+	            return;
+	        }
+	        if (supperMenuDisplay)
+	            return;
+	        e.preventDefault();
+	        supperMenuDisplayTimeOutId = setTimeout(() =>
+	        {
+	            supperMenuDisplay = true;
+	            supperMenuDisplayTimeOutId = null;
+	            refreshListItem();
+	            supperMenu.menuPointerReset();
+	            supperMenu.show();
+	            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
+	            iframeContext.iframeWindow.addEventListener("keydown", keyDown, true);
+	            canceled = false;
+	        }, 1);
+	    }, true);
+	    iframeContext.iframeWindow.addEventListener("mouseup", e =>
+	    { // 松开右键关闭菜单并确认
+	        if (e.button != 2)
+	            return;
+	        if (supperMenuDisplayTimeOutId != null)
+	        {
+	            clearTimeout(supperMenuDisplayTimeOutId);
+	            supperMenuDisplayTimeOutId = null;
+	        }
+	        if (!supperMenuDisplay)
+	            return;
+
+	        e.stopPropagation();
+	        e.preventDefault();
+	        if (!canceled)
+	            supperMenu.triggerCurrent();
+	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+	        iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+
+	        document.exitPointerLock();
+	        iframeContext.iframeDocument.exitPointerLock();
+
+	        setTimeout(() =>
+	        {
+	            supperMenuDisplay = false;
+	            supperMenu.hide();
+
+	            document.exitPointerLock();
+	            iframeContext.iframeDocument.exitPointerLock();
+	        }, 10);
+	    }, true);
+	    iframeContext.iframeWindow.addEventListener("keyup", e =>
+	    { // 松开右Alt键关闭菜单并确认
+	        if (e.code != "AltRight")
+	            return;
+	        if (supperMenuDisplayTimeOutId != null)
+	        {
+	            clearTimeout(supperMenuDisplayTimeOutId);
+	            supperMenuDisplayTimeOutId = null;
+	        }
+	        if (!supperMenuDisplay)
+	            return;
+
+	        e.stopPropagation();
+	        e.preventDefault();
+	        if (!canceled)
+	            supperMenu.triggerCurrent();
+	        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+	        iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+
+	        document.exitPointerLock();
+	        iframeContext.iframeDocument.exitPointerLock();
+
+	        setTimeout(() =>
+	        {
+	            supperMenuDisplay = false;
+	            supperMenu.hide();
+
+	            document.exitPointerLock();
+	            iframeContext.iframeDocument.exitPointerLock();
+	        }, 10);
+	    }, true);
+	    iframeContext.iframeWindow.addEventListener("contextmenu", e =>
+	    {
+	        if (supperMenuDisplay)
+	        {
+	            e.stopPropagation();
+	            e.preventDefault();
+	        }
+	    }, true);
+
+	    if (iframeContext.iframeWindow?.["isMobile"])
+	    { // 适配手机版
+	        touchBind(getNElement(iframeContext.iframeDocument.body), e =>
+	        {
+	            if (supperMenuDisplay)
+	            {
+	                mouseMove({
+	                    movementX: e.vx * 1.8,
+	                    movementY: e.vy * 1.8
+	                });
+	                if (!e.hold)
+	                    setTimeout(() =>
+	                    {
+	                        if (!canceled)
+	                            supperMenu.triggerCurrent();
+	                        supperMenuDisplay = false;
+	                        supperMenu.hide();
+	                    }, 10);
+	            }
+	        }, false);
+	        let msgholderElement = iframeContext.iframeDocument.getElementById("msgholder");
+	        msgholderElement?.addEventListener("contextmenu", e =>
+	        {
+	            let target = /** @type {HTMLElement} */(e.target);
+	            if (
+	                (
+	                    target.classList.contains("fullBox") ||
+	                    target.classList.contains("pubMsgTime")
+	                ) &&
+	                (
+	                    target == msgholderElement ||
+	                    target.parentElement == msgholderElement ||
+	                    target.parentElement?.parentElement == msgholderElement ||
+	                    target.parentElement?.parentElement?.parentElement == msgholderElement
+	                )
+	            )
+	            {
+	                e.stopImmediatePropagation();
+	                supperMenuDisplay = true;
+	                refreshListItem();
+	                supperMenu.menuPointerReset();
+	                supperMenu.show();
+	                canceled = false;
+	            }
+	        }, true);
+	    }
 	}
 
 	let textEncoder = new TextEncoder();

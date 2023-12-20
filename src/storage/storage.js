@@ -109,7 +109,12 @@ export const storageContext = {
          * 超级菜单优先级
          * @type {Object<string, Object<string, number>>}
          */
-        superMenuPriority: {}
+        superMenuPriority: {},
+        /**
+         * 超级菜单选项
+         * @type {Object<string, string>}
+         */
+        superMenuOption: {}
     }
 };
 

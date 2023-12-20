@@ -10,6 +10,7 @@ import { touchBind } from "../../../lib/qwqframe.js";
 import { showMenu } from "../../ui/menu.js";
 import { storageContext, storageLocalSave } from "../../storage/storage.js";
 import { setNotDisturbMode } from "../notDisturbMode.js";
+import { createListItem, createRoomListItemById, createSortableList, getSuperMenuOption } from "./superMenuTools.js";
 
 /**
  * 启用超级菜单
@@ -217,6 +218,7 @@ export function enableSuperMenu()
     }
 
     /**
+     * 鼠标移动事件
      * @param {{ movementX: number, movementY: number }} e
      */
     let mouseMove = (e) =>
@@ -225,6 +227,7 @@ export function enableSuperMenu()
             supperMenu.menuPointerMove(e.movementX, e.movementY);
     };
     /**
+     * 键盘操作事件
      * @param {KeyboardEvent} e
      */
     let keyDown = (e) =>
@@ -234,22 +237,31 @@ export function enableSuperMenu()
             {
                 case "KeyW":
                     e.preventDefault();
+                    e.stopPropagation();
+                    
                     supperMenu.menuPointerMove(0, -supperMenu.cursorScaleSizeY);
                     break;
                 case "KeyA":
                     e.preventDefault();
+                    e.stopPropagation();
+
                     supperMenu.menuPointerMove(-supperMenu.cursorScaleSizeX, 0);
                     break;
                 case "KeyD":
                     e.preventDefault();
+                    e.stopPropagation();
+
                     supperMenu.menuPointerMove(supperMenu.cursorScaleSizeX, 0);
                     break;
                 case "KeyS":
                     e.preventDefault();
+                    e.stopPropagation();
+
                     supperMenu.menuPointerMove(0, supperMenu.cursorScaleSizeY);
                     break;
                 case "KeyE":
                     e.preventDefault();
+                    e.stopPropagation();
 
                     supperMenu.triggerCurrentOptionMenu();
 
@@ -263,6 +275,7 @@ export function enableSuperMenu()
                     break;
                 case "KeyQ":
                     e.preventDefault();
+                    e.stopPropagation();
 
                     iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
                     iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
@@ -275,7 +288,7 @@ export function enableSuperMenu()
     };
 
     iframeContext.iframeWindow.addEventListener("mousedown", e =>
-    {
+    { // 鼠标右键打开超级菜单
         if (e.button != 2)
             return;
         if (supperMenuDisplay)
@@ -293,11 +306,66 @@ export function enableSuperMenu()
             supperMenu.menuElement.element.requestPointerLock({
                 unadjustedMovement: true
             });
-        }, 125);
+        }, /** @type {number} */(getSuperMenuOption("rightButtonDelay")));
+    }, true);
+    iframeContext.iframeWindow.addEventListener("keydown", e =>
+    { // 右Alt键打开超级菜单
+        if (e.code != "AltRight" || !getSuperMenuOption("rightAltEnable"))
+            return;
+        if (e.repeat)
+        {
+            e.preventDefault();
+            return;
+        }
+        if (supperMenuDisplay)
+            return;
+        e.preventDefault();
+        supperMenuDisplayTimeOutId = setTimeout(() =>
+        {
+            supperMenuDisplay = true;
+            supperMenuDisplayTimeOutId = null;
+            refreshListItem();
+            supperMenu.menuPointerReset();
+            supperMenu.show();
+            iframeContext.iframeWindow.addEventListener("mousemove", mouseMove, true);
+            iframeContext.iframeWindow.addEventListener("keydown", keyDown, true);
+            canceled = false;
+        }, 1);
     }, true);
     iframeContext.iframeWindow.addEventListener("mouseup", e =>
-    {
+    { // 松开右键关闭菜单并确认
         if (e.button != 2)
+            return;
+        if (supperMenuDisplayTimeOutId != null)
+        {
+            clearTimeout(supperMenuDisplayTimeOutId);
+            supperMenuDisplayTimeOutId = null;
+        }
+        if (!supperMenuDisplay)
+            return;
+
+        e.stopPropagation();
+        e.preventDefault();
+        if (!canceled)
+            supperMenu.triggerCurrent();
+        iframeContext.iframeWindow.removeEventListener("mousemove", mouseMove, true);
+        iframeContext.iframeWindow.removeEventListener("keydown", keyDown, true);
+
+        document.exitPointerLock();
+        iframeContext.iframeDocument.exitPointerLock();
+
+        setTimeout(() =>
+        {
+            supperMenuDisplay = false;
+            supperMenu.hide();
+
+            document.exitPointerLock();
+            iframeContext.iframeDocument.exitPointerLock();
+        }, 10);
+    }, true);
+    iframeContext.iframeWindow.addEventListener("keyup", e =>
+    { // 松开右Alt键关闭菜单并确认
+        if (e.code != "AltRight")
             return;
         if (supperMenuDisplayTimeOutId != null)
         {
@@ -383,247 +451,3 @@ export function enableSuperMenu()
     }
 }
 
-/**
- * @param {Array<{id?: string;item: any;execute: () => void;}>} menuList
- * @param {ForgeSuperMenuColumn} column
- * @param {string} columnName
- */
-function createSortableList(menuList, column, columnName)
-{
-    menuList.sort((a, b) =>
-    {
-        /**
-         * @param {{ id?: string }} o
-         */
-        function mappingPriority(o)
-        {
-            if (o.id == undefined)
-                return 0;
-            let priorityValue = storageContext.local.superMenuPriority?.[columnName]?.[o.id];
-            if (priorityValue == undefined)
-                return (1 << 30);
-            else if (priorityValue > 0)
-                return (1 << 30) - priorityValue;
-            else if (priorityValue < 0)
-                return (1 << 31) - priorityValue;
-        }
-        return mappingPriority(a) - mappingPriority(b);
-    }).forEach((o, index) =>
-    {
-        column.addChild(
-            o.item,
-            o.execute,
-            () =>
-            {
-                if (!o.id)
-                    return;
-                showMenu([
-                    NList.getElement([
-                        "置底于无动作上方",
-                        new NEvent("click", () =>
-                        {
-                            let mapObj = storageContext.local.superMenuPriority[columnName];
-                            if (!mapObj)
-                            {
-                                mapObj = {};
-                                storageContext.local.superMenuPriority[columnName] = mapObj;
-                            }
-                            let minValue = 0;
-                            Object.keys(mapObj).forEach(key =>
-                            {
-                                if (key != o.id && mapObj[key] < 0)
-                                    minValue = Math.min(minValue, mapObj[key]);
-                            });
-                            mapObj[o.id] = minValue - 1;
-                            storageLocalSave();
-                        })
-                    ]),
-                    NList.getElement([
-                        "置顶于无动作下方",
-                        new NEvent("click", () =>
-                        {
-                            let mapObj = storageContext.local.superMenuPriority[columnName];
-                            if (!mapObj)
-                            {
-                                mapObj = {};
-                                storageContext.local.superMenuPriority[columnName] = mapObj;
-                            }
-                            let maxValue = 0;
-                            Object.keys(mapObj).forEach(key =>
-                            {
-                                if (key != o.id && mapObj[key] > 0)
-                                    maxValue = Math.max(maxValue, mapObj[key]);
-                            });
-                            mapObj[o.id] = maxValue + 1;
-                            storageLocalSave();
-                        })
-                    ]),
-                    NList.getElement([
-                        "取消自定义位置",
-                        new NEvent("click", () =>
-                        {
-                            if (storageContext.local.superMenuPriority[columnName])
-                            {
-                                delete storageContext.local.superMenuPriority[columnName][o.id];
-                                storageLocalSave();
-                            }
-                        })
-                    ])
-                ]);
-            }
-        );
-        if (!o.id)
-            column.currentRowIndex = index;
-    });
-}
-
-
-/**
- * 通过房间id创建列表项
- * @param {string} roomId 
- * @param {string} [addition]
- * @returns 
- */
-function createRoomListItemById(roomId, addition = "")
-{
-    let roomInfo = forgeApi.operation.getRoomInfoById(roomId);
-    if (roomInfo)
-        return createListItem(
-            "http" + roomInfo.roomImage,
-            roomInfo.name,
-            roomInfo.description,
-            (roomInfo.currentUserNum != "hidden" ? `${roomInfo.currentUserNum}人` : "隐藏人数"),
-            addition,
-            `rgba(${roomInfo.color}, 0.8)`
-        );
-    else
-        return createListItem(
-            "",
-            "不存在的房间",
-            "",
-            "",
-            "",
-            `rgba(0, 0, 0, 0.8)`
-        );
-}
-
-/**
- * 创建列表项
- * @param {string} image
- * @param {string} title
- * @param {string} text
- * @param {string} [addition]
- * @param {string} [cornerMark]
- * @returns {NElement}
- */
-function createListItem(image, title, text, addition = "", cornerMark = "", color = "rgba(240, 240, 240, 0.8)")
-{
-    /**
-     * 检测是亮色或暗色
-     * @param {string} colorStr
-     */
-    function rgbLightOrDark(colorStr)
-    {
-        let braceIndex = color.indexOf("(");
-        if (braceIndex != -1)
-            colorStr = colorStr.slice(braceIndex + 1, colorStr.lastIndexOf(")"));
-        let part = colorStr.split(",").map(o => Number.parseInt(o));
-        return (part[0] * 0.299 + part[1] * 0.587 + part[2] * 0.114 > 186);
-    }
-
-    let textColor = (rgbLightOrDark(color) ? "rgba(0, 0, 0, 0.75)" : "rgba(255, 255, 255, 0.75)");
-    return NList.getElement([
-        className("sessionHolderPmTaskBoxItem"),
-        styles({
-            backgroundColor: color,
-            color: textColor
-        }),
-        [
-            styles({
-                height: "100px",
-                width: "100px",
-                position: "relative",
-                WebkitMaskImage: "linear-gradient(to right,#000 50%,transparent)",
-                display: (image ? "block" : "none")
-            }),
-            [
-                className("bgImgBox"),
-                (
-                    image.startsWith("mdi-") ?
-                        [
-                            styles({
-                                width: "100%",
-                                height: "100%",
-                                textAlign: "center"
-                            }),
-                            [
-                                styles({
-                                    lineHeight: "100px",
-                                    fontSize: "50px",
-                                    fontFamily: "md",
-                                    height: "100%",
-                                }),
-                                className(image),
-                                new NTagName("span"),
-                            ]
-                        ] :
-                        [
-                            className("bgImg"),
-                            new NTagName("img"),
-                            new NAttr("loading", "lazy"),
-                            new NAttr("decoding", "async"),
-                            new NAttr("src", image),
-                        ]
-                ),
-                [
-                    className("fullBox")
-                ]
-            ]
-        ],
-        [
-            styles({
-                height: "100%",
-                position: "absolute",
-                top: "0",
-                left: "100px",
-                right: "0"
-            }),
-            [
-                className("sessionHolderPmTaskBoxItemName textOverflowEllipsis"),
-                [
-                    styles({
-                        fontSize: "inherit",
-                        fontWeight: "inherit"
-                    }),
-                    title
-                ]
-            ],
-            [
-                className("sessionHolderPmTaskBoxItemTime textOverflowEllipsis"),
-                addition
-            ],
-            [
-                className("sessionHolderPmTaskBoxItemMsg textOverflowEllipsis"),
-                text
-            ]
-        ],
-        [
-            styles({
-                position: "absolute",
-                top: "1px",
-                right: "1px",
-                backgroundColor: textColor,
-                color: color,
-                fontSize: "16px",
-                fontWeight: "bold",
-                padding: "0px 8px",
-                height: "26.5px",
-                lineHeight: "26.5px",
-                transition: "transform 0.25s ease 0s",
-                borderRadius: "0px 0px 0px 2px",
-                display: (cornerMark ? "block" : "none")
-            }),
-            cornerMark
-        ]
-    ]);
-}

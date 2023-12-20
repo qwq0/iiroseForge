@@ -2271,6 +2271,16 @@ declare class EventHandler<T extends unknown> {
 }
 
 /**
+ * 判断第一个参数是否属于之后所有的参数
+ * 第一个参数与任何一个之后的参数相等 返回true
+ * 与任何一个都不相等 返回false
+ * @param {any} k
+ * @param  {Array<any>} s
+ * @returns {boolean}
+ */
+declare function isAmong(k: any, ...s: Array<any>): boolean;
+
+/**
  * 左右方向分割
  * @param {string} leftSize
  * @param {NElement | import("./expandElement").EDObj} a
@@ -2434,4 +2444,4 @@ type NList_list = NList_list$1;
 type PointerData = PointerData$1;
 type KeyboardData = KeyboardData$1;
 
-export { EventHandler, KeyboardData, NAsse, NAttr, NElement, NEvent, NList, NList_list, NStyle, NTagName, PointerData, bindArrayHook, bindAttribute, bindValue, createHookArray, createHookObj, createNStyle, createNStyleList, cssG, delayPromise, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, keyboardBind, mouseBind, runOnce, tag, tagName, touchBind };
+export { EventHandler, KeyboardData, NAsse, NAttr, NElement, NEvent, NList, NList_list, NStyle, NTagName, PointerData, bindArrayHook, bindAttribute, bindValue, createHookArray, createHookObj, createNStyle, createNStyleList, cssG, delayPromise, divideLayout_DU, divideLayout_LR, divideLayout_RL, divideLayout_UD, expandElement, getNElement, isAmong, keyboardBind, mouseBind, runOnce, tag, tagName, touchBind };

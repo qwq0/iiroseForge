@@ -73,6 +73,11 @@ toClientTrie.addPath(`"`, (data) => // 房间消息
     }).filter(o => o != undefined).reverse().join("<");
 });
 
+/**
+ * @type {Map<string, number>}
+ */
+let lastAutoReplyTime = new Map();
+
 toClientTrie.addPath(`""`, (data) => // 私聊消息
 {
     let userId = forgeApi.operation.getUserUid();
@@ -152,8 +157,14 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
 
             if (messageNeedBlock(senderId, content, senderName))
             {
-                if (storageContext.roaming.blacklistAutoReply)
-                    forgeApi.operation.sendPrivateMessageSilence(senderId, `[自动回复] ${storageContext.roaming.blacklistAutoReply}`);
+                if (storageContext.roaming.blacklistAutoReply) // 黑名单自动回复
+                {
+                    if (!lastAutoReplyTime.has(senderId) || lastAutoReplyTime.get(senderId) < Date.now() - 15 * 1000)
+                    {
+                        lastAutoReplyTime.set(senderId, Date.now());
+                        forgeApi.operation.sendPrivateMessageSilence(senderId, `[自动回复] ${storageContext.roaming.blacklistAutoReply}`);
+                    }
+                }
                 return undefined;
             }
         }
