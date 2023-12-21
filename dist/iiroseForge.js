@@ -4379,11 +4379,9 @@
 	            resize: "none",
 	            height: "24em",
 	            width: "18em",
-	        },
-	        attr: {
-	            value: copyText
 	        }
 	    });
+	    copyTextarea.element.value = copyText;
 	    copyTextarea.addEventListener("keydown", e => { e.stopPropagation(); }, true);
 	    copyTextarea.addEventListener("input", () =>
 	    {
@@ -4410,11 +4408,9 @@
 	            resize: "none",
 	            height: "24em",
 	            width: "19em",
-	        },
-	        attr: {
-	            value: initValue
 	        }
 	    });
+	    textarea.element.value = initValue;
 	    textarea.addEventListener("keydown", e => { e.stopPropagation(); }, true);
 	    setTimeout(() => textarea.element.focus(), 100);
 	    let confirm = await showInfoBox(title, text, allowCancel, textarea);
@@ -10127,7 +10123,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.19.0"
+	    version: "alpha v1.19.1"
 	};
 
 	/**
