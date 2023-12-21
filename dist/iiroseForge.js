@@ -10123,7 +10123,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.19.1"
+	    version: "alpha v1.19.2"
 	};
 
 	/**
@@ -12320,6 +12320,11 @@
 	        sessionHolderPmTaskBox.children[0].after(pinnedSessionLable);
 	        refreshList = () =>
 	        {
+	            if (!recentSessionLable.parentElement)
+	            {
+	                pinnedSessionLable.after(recentSessionLable);
+	            }
+
 	            Array.from(sessionHolderPmTaskBox.children).reverse().forEach(o =>
 	            {
 	                if (
@@ -12344,6 +12349,11 @@
 	            });
 	        };
 	        refreshList();
+	        {
+	            let paddingElement = document.createElement("div");
+	            paddingElement.style.display = "none";
+	            recentSessionLable.after(paddingElement);
+	        }
 	        (new MutationObserver(mutationsList =>
 	        {
 	            for (let mutation of mutationsList)
@@ -12361,14 +12371,35 @@
 	                            )
 	                            {
 	                                let uid = o.getAttribute("ip");
+	                                console.log("on list item change", uid);
 	                                let pinned = storageContext.processed.pinSessionSet.has(uid);
 	                                if ((recentSessionLable.compareDocumentPosition(o) & 2) && !pinned)
 	                                {
 	                                    recentSessionLable.after(o);
 	                                }
+	                                else if ((recentSessionLable.compareDocumentPosition(o) & 4) && pinned)
+	                                {
+	                                    pinnedSessionLable.after(o);
+	                                }
+
 	                            }
 	                        }
 	                    });
+
+	                    if (!recentSessionLable.parentElement || !recentSessionLable.nextElementSibling)
+	                    {
+	                        if (!recentSessionLable.parentElement)
+	                        {
+	                            pinnedSessionLable.after(recentSessionLable);
+	                            refreshList();
+	                        }
+	                        if (!recentSessionLable.nextSibling)
+	                        {
+	                            let paddingElement = document.createElement("div");
+	                            paddingElement.style.display = "none";
+	                            recentSessionLable.after(paddingElement);
+	                        }
+	                    }
 	                }
 	            }
 	        })).observe(sessionHolderPmTaskBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
