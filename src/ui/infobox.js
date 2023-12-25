@@ -55,6 +55,7 @@ export function showInfoBox(title, text, allowCancel = false, ...extraEle)
                     minHeight: "190px",
                     minWidth: "280px",
                     maxWidth: "95%",
+                    maxHeight: "95%",
                     boxSizing: "border-box",
                     padding: "20px",
                     borderRadius: "7px",
@@ -78,7 +79,14 @@ export function showInfoBox(title, text, allowCancel = false, ...extraEle)
                 child: [{
                     text: title
                 }, {
-                    text: text
+                    text: text,
+                    style: {
+                        overflow: "auto",
+                        alignSelf: "stretch",
+                        display: "flex",
+                        alignItems: "center",
+                        flexDirection: "column",
+                    }
                 }, ...extraEle, {
                     text: "确定",
                     assembly: [buttonAsse],
