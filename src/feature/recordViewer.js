@@ -111,6 +111,11 @@ let dataObj = createHookObj({
 });
 
 /**
+ * @type {NElement<HTMLInputElement>}
+ */
+let oldDateInput = null;
+
+/**
  * 刷新显示的内容
  */
 function refreshDisplay()
@@ -299,6 +304,11 @@ async function showRecordViewerWindow()
 
                     new NEvent("click", () =>
                     {
+                        if (oldDateInput)
+                        {
+                            oldDateInput.remove();
+                            oldDateInput = null;
+                        }
                         if (nowRecordInfo == null || nowRecordInfo.records.length == 0)
                             return;
                         /**
@@ -306,8 +316,13 @@ async function showRecordViewerWindow()
                          */
                         let dateInput = NList.getElement([
                             new NTagName("input"),
-                            new NAttr("type", "date")
+                            new NAttr("type", "date"),
+                            styles({
+                                display: "none"
+                            })
                         ]);
+                        body.addChild(dateInput);
+                        oldDateInput = dateInput;
                         dateInput.element.showPicker();
                         dateInput.addEventListener("change", () =>
                         {
