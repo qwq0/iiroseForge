@@ -22,6 +22,7 @@ import { enableRoomAdminOperation } from "../feature/roomAdminOperation.js";
 import { enablePatch } from "../feature/patch.js";
 import { enableAudioTakeover } from "../feature/audioTakeover.js";
 import { enablePinSession } from "../feature/pinSession.js";
+import { enableRecordViewer } from "../feature/recordViewer.js";
 
 
 
@@ -174,6 +175,10 @@ export function initInjectIframe()
             {
                 func: enablePinSession,
                 condition: "enablePinSession"
+            },
+            {
+                func: enableRecordViewer,
+                condition: "enableRecordViewer"
             }
         ]).forEach(o =>
         {

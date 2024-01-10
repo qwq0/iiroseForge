@@ -214,7 +214,8 @@ export function processSingleRecord(record)
         return [
             sendBySelf,
             time,
-            ...part.slice(2)
+            String(part[2]),
+            String(part[3])
         ];
     }
     else

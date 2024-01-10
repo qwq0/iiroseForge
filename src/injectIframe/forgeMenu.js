@@ -107,7 +107,7 @@ export function getForgeMenu()
                 ...([ // 菜单列表项
                     ...(
                         (
-                            (new Date("2023/12/20")).getTime() < Date.now() && Date.now() < (new Date("2024/1/16")).getTime() ||
+                            ((new Date("2023/12/20")).getTime() < Date.now() && Date.now() < (new Date("2024/1/16")).getTime()) ||
                             (storageContext.local.enableExperimental && storageContext.local.experimentalOption["annualReport"])
                         ) ?
                             [
@@ -365,6 +365,10 @@ export function getForgeMenu()
                                         name: "置顶会话",
                                         storageKey: "enablePinSession"
                                     },
+                                    {
+                                        name: "聊天记录查看器",
+                                        storageKey: "enableRecordViewer"
+                                    },
                                     ...(
                                         storageContext.local.enableExperimental ?
                                             [
@@ -403,7 +407,7 @@ export function getForgeMenu()
                                         if (o.storageKey)
                                         {
                                             let targetState = !storageContext.local[o.storageKey];
-                                            let confirm = await showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需要重载以生效`, true);
+                                            let confirm = await showInfoBox("设置功能", `切换 ${o.name} 功能到 ${targetState ? "启用" : "禁用"} 状态\n可能需深度重载以生效`, true);
                                             if (confirm)
                                             {
                                                 storageContext.local[o.storageKey] = targetState;
@@ -746,7 +750,7 @@ export function getForgeMenu()
 
                     storageContext.local.enableExperimental = true;
                     storageLocalSave();
-                    showNotice("实验性功能", "已激活实验性功能\n部分功能需要重载以启用");
+                    showNotice("实验性功能", "已激活实验性功能\n部分功能需要深度重载以启用");
                 }
             }
 

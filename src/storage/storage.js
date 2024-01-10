@@ -92,6 +92,8 @@ export const storageContext = {
         enableRoomAdminOperation: true,
         // 启用置顶聊天
         enablePinSession: true,
+        // 启用聊天记录查看器
+        enableRecordViewer: true,
         // 最后一次关闭的时间
         lastCloseTime: 0,
         // 已同步聊天记录到此时间
