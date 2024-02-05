@@ -27,6 +27,8 @@ let pageSize = 50;
  */
 function getPageCount()
 {
+    if (!nowRecordInfo)
+        return 0;
     return Math.ceil(nowRecordInfo.records.length / pageSize);
 }
 

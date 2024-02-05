@@ -4555,10 +4555,15 @@
 	            {
 	                let uid = thisObj?.dataset?.uid;
 	                let userName = param[1]?.[0];
+	                if (uid == undefined && param[1]?.length == 6)
+	                {
+	                    userName = param[1]?.[0];
+	                    uid = param[1]?.[4];
+	                }
 	                let messageId = thisObj?.parentNode?.parentNode?.dataset?.id?.split("_")?.[1];
 	                if (typeof (userName) != "string")
 	                    userName = undefined;
-	                if (!uid)
+	                if (typeof (uid) != "string" || !uid)
 	                    return false;
 
 	                srcFunction(...param);
@@ -4598,7 +4603,7 @@
 	            )
 	            {
 	                let roomId = (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("rid");
-	                if((!roomId) && (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("n") == "2_1")
+	                if ((!roomId) && (/** @type {HTMLElement} */ (thisObj))?.getAttribute?.("n") == "2_1")
 	                    roomId = thisObj?.nextElementSibling?.getAttribute?.("rid");
 	                if (!roomId)
 	                    return false;
@@ -10134,7 +10139,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.20.1"
+	    version: "alpha v1.20.2"
 	};
 
 	/**
@@ -12443,6 +12448,8 @@
 	 */
 	function getPageCount()
 	{
+	    if (!nowRecordInfo)
+	        return 0;
 	    return Math.ceil(nowRecordInfo.records.length / pageSize);
 	}
 
