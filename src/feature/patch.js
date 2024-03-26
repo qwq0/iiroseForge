@@ -59,6 +59,25 @@ export async function enablePatch()
                     }
                 }, true);
             }
+        },
+        {
+            key: "fixHoverSound",
+            cb: () =>
+            {
+                if (iframeContext.iframeWindow["Utils"].Sound)
+                    iframeContext.iframeWindow["Utils"].Sound.gameAudioPlayer = (e, t) =>
+                    {
+                        let a = ["select", "click", "check", "cancel", "animationEnter", "animationBack", "animationShow", "animationHide", "animationSwitch", "effect"];
+                        let url = iframeContext.iframeWindow["github"] +
+                            "lib/system/sound/" +
+                            (iframeContext.iframeWindow["panelOpacity"] || e < 4 || 8 < e ? "" : "solid/") +
+                            (9 == e ? "effect/" + t : a[e]) +
+                            ".mp3";
+                        let audio = new Audio(url);
+                        audio.volume = iframeContext.iframeWindow[(0 == e ? "selectsound" : 9 == e ? "effectsound" : 0 < e && e < 4 ? "clicksound" : "animationsound") + "probe"] / 10;
+                        audio.play();
+                    };
+            }
         }
     ]).forEach(o =>
     {
@@ -95,6 +114,10 @@ export function showPatchMenu()
             {
                 name: "F5键仅刷新iframe内侧",
                 key: "f5RefreshInside"
+            },
+            {
+                name: "修复悬停音效",
+                key: "fixHoverSound"
             }
         ]).map(o => NList.getElement([
             (storageContext.local.patch[o.key] ? " (已启用)" : "(已禁用)") + o.name,
