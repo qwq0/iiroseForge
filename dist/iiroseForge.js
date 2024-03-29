@@ -6668,7 +6668,8 @@
 	                let obj = storageObj["userRemark"];
 	                Object.keys(obj).forEach(key =>
 	                {
-	                    storageContext.roaming.userRemark[key] = obj[key];
+	                    if (storageContext.roaming.userRemark[key] != obj[key])
+	                        storageContext.roaming.userRemark[key] = obj[key];
 	                });
 	            }
 	            else
