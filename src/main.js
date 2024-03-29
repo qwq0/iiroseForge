@@ -5,6 +5,7 @@ import { plugList } from "./plug/plugList.js";
 import { storageContext, storageLocalRead, storageLocalSave, storageRoamingRead } from "./storage/storage.js";
 import { enableForgeDebugMode } from "./feature/debugMode.js";
 import { injectorScript } from "../generate/injectScript.js";
+import { enableLocalService } from "./feature/localService.js";
 
 
 if (location.host == "iirose.com")
@@ -21,8 +22,10 @@ if (location.host == "iirose.com")
             if (sessionStorage.getItem("iiroseForgeDebugMode") == "true")
                 enableForgeDebugMode(true);
 
-            storageRoamingRead();
             storageLocalRead();
+            if (storageContext.local.enableLocalService)
+                enableLocalService();
+            storageRoamingRead();
 
             plugList.readPlugList();
 

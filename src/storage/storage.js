@@ -1,5 +1,6 @@
 import { createHookObj } from "../../lib/qwqframe.js";
 import { showNotice } from "../ui/notice.js";
+import { localServiceClient } from "./localService/LocalServiceClient.js";
 
 /**
  * 储存上下文
@@ -39,7 +40,7 @@ export const storageContext = {
          * 用户uid 到 用户备注
          * @type {Object<string, string>}
          */
-        userRemark: {},
+        userRemark: createHookObj({}),
         /**
          * 我的其他账号uid列表
          * @type {Array<string>}
@@ -94,6 +95,10 @@ export const storageContext = {
         enablePinSession: true,
         // 启用聊天记录查看器
         enableRecordViewer: true,
+        // 启动forge本地服务
+        enableLocalService: false,
+        // forge本地服务地址
+        localServiceUrl: "ws://127.0.0.1:21909",
         // 最后一次关闭的时间
         lastCloseTime: 0,
         // 已同步聊天记录到此时间
@@ -149,15 +154,16 @@ export function storageRoamingSet(storageObj)
     {
         Object.keys(storageObj).forEach(key =>
         {
-            storageContext.roaming[key] = storageObj[key];
-        });
-        Object.keys(storageContext.roaming).forEach(key =>
-        {
-            if (
-                typeof (storageContext.roaming[key]) == "object" &&
-                !Array.isArray(storageContext.roaming[key])
-            )
-                storageContext.roaming[key] = createHookObj(storageContext.roaming[key]);
+            if (key == "userRemark")
+            {
+                let obj = storageObj["userRemark"];
+                Object.keys(obj).forEach(key =>
+                {
+                    storageContext.roaming.userRemark[key] = obj[key];
+                });
+            }
+            else
+                storageContext.roaming[key] = storageObj[key];
         });
         storageContext.processed.myAccountSet = new Set(storageContext.roaming.myAccountList);
         storageContext.processed.uidBlacklistSet = new Set(storageContext.roaming.uidBlacklist);
@@ -181,18 +187,64 @@ export function storageRoamingRead()
     {
         showNotice("错误", "无法读入储存 这可能导致iiroseForge配置丢失");
     }
+
+    if (storageContext.local.enableLocalService)
+    {
+        (async () =>
+        {
+            try
+            {
+                await localServiceClient.waitConnect();
+                let storageJson = (await localServiceClient.operator.query.readFile({
+                    filePath: "roamingConfig.json"
+                })).content;
+                if (storageJson)
+                {
+                    let storageObj = JSON.parse(storageJson);
+                    storageRoamingSet(storageObj);
+                }
+            }
+            catch (err)
+            {
+                console.error(err);
+            }
+        })();
+    }
 }
 
-export function storageRoamingSave()
+export function storageRoamingSave(disableLocalService = false)
 {
+    let storageJson = "";
     try
     {
-        let storageJson = JSON.stringify(storageRoamingGet());
+        let storageObj = storageRoamingGet();
+        storageJson = JSON.stringify(storageObj);
         localStorage.setItem("iiroseForge", storageJson);
     }
     catch (err)
     {
         showNotice("错误", "无法写入储存 这可能导致iiroseForge配置丢失");
+    }
+
+    if (localServiceClient.serviceAvailable && storageJson != "" && !disableLocalService)
+    {
+        (async () =>
+        {
+            try
+            {
+                let storageObjClone = JSON.parse(storageJson);
+                delete storageObjClone.myAccountList;
+                await localServiceClient.operator.query.traversalWriteJson({
+                    filePath: "roamingConfig.json",
+                    json: JSON.stringify(storageObjClone),
+                    deleteTree: ""
+                });
+            }
+            catch (err)
+            {
+                console.error(err);
+            }
+        })();
     }
 }
 

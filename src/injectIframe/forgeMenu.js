@@ -369,6 +369,29 @@ export function getForgeMenu()
                                         name: "聊天记录查看器",
                                         storageKey: "enableRecordViewer"
                                     },
+                                    {
+                                        name: "使用本地服务(仅测试)",
+                                        storageKey: "enableLocalService"
+                                    },
+                                    ...(
+                                        storageContext.local.enableLocalService ?
+                                            [
+                                                {
+                                                    name: "设置本地服务地址",
+                                                    func: async () =>
+                                                    {
+                                                        let localServiceUrl = await showInputBox("设置地址", "自定义forge本地服务使用的地址", true, storageContext.local.localServiceUrl);
+                                                        if (localServiceUrl != undefined && localServiceUrl != storageContext.local.localServiceUrl)
+                                                        {
+                                                            storageContext.local.localServiceUrl = localServiceUrl;
+                                                            storageLocalSave();
+                                                            showNotice("forge本地服务", "已更新本地服务地址\n请重新加载");
+                                                        }
+                                                    }
+                                                },
+                                            ] :
+                                            []
+                                    ),
                                     ...(
                                         storageContext.local.enableExperimental ?
                                             [
