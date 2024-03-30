@@ -247,4 +247,40 @@ function recorder()
             content: `${timeStr} [${forgeApi.operation.getUserName()}]: ${JSON.stringify(e.content)}\n`
         });
     });
+
+    let oldStateMap = new Map();
+    let observatory = async () =>
+    {
+        let timeStr = (new Date()).toLocaleString();
+
+        let resultList = [];
+        if (oldStateMap.size > 0)
+            resultList.push("inherit");
+        let resultMap = new Map();
+        let userObj = iframeContext.iframeWindow?.["Objs"]?.mapHolder.Assets.userJson;
+        Object.keys(userObj).forEach(userNameLowerCase =>
+        {
+            let userInfoArr = userObj[userNameLowerCase];
+            let uid = userInfoArr[8];
+            let originState = userInfoArr[11];
+            let state = Number("" == originState ? 10 : "*" == originState ? 11 : "a" == originState ? 12 : originState);
+
+            if (state != oldStateMap.get(uid))
+                resultList.push(`${uid}-${state}`);
+            resultMap.set(uid, state);
+        });
+        oldStateMap.forEach((state, uid) =>
+        {
+            if (!resultMap.has(uid))
+                resultList.push(`${uid}-d`);
+        });
+        oldStateMap = resultMap;
+        await localServiceClient.operator.query.appendWriteFile({
+            filePath: `observatory/${forgeApi.operation.getUserUid()}/${getDateFileName()}.txt`,
+            content: `${timeStr} | ${resultList.join(" ")}\n`
+        });
+    };
+
+    setInterval(observatory, 5 * 60 * 1000);
+    observatory();
 }
