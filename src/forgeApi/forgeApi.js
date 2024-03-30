@@ -5,6 +5,8 @@ import { runTerminalCommand } from "../feature/runCommand.js";
 import { sendMessageOnCurrentPage } from "../feature/sendMessage.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
 import { writeForgePacket } from "../protocol/forgePacket.js";
+import { localServiceClient } from "../storage/localService/LocalServiceClient.js";
+import { storageContext } from "../storage/storage.js";
 import { showNotice } from "../ui/notice.js";
 import { htmlSpecialCharsDecode, htmlSpecialCharsEscape } from "../util/htmlSpecialChars.js";
 
@@ -447,6 +449,84 @@ export const forgeApi = {
          * @type {EventHandler<{ content: Object }>}
          */
         selfPrivateForgePacket: new EventHandler(),
+    },
+
+    /**
+     * 本地服务
+     */
+    localService: {
+        /**
+         * 写入文件
+         * @param {string} path 
+         * @param {string} content 
+         * @returns {Promise<void>} 
+         */
+        writeFile: async (path, content) =>
+        {
+            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
+                throw "Local services cannot be accessed";
+            if (!localServiceClient.serviceAvailable)
+                throw "Local services is not available";
+            let result = await localServiceClient.operator.query.writeFile({ filePath: "plug/" + path, content: String(content) });
+            if (!result?.ok)
+                throw "writeFile error";
+        },
+
+        /**
+         * 追加写入文件
+         * @param {string} path 
+         * @param {string} content 
+         * @returns {Promise<void>} 
+         */
+        appendWriteFile: async (path, content) =>
+        {
+            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
+                throw "Local services cannot be accessed";
+            if (!localServiceClient.serviceAvailable)
+                throw "Local services is not available";
+            let result = await localServiceClient.operator.query.appendWriteFile({ filePath: "plug/" + path, content: String(content) });
+            if (!result?.ok)
+                throw "appendWriteFile error";
+        },
+
+        /**
+         * 覆盖写入json到文件
+         * @param {string} path 
+         * @param {string} content 
+         * @returns {Promise<void>} 
+         */
+        overlayWriteJson: async (path, content) =>
+        {
+            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
+                throw "Local services cannot be accessed";
+            if (!localServiceClient.serviceAvailable)
+                throw "Local services is not available";
+            let result = await localServiceClient.operator.query.traversalWriteJson({
+                filePath: "roamingConfig.json",
+                json: content,
+                deleteTree: ""
+            });
+            if (!result?.ok)
+                throw "overlayWriteJson error";
+        },
+
+        /**
+         * 读取文件
+         * @param {string} path 
+         * @param {string} content
+         * @returns {Promise<string>} 
+         */
+        readFile: async (path, content) =>
+        {
+            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
+                throw "Local services cannot be accessed";
+            if (!localServiceClient.serviceAvailable)
+                throw "Local services is not available";
+            let result = await localServiceClient.operator.query.readFile({ filePath: "plug/" + path });
+            if (!result)
+                throw "read file error";
+            return result.content;
+        }
     }
 };
 

@@ -3122,863 +3122,6 @@
 	}
 
 	/**
-	 * document.body的NElement封装
-	 */
-	let body = getNElement(document.body);
-	body.setStyle("cursor", "default");
-
-	/**
-	 * 按钮流水线
-	 * @param {NElement} e
-	 */
-	function buttonAsse(e)
-	{
-	    e.setStyle("transition", "transform 50ms linear, text-shadow 150ms linear");
-
-	    e.addEventListener("mousedown", () =>
-	    {
-	        e.setStyle("transform", "scale(0.95) translateY(2px)");
-	    });
-	    e.addEventListener("mouseup", () =>
-	    {
-	        e.setStyle("transform", "");
-	    });
-
-	    e.addEventListener("mouseenter", () =>
-	    {
-	        e.setStyle("textShadow", `0 0 0.3em ${cssG.rgb(255, 255, 255, 0.5)}`);
-	        e.setStyle("transform", "translateY(-1px)");
-	    });
-	    e.addEventListener("mouseleave", () =>
-	    {
-	        e.setStyle("textShadow", "");
-	        e.setStyle("transform", "");
-	    });
-	}
-
-	var noticeContainer = expandElement({
-	    position: "absolute",
-	    right: "0px",
-	    style: {
-	        userSelect: "none",
-	        pointerEvents: "none",
-	        zIndex: "30000"
-	    }
-	});
-	body.addChild(noticeContainer);
-
-	/**
-	 * 推送通知
-	 * @param {string} title 
-	 * @param {string} text 
-	 * @param {string} [additional]
-	 * @param {Function} [callback]
-	 */
-	function showNotice(title, text, additional = "iiroseForge", callback = null)
-	{
-	    let notice = expandElement({
-	        style: {
-	            color: cssG.rgb(255, 255, 255),
-	            backgroundColor: cssG.rgb(255, 255, 255, 0.1),
-	            backdropFilter: "blur(2px) brightness(90%)",
-	            marginRight: "1em",
-	            marginTop: "1em",
-	            marginLeft: "1em",
-	            float: "right",
-	            clear: "both",
-	            overflow: "hidden hidden",
-	            padding: "1em",
-	            boxSizing: "border-box",
-	            minWidth: "180px",
-	            borderRadius: "0.2em",
-	            boxShadow: `${cssG.rgb(0, 0, 0, 0.55)} 3px 3px 9px`
-	        },
-	        position: "relative",
-	        child: [{ // 通知图标
-	            tagName: "i",
-	            classList: ["fa", "fa-info-circle"]
-	        }, { // 通知标题
-	            text: title,
-	            style: {
-	                fontSize: "1.2em",
-	                lineHeight: "1.5em",
-	                fontWeight: "bolder",
-	                // textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
-	            }
-	        }, { // 通知正文
-	            text: text,
-	            style: {
-	                // textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
-	            }
-	        }, { // 通知附加内容
-	            text: additional,
-	            style: {
-	                fontSize: "0.9em",
-	                float: "right"
-	            }
-	        }, { // 通知右上角关闭按钮
-	            text: "×",
-	            position: "absolute",
-	            right: "4px",
-	            top: "1px",
-	            assembly: [buttonAsse],
-	            style: {
-	                fontSize: "25px",
-	                lineHeight: "1em"
-	            },
-	            event: {
-	                click: (/** @type {Event} */e) =>
-	                {
-	                    e.stopPropagation();
-	                    closeThisNotice();
-	                }
-	            }
-	        }]
-	    });
-	    noticeContainer.addChild(notice);
-	    notice.animate([
-	        {
-	            transform: "translateX(180%) translateY(10%) scale(0.6)"
-	        },
-	        {
-	        }
-	    ], {
-	        duration: 180
-	    });
-	    setTimeout(() => { notice.setStyle("pointerEvents", "auto"); }, 180);
-
-	    let startClosing = false;
-	    function closeThisNotice()
-	    {
-	        if (startClosing)
-	            return;
-	        startClosing = true;
-	        notice.setStyle("pointerEvents", "none");
-	        notice.animate([
-	            {
-	            },
-	            {
-	                transform: "translateX(180%)"
-	            }
-	        ], {
-	            duration: 270,
-	            fill: "forwards"
-	        });
-	        setTimeout(() =>
-	        {
-	            notice.setStyle("visibility", "hidden");
-	            notice.animate([
-	                {
-	                    height: (/** @type {HTMLDivElement} */(notice.element)).clientHeight + "px"
-	                },
-	                {
-	                    marginTop: 0,
-	                    height: 0,
-	                    padding: 0
-	                }
-	            ], {
-	                duration: 150,
-	                fill: "forwards"
-	            });
-	            setTimeout(() =>
-	            {
-	                notice.remove();
-	            }, 150);
-	        }, 270);
-	    }
-
-	    setTimeout(() =>
-	    {
-	        closeThisNotice();
-	    }, 2500 + Math.min(15 * 1000, text.length * 255));
-
-	    if (callback)
-	    {
-	        notice.asse(buttonAsse);
-	        notice.addEventListener("click", () =>
-	        {
-	            if (!startClosing)
-	            {
-	                callback();
-	                closeThisNotice();
-	            }
-	        });
-	    }
-	}
-
-	/**
-	 * html特殊符号转义
-	 * @param {string} e 
-	 * @returns {string}
-	 */
-	function htmlSpecialCharsEscape(e)
-	{
-	    e = e.replaceAll(`&`, "&amp;");
-
-	    e = e.replaceAll(`<`, "&lt;");
-	    e = e.replaceAll(`>`, "&gt;");
-	    e = e.replaceAll(`"`, "&quot;");
-	    e = e.replaceAll(`'`, "&#039;");
-	    e = e.replaceAll(`\\`, "&#092;");
-	    
-	    return e;
-	}
-	/**
-	 * html特殊符号反转义
-	 * @param {string} e 
-	 * @returns {string}
-	 */
-	function htmlSpecialCharsDecode(e)
-	{
-	    e = e.replaceAll("&lt;", `<`);
-	    e = e.replaceAll("&gt;", `>`);
-	    e = e.replaceAll("&quot;", `"`);
-	    e = e.replaceAll("&#039;", `'`);
-	    e = e.replaceAll("&#092;", `\\`);
-
-	    e = e.replaceAll("&amp;", `&`);
-
-	    return e;
-	}
-
-	const forgeOccupyPlugNameSet = new Set([
-	    "forge",
-	    "iiroseForge",
-	    "forgeFrame",
-	    "iiroseForgeFrame",
-	]);
-
-	/**
-	 * 暴露的forge接口
-	 */
-	const forgeApi = {
-	    /**
-	     * 接口状态
-	     */
-	    state: {
-	        /**
-	         * 当前执行操作的插件
-	         * @type {{ name: string }}
-	         */
-	        plug: null
-	    },
-
-	    /**
-	     * 操作列表
-	     */
-	    operation: {
-	        /**
-	         * 显示forge通知
-	         * @param {string} content
-	         * @param {Function} callback
-	         */
-	        showForgeNotice: (content, callback) =>
-	        {
-	            content = String(content);
-	            showNotice("插件提示", content, `插件 ${forgeApi.state.plug?.name}`, callback);
-	        },
-
-
-	        /**
-	         * 获取用户蔷薇昵称
-	         * @returns {string}
-	         */
-	        getUserName: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["myself"])
-	                return iframeContext.iframeWindow["myself"];
-	            return null;
-	        },
-
-	        /**
-	         * 获取用户蔷薇uid
-	         * @returns {string}
-	         */
-	        getUserUid: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["uid"])
-	                return iframeContext.iframeWindow["uid"];
-	            return null;
-	        },
-
-	        /**
-	         * 获取用户蔷薇所在房间id
-	         * @returns {string}
-	         */
-	        getUserRoomId: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["roomn"])
-	                return iframeContext.iframeWindow["roomn"];
-	            return null;
-	        },
-
-	        /**
-	         * 通过房间id获取房间信息
-	         * @param {string} roomId
-	         * @returns {{
-	         *  name: string,
-	         *  roomPath: Array<string>,
-	         *  color: string,
-	         *  description: string,
-	         *  roomImage: string,
-	         *  currentUserNum: number | "hidden",
-	         *  ownerName: string,
-	         *  member: Array<{ name: string, auth: "member" | "admin"| "unknow" }>
-	         * }}
-	         */
-	        getRoomInfoById: (roomId) =>
-	        {
-	            roomId = String(roomId);
-	            let roomInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.Assets?.roomJson?.[roomId];
-	            if (roomInfoArray)
-	            {
-	                /** @type {Array<Array<string>>} */
-	                let roomInfoPart = roomInfoArray[5].split("&&").map((/** @type {string} */ o) => o.split(" & "));
-	                let imageAndDescription = htmlSpecialCharsDecode(roomInfoPart[0][0]);
-	                let firstSpaceIndex = imageAndDescription.indexOf(" ");
-	                return {
-	                    name: roomInfoArray[1],
-	                    color: roomInfoArray[2],
-	                    roomPath: (/** @type {string} */(roomInfoArray[0])).split("_"),
-	                    description: imageAndDescription.slice(firstSpaceIndex + 1),
-	                    roomImage: imageAndDescription.slice(0, firstSpaceIndex),
-	                    currentUserNum: (typeof (roomInfoArray[7]) == "number" ? roomInfoArray[7] : "hidden"),
-	                    ownerName: roomInfoPart[1][0],
-	                    member: roomInfoPart[4].map(o => ({
-	                        name: htmlSpecialCharsDecode(o.slice(1)),
-	                        auth: (o[0] == "0" ? "member" : o[0] == "1" ? "admin" : "unknow")
-	                    }))
-	                };
-	            }
-	            else
-	                return null;
-	        },
-
-	        /**
-	         * 通过uid获取在线用户的信息
-	         * @param {string} uid
-	         * @returns {{
-	         *  name: string,
-	         *  uid: string,
-	         *  color: string,
-	         *  avatar: string,
-	         *  roomId: string,
-	         *  personalizedSignature: string
-	         * }}
-	         */
-	        getOnlineUserInfoById: (uid) =>
-	        {
-	            uid = String(uid);
-	            let userInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.findUserByUid?.(uid);
-	            if (userInfoArray)
-	            {
-	                return {
-	                    name: userInfoArray[2],
-	                    uid: uid,
-	                    color: userInfoArray[3],
-	                    avatar: userInfoArray[0],
-	                    roomId: userInfoArray[4],
-	                    personalizedSignature: userInfoArray[6]
-	                };
-	            }
-	            else
-	                return null;
-	        },
-
-	        /**
-	         * 通过uid获取在线用户的信息
-	         * @returns {Array<{
-	         *  name: string,
-	         *  uid: string,
-	         *  color: string,
-	         *  avatar: string,
-	         *  roomId: string,
-	         *  personalizedSignature: string
-	         * }>}
-	         */
-	        getAllOnlineUserInfo: () =>
-	        {
-	            let userInfoMapObj = iframeContext.iframeWindow?.["Objs"]?.mapHolder.Assets.userJson;
-	            if (userInfoMapObj)
-	            {
-	                return (Object.keys(userInfoMapObj)).map(key =>
-	                {
-	                    let o = userInfoMapObj[key];
-	                    return {
-	                        name: o[2],
-	                        uid: o[8],
-	                        color: o[3],
-	                        avatar: o[0],
-	                        roomId: o[4],
-	                        personalizedSignature: o[6]
-	                    };
-	                });
-	            }
-	            else
-	                return null;
-	        },
-
-	        /**
-	         * 切换房间
-	         * @param {string} roomId
-	         */
-	        changeRoom: (roomId) =>
-	        {
-	            roomId = String(roomId);
-	            if (roomId)
-	                iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger(roomId);
-	        },
-
-	        /**
-	         * 获取用户蔷薇头像url
-	         * @returns {string}
-	         */
-	        getUserProfilePictureUrl: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["avatar2"] && iframeContext.iframeWindow?.["avatarconv"])
-	                return iframeContext.iframeWindow["avatarconv"](iframeContext.iframeWindow["avatar2"]);
-	            return null;
-	        },
-
-	        /**
-	         * 获取用户蔷薇输入颜色
-	         * @returns {string}
-	         */
-	        getUserInputColor: () =>
-	        {
-	            if (iframeContext.iframeWindow?.["inputcolorhex"])
-	                return iframeContext.iframeWindow["inputcolorhex"];
-	            return null;
-	        },
-
-	        /**
-	         * 在用户所在房间发送消息
-	         * @param {string} content
-	         */
-	        sendRoomMessage: (content) =>
-	        {
-	            content = String(content);
-	            if (!content)
-	                return;
-	            iframeContext.socketApi.send(JSON.stringify({
-	                "m": content,
-	                "mc": forgeApi.operation.getUserInputColor(),
-	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
-	            }));
-	        },
-
-	        /**
-	         * 在用户所在房间发送forge包消息
-	         * @param {Object} obj
-	         */
-	        sendRoomForgePacket: (obj) =>
-	        {
-	            if (
-	                typeof (obj) != "object" ||
-	                (forgeApi.state.plug && forgeOccupyPlugNameSet.has(obj.plug))
-	            )
-	                return;
-	            let forgePacket = writeForgePacket(obj);
-	            if (typeof (forgePacket) == "string")
-	                forgeApi.operation.sendRoomMessage(forgePacket);
-	            else
-	                (async () =>
-	                {
-	                    for (let i = 0; i < forgePacket.length; i++)
-	                    {
-	                        forgeApi.operation.sendRoomMessage(forgePacket[i]);
-	                        await delayPromise(60);
-	                    }
-	                })();
-	        },
-
-	        /**
-	         * 私聊发送forge包消息
-	         * @param {string} targetUid
-	         * @param {Object} obj
-	         */
-	        sendPrivateForgePacket: (targetUid, obj) =>
-	        {
-	            if (
-	                typeof (obj) != "object" ||
-	                (forgeApi.state.plug && forgeOccupyPlugNameSet.has(obj.plug))
-	            )
-	                return;
-	            let forgePacket = writeForgePacket(obj);
-	            if (typeof (forgePacket) == "string")
-	                forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket);
-	            else
-	                (async () =>
-	                {
-	                    for (let i = 0; i < forgePacket.length; i++)
-	                    {
-	                        forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket[i]);
-	                        await delayPromise(60);
-	                    }
-	                })();
-	        },
-
-	        /**
-	         * 给自己私聊发送forge包消息
-	         * @param {Object} obj
-	         */
-	        sendSelfPrivateForgePacket: (obj) =>
-	        {
-	            forgeApi.operation.sendPrivateForgePacket(forgeApi.operation.getUserUid(), obj);
-	        },
-
-	        /**
-	         * 静默发送私聊
-	         * @param {string} targetUid
-	         * @param {string} content
-	         * @returns {{
-	         *  messageId: string
-	         * }}
-	         */
-	        sendPrivateMessageSilence: (targetUid, content) =>
-	        {
-	            targetUid = String(targetUid);
-	            content = String(content);
-	            if (!content || !targetUid)
-	                return;
-	            let messageId = String(Date.now()).slice(-5) + String(Math.random()).slice(-7);
-	            iframeContext.socketApi.send(JSON.stringify({
-	                "g": targetUid,
-	                "m": content,
-	                "mc": forgeApi.operation.getUserInputColor(),
-	                "i": messageId
-	            }));
-	            return { messageId };
-	        },
-
-	        /**
-	         * 发送私聊
-	         * @param {string} targetUid
-	         * @param {string} content
-	         */
-	        sendPrivateMessage: (targetUid, content) =>
-	        {
-	            targetUid = String(targetUid);
-	            content = String(content);
-	            if (!content || !targetUid)
-	                return;
-	            let messageId = forgeApi.operation.sendPrivateMessageSilence(targetUid, content).messageId;
-	            iframeContext.iframeWindow?.["privatechatfunc"](([
-	                Math.floor(Date.now() / 1000).toString(10), // 0
-	                forgeApi.operation.getUserUid(), // 1
-	                htmlSpecialCharsEscape(forgeApi.operation.getUserName()), // 2
-	                htmlSpecialCharsEscape(forgeApi.operation.getUserProfilePictureUrl()), // 3
-	                htmlSpecialCharsEscape(content), // 4
-	                htmlSpecialCharsEscape(forgeApi.operation.getUserInputColor()), // 5
-	                "", // 6
-	                htmlSpecialCharsEscape(forgeApi.operation.getUserInputColor()), // 7
-	                "", // 8
-	                "", // 9
-	                messageId, // 10
-	                targetUid, // 11
-	                "", // 12
-	                "", // 13
-	                "", // 14
-	                "", // 15
-	                "", // 16
-	            ]).join(">"));
-	        },
-
-	        /**
-	         * 静默给自己发送私聊
-	         * @param {string} content
-	         */
-	        sendSelfPrivateMessageSilence: (content) =>
-	        {
-	            forgeApi.operation.sendPrivateMessageSilence(forgeApi.operation.getUserUid(), content);
-	        },
-
-	        /**
-	         * 点赞
-	         * @param {string} targetUid
-	         * @param {string} [content]
-	         */
-	        giveALike: (targetUid, content = "") =>
-	        {
-	            targetUid = String(targetUid);
-	            content = String(content);
-	            if (!targetUid)
-	                return;
-	            iframeContext.socketApi.send(`+*${targetUid}${content ? " " + content : ""}`);
-	        },
-
-	        /**
-	         * 切换房间
-	         * @param {string} roomId
-	         */
-	        switchRoom: (roomId) =>
-	        {
-	            roomId = String(roomId);
-	            if (iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger)
-	                iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger(roomId);
-	        },
-
-	        /**
-	         * 执行终端命令
-	         * 插件暂时无法申请此权限
-	         * @param {string} command
-	         */
-	        runTerminalCommand: (command) =>
-	        {
-	            command = String(command);
-	            runTerminalCommand(command);
-	        },
-
-	        /**
-	         * 在当前用户所在的页面发送信息
-	         * 插件暂时无法申请此权限
-	         * @param {string} content
-	         */
-	        sendCurrentPageMessage: (content) =>
-	        {
-	            content = String(content);
-	            sendMessageOnCurrentPage(content);
-	        }
-	    },
-
-	    /**
-	     * 事件列表
-	     */
-	    event: {
-	        /**
-	         * 接收到房间消息
-	         * @type {EventHandler<{ senderId: string, senderName: string, content: string }>}
-	         */
-	        roomMessage: new EventHandler$2(),
-
-	        /**
-	         * 接受到私聊消息
-	         * 不包括自己发出的
-	         * 不包括自己发送给自己的
-	         * @type {EventHandler<{ senderId: string, senderName: string, content: string }>}
-	         */
-	        privateMessage: new EventHandler$2(),
-
-	        /**
-	         * 接受到自己发送给自己的私聊消息
-	         * @type {EventHandler<{ content: string }>}
-	         */
-	        selfPrivateMessage: new EventHandler$2(),
-
-	        /**
-	         * 接收到房间的forge数据包
-	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
-	         */
-	        roomForgePacket: new EventHandler$2(),
-	        /**
-	         * 接收到私聊的forge数据包
-	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
-	         */
-	        privateForgePacket: new EventHandler$2(),
-	        /**
-	         * 接收到自己发给自己的forge数据包
-	         * @type {EventHandler<{ content: Object }>}
-	         */
-	        selfPrivateForgePacket: new EventHandler$2(),
-	    }
-	};
-
-	window["iiroseForgeApi"] = forgeApi; // 给外侧侧载脚本预留forgeApi
-
-	let globalState = {
-	    debugMode: false
-	};
-
-	let debugModeContext = {
-	    /**
-	     * 发送数据包
-	     * @param {string} packet 
-	     */
-	    send: (packet) =>
-	    {
-	        iframeContext.socketApi.send(packet);
-	    },
-
-	    /**
-	     * 模拟客户端发送数据包
-	     * @param {string} packet 
-	     */
-	    clientSend: (packet) =>
-	    {
-	        iframeContext.socket.send(packet);
-	    },
-
-	    /**
-	     * 模拟收到数据包
-	     * @param {string} packet 
-	     */
-	    receive: (packet) =>
-	    {
-	        iframeContext.socket._onmessage(packet);
-	    },
-	};
-
-	/**
-	 * 启用调试模式
-	 * @param {Boolean} enable 
-	 */
-	function enableForgeDebugMode(enable)
-	{
-	    enable = Boolean(enable);
-
-	    globalState.debugMode = enable;
-
-	    if (enable)
-	    {
-	        window["fdb"] = debugModeContext;
-	        if (iframeContext.iframeWindow)
-	            iframeContext.iframeWindow["fdb"] = debugModeContext;
-	        sessionStorage.setItem("iiroseForgeDebugMode", "true");
-	    }
-	    else
-	    {
-	        if (window["fdb"])
-	            delete window["fdb"];
-	        if (iframeContext.iframeWindow?.["fdb"])
-	            delete iframeContext.iframeWindow["fdb"];
-	        sessionStorage.removeItem("iiroseForgeDebugMode");
-	    }
-	}
-
-	let injectorScript = "!function(){\"use strict\";!function(){if(\"iirose.com\"!=location.host)return;let e=null;if(\"/\"==location.pathname)e=window;else{if(\"/messages.html\"!=location.pathname)return;e=parent.window}if(e.iiroseForgeInjected)return;let t=!1,o=!1,i=[\"https://qwq0.github.io/iiroseForge/iiroseForge.js\",\"https://cdn.jsdelivr.net/gh/qwq0/iiroseForge@page/iiroseForge.js\"];!function n(a){!async function(n){let a=await fetch(n,{cache:\"no-cache\"});if(a.ok){let c=await a.text();if(c&&(t||(t=!0,console.log(`[iiroseForgeInjector] load from ${n}`),new e.Function(c)()),!o)){o=!0;let e=await(window?.caches?.open?.(\"v\"));if(e){let t=new Response(new Blob([c],{type:\"text/javascript\"}),{status:200,statusText:\"OK\"});e.put(i[0],t),console.log(\"[iiroseForgeInjector] cache updated\")}}}}(i[a]),a<i.length-1&&setTimeout((()=>{t||n(a+1)}),2e3)}(0),(async()=>{if(t)return;let o=await((await(window?.caches?.open?.(\"v\")))?.match(i[0]));if(o&&o.ok){let i=await o.text();i&&!t&&(t=!0,console.log(\"[iiroseForgeInjector] load from cache\"),new e.Function(i)())}})()}()}();";
-
-	const injectCacheStartTag = `<!-- iiroseForge Installed Start -->`;
-	const injectCacheEndTag = `<!-- iiroseForge Installed End -->`;
-
-	/**
-	 * 在缓存字符串中加入forge注入器
-	 * @param {string} originalCacheStr
-	 * @param {boolean} requireUpdate
-	 * @returns {string}
-	 */
-	function insertForgeInjectorToString(originalCacheStr, requireUpdate)
-	{
-	    let cacheStr = originalCacheStr;
-	    if (cacheStr.indexOf(injectCacheStartTag) != -1)
-	    {
-	        if (!requireUpdate)
-	            return originalCacheStr;
-	    }
-	    cacheStr = removeForgeInjectorFromString(cacheStr);
-	    let insertIndex = cacheStr.lastIndexOf("</body></html>");
-	    if (insertIndex == -1)
-	    {
-	        showNotice("安装forge", "无法安装forge (缓存错误)");
-	        return originalCacheStr;
-	    }
-	    return ([
-	        cacheStr.slice(0, insertIndex),
-
-	        injectCacheStartTag,
-	        "<script>",
-	        injectorScript,
-	        "</script>",
-	        injectCacheEndTag,
-
-	        cacheStr.slice(insertIndex)
-	    ]).join("");
-	}
-
-	/**
-	 * 从缓存字符串中移除forge注入器
-	 * @param {string} originalCacheStr
-	 * @returns {string}
-	 */
-	function removeForgeInjectorFromString(originalCacheStr)
-	{
-	    const oldForgeLoaderElementHtml = `<script type="text/javascript" src="https://qwq0.github.io/iiroseForge/l.js"></script>`;
-
-	    let cacheStr = originalCacheStr;
-
-	    let oldRemoveIndex = cacheStr.indexOf(oldForgeLoaderElementHtml);
-	    if (oldRemoveIndex != -1)
-	        cacheStr = cacheStr.slice(0, oldRemoveIndex) + cacheStr.slice(oldRemoveIndex + oldForgeLoaderElementHtml.length);
-
-	    let removeStartIndex = cacheStr.indexOf(injectCacheStartTag);
-	    let removeEndIndex = cacheStr.lastIndexOf(injectCacheEndTag);
-	    if (removeStartIndex != -1 && removeEndIndex != -1)
-	        cacheStr = cacheStr.slice(0, removeStartIndex) + cacheStr.slice(removeEndIndex + injectCacheEndTag.length);
-
-	    return cacheStr;
-	}
-
-	/**
-	 * 向缓存中注入iiroseForge
-	 * @param {boolean} requireUpdate
-	 * @returns {Promise<void>}
-	 */
-	async function writeForgeToCache(requireUpdate)
-	{
-	    let cache = await caches.open("v");
-	    let catchMatch = await caches.match("/");
-	    if (catchMatch)
-	    {
-	        let mainPageCacheStr = await catchMatch.text();
-	        let newCacheMainPage = insertForgeInjectorToString(mainPageCacheStr, requireUpdate);
-	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
-	    }
-	    else
-	    {
-	        let newMainPageCacheStr = ([
-	            `<!DOCTYPE html>`,
-	            `<html>`,
-	            `<head>`,
-	            `</head>`,
-	            `<body>`,
-	            `<script>`,
-	            `(async () => {`,
-
-	            `let cache = await caches.open("v");`,
-	            `await cache.delete("/");`,
-
-	            `let mainPageCacheStr = await (await fetch("/", { cache: "no-cache" })).text();`,
-	            `let insertIndex = mainPageCacheStr.lastIndexOf("</body></html>");`,
-
-	            `if(insertIndex != -1)`,
-	            `mainPageCacheStr = mainPageCacheStr.slice(0, insertIndex) + `,
-	            ` "${injectCacheStartTag}" + "<scr" + "ipt>" + ${JSON.stringify(injectorScript)} + "<\\/sc" + "ript>" + "${injectCacheEndTag}" `,
-	            ` + mainPageCacheStr.slice(insertIndex);`,
-
-	            `await cache.put("/", new Response(new Blob([mainPageCacheStr], { type: "text/html" }), { status: 200, statusText: "OK" }));`,
-
-	            `location.reload();`,
-
-	            `})();`,
-	            `</script>`,
-	            `</body>`,
-	            `</html>`
-	        ]).join("");
-	        await cache.put("/", new Response(new Blob([newMainPageCacheStr], { type: "text/html" }), { status: 200, statusText: "OK" }));
-	    }
-	}
-
-	/**
-	 * 从缓存中清除iiroseForge的注入
-	 * @returns {Promise<void>}
-	 */
-	async function removeForgeFromCache()
-	{
-	    let cache = await caches.open("v");
-	    let catchMatch = await caches.match("/");
-	    if (catchMatch)
-	    {
-	        let mainPageCacheStr = await catchMatch.text();
-	        let newCacheMainPage = removeForgeInjectorFromString(mainPageCacheStr);
-	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
-	    }
-	}
-
-	if (localStorage.getItem("installForge") == "true")
-	{ // 用户要求安装
-	    writeForgeToCache(false);
-	}
-
-	/**
 	 * 规则类型
 	 * 用于对值的类型进行检查
 	 * 
@@ -6268,6 +5411,15 @@
 	            ok: RuleType.boolean()
 	        })
 	    },
+	    appendWriteFile: {
+	        request: createEventRule({
+	            filePath: RuleType.string(),
+	            content: RuleType.string()
+	        }),
+	        response: createEventRule({
+	            ok: RuleType.boolean()
+	        })
+	    },
 	    traversalWriteJson: {
 	        request: createEventRule({
 	            filePath: RuleType.string(),
@@ -6307,209 +5459,190 @@
 	    })
 	});
 
-	clientBinder.setEventListeners({
-	    fileChange: async (/** @type {{ filePath: string }} */e) =>
-	    {
-	        if (e.filePath == "roamingConfig.json")
-	        {
-	            let storageJson = (await localServiceClient.operator.query.readFile({
-	                filePath: "roamingConfig.json"
-	            })).content;
-	            if (storageJson)
-	            {
-	                let storageObj = JSON.parse(storageJson);
-	                storageRoamingSet(storageObj);
-	                storageRoamingSave(true);
-	                showNotice("forge本地服务", `漫游配置已更新`);
-	            }
-	        }
-	    },
-	    broadcast: () => { },
-	});
-
-	let textDecoder = new TextDecoder("utf-8");
-	let jsobinContext = new JSOBin();
+	/**
+	 * document.body的NElement封装
+	 */
+	let body = getNElement(document.body);
+	body.setStyle("cursor", "default");
 
 	/**
-	 * 本地服务客户端
-	 * 用于连接forge本地服务
+	 * 按钮流水线
+	 * @param {NElement} e
 	 */
-	class LocalServiceClient
+	function buttonAsse(e)
 	{
-	    /**
-	     * 本地服务的url
-	     */
-	    url = "ws://127.0.0.1:21909/forgeLocalServer";
+	    e.setStyle("transition", "transform 50ms linear, text-shadow 150ms linear");
 
-	    /**
-	     * qwqsocket客户端上下文
-	     * @type {QwQSocketClient}
-	     */
-	    client = null;
-
-	    /**
-	     * qwqsocket操作器上下文
-	     */
-	    operator = null;
-
-	    /**
-	     * websocket连接
-	     * @type {WebSocket}
-	     */
-	    socket = null;
-
-	    serviceAvailable = false;
-
-	    constructor()
+	    e.addEventListener("mousedown", () =>
 	    {
-	    }
-
-	    /**
-	     * 断开连接
-	     */
-	    close()
+	        e.setStyle("transform", "scale(0.95) translateY(2px)");
+	    });
+	    e.addEventListener("mouseup", () =>
 	    {
-	        this.serviceAvailable = false;
-	        if (this.socket)
-	        {
-	            this.socket.close();
-	            this.socket = null;
-	        }
-	        if (this.client)
-	        {
-	            this.client.sendData.removeAll();
-	            this.client = null;
-	        }
-	        if (this.operator)
-	            this.operator = null;
-	    }
+	        e.setStyle("transform", "");
+	    });
 
-	    /**
-	     * 等待连接
-	     * 如果未在连接则发起连接
-	     * @returns {Promise<void>}
-	     */
-	    waitConnect()
+	    e.addEventListener("mouseenter", () =>
 	    {
-	        return new Promise(resolve =>
-	        {
-	            if (this.socket?.readyState == WebSocket.OPEN)
-	            {
-	                resolve();
-	                return;
-	            }
-
-	            if (this.socket == null || this.socket.readyState != WebSocket.CONNECTING)
-	            {
-	                this.connect();
-	            }
-	            this.socket.addEventListener("open", () =>
-	            {
-	                resolve();
-	            });
-	        });
-	    }
-
-	    /**
-	     * 连接或重连服务
-	     */
-	    connect()
+	        e.setStyle("textShadow", `0 0 0.3em ${cssG.rgb(255, 255, 255, 0.5)}`);
+	        e.setStyle("transform", "translateY(-1px)");
+	    });
+	    e.addEventListener("mouseleave", () =>
 	    {
-	        showNotice("forge本地服务", `正在尝试与本地服务建立连接`);
-
-	        if (this.socket)
-	            this.socket.close();
-
-
-	        this.socket = new WebSocket(this.url);
-	        this.socket.binaryType = "arraybuffer";
-
-	        this.client = new QwQSocketClient();
-	        clientBinder.applyToInstance(this.client);
-	        this.client.sendData.add(e =>
-	        {
-	            if (this.socket)
-	                this.socket.send(e.prefix + "\0" + JSON.stringify(e.body));
-	        });
-	        this.operator = clientBinder.createOperator(this.client);
-
-	        this.socket.addEventListener("open", () =>
-	        {
-	            this.serviceAvailable = true;
-	        });
-	        this.socket.addEventListener("message", e =>
-	        {
-	            let rawData = e.data;
-	            try
-	            {
-	                if (typeof (rawData) == "object")
-	                {
-	                    let data = new Uint8Array(/** @type {ArrayBuffer} */(rawData));
-	                    let separatorIndex = data.indexOf(0);
-	                    if (this.client)
-	                    {
-	                        if (separatorIndex != -1)
-	                            this.client.receiveData(
-	                                textDecoder.decode(data.subarray(0, separatorIndex)),
-	                                jsobinContext.decode(data.subarray(separatorIndex + 1))
-	                            );
-	                        else
-	                            this.client.receiveData(
-	                                textDecoder.decode(data),
-	                                undefined
-	                            );
-	                    }
-	                    else
-	                        this.close();
-	                }
-	                else
-	                {
-	                    let data = rawData;
-	                    let separatorIndex = data.indexOf("\0");
-	                    if (this.client)
-	                    {
-	                        if (separatorIndex != -1)
-	                            this.client.receiveData(
-	                                data.slice(0, separatorIndex),
-	                                JSON.parse(data.slice(separatorIndex + 1))
-	                            );
-	                        else
-	                            this.client.receiveData(
-	                                data,
-	                                undefined
-	                            );
-	                    }
-	                    else
-	                        this.close();
-	                }
-	            }
-	            catch (err)
-	            {
-	                this.close();
-	            }
-	        });
-
-	        this.socket.addEventListener("close", e =>
-	        {
-	            this.serviceAvailable = false;
-	            setTimeout(() =>
-	            {
-	                if (this.socket == null || this.socket.readyState == WebSocket.CLOSED)
-	                {
-	                    this.connect();
-	                }
-	            }, 10 * 1000);
-	        });
-	        this.socket.addEventListener("error", e =>
-	        {
-	            this.serviceAvailable = false;
-	            showNotice("forge本地服务", `与本地服务器的连接意外断开`);
-	        });
-	    }
-
+	        e.setStyle("textShadow", "");
+	        e.setStyle("transform", "");
+	    });
 	}
 
-	let localServiceClient = new LocalServiceClient();
+	var noticeContainer = expandElement({
+	    position: "absolute",
+	    right: "0px",
+	    style: {
+	        userSelect: "none",
+	        pointerEvents: "none",
+	        zIndex: "30000"
+	    }
+	});
+	body.addChild(noticeContainer);
+
+	/**
+	 * 推送通知
+	 * @param {string} title 
+	 * @param {string} text 
+	 * @param {string} [additional]
+	 * @param {Function} [callback]
+	 */
+	function showNotice(title, text, additional = "iiroseForge", callback = null)
+	{
+	    let notice = expandElement({
+	        style: {
+	            color: cssG.rgb(255, 255, 255),
+	            backgroundColor: cssG.rgb(255, 255, 255, 0.1),
+	            backdropFilter: "blur(2px) brightness(90%)",
+	            marginRight: "1em",
+	            marginTop: "1em",
+	            marginLeft: "1em",
+	            float: "right",
+	            clear: "both",
+	            overflow: "hidden hidden",
+	            padding: "1em",
+	            boxSizing: "border-box",
+	            minWidth: "180px",
+	            borderRadius: "0.2em",
+	            boxShadow: `${cssG.rgb(0, 0, 0, 0.55)} 3px 3px 9px`
+	        },
+	        position: "relative",
+	        child: [{ // 通知图标
+	            tagName: "i",
+	            classList: ["fa", "fa-info-circle"]
+	        }, { // 通知标题
+	            text: title,
+	            style: {
+	                fontSize: "1.2em",
+	                lineHeight: "1.5em",
+	                fontWeight: "bolder",
+	                // textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
+	            }
+	        }, { // 通知正文
+	            text: text,
+	            style: {
+	                // textShadow: "0px 0px 5px rgb(255, 255, 255), 0px 0px 3px rgba(255, 255, 255, 0.7)"
+	            }
+	        }, { // 通知附加内容
+	            text: additional,
+	            style: {
+	                fontSize: "0.9em",
+	                float: "right"
+	            }
+	        }, { // 通知右上角关闭按钮
+	            text: "×",
+	            position: "absolute",
+	            right: "4px",
+	            top: "1px",
+	            assembly: [buttonAsse],
+	            style: {
+	                fontSize: "25px",
+	                lineHeight: "1em"
+	            },
+	            event: {
+	                click: (/** @type {Event} */e) =>
+	                {
+	                    e.stopPropagation();
+	                    closeThisNotice();
+	                }
+	            }
+	        }]
+	    });
+	    noticeContainer.addChild(notice);
+	    notice.animate([
+	        {
+	            transform: "translateX(180%) translateY(10%) scale(0.6)"
+	        },
+	        {
+	        }
+	    ], {
+	        duration: 180
+	    });
+	    setTimeout(() => { notice.setStyle("pointerEvents", "auto"); }, 180);
+
+	    let startClosing = false;
+	    function closeThisNotice()
+	    {
+	        if (startClosing)
+	            return;
+	        startClosing = true;
+	        notice.setStyle("pointerEvents", "none");
+	        notice.animate([
+	            {
+	            },
+	            {
+	                transform: "translateX(180%)"
+	            }
+	        ], {
+	            duration: 270,
+	            fill: "forwards"
+	        });
+	        setTimeout(() =>
+	        {
+	            notice.setStyle("visibility", "hidden");
+	            notice.animate([
+	                {
+	                    height: (/** @type {HTMLDivElement} */(notice.element)).clientHeight + "px"
+	                },
+	                {
+	                    marginTop: 0,
+	                    height: 0,
+	                    padding: 0
+	                }
+	            ], {
+	                duration: 150,
+	                fill: "forwards"
+	            });
+	            setTimeout(() =>
+	            {
+	                notice.remove();
+	            }, 150);
+	        }, 270);
+	    }
+
+	    setTimeout(() =>
+	    {
+	        closeThisNotice();
+	    }, 2500 + Math.min(15 * 1000, text.length * 255));
+
+	    if (callback)
+	    {
+	        notice.asse(buttonAsse);
+	        notice.addEventListener("click", () =>
+	        {
+	            if (!startClosing)
+	            {
+	                callback();
+	                closeThisNotice();
+	            }
+	        });
+	    }
+	}
 
 	/**
 	 * 储存上下文
@@ -6786,6 +5919,960 @@
 	    {
 	        showNotice("错误", "无法写入本地储存 这可能导致iiroseForge配置丢失");
 	    }
+	}
+
+	clientBinder.setEventListeners({
+	    fileChange: async (/** @type {{ filePath: string }} */e) =>
+	    {
+	        if (e.filePath == "roamingConfig.json")
+	        {
+	            let storageJson = (await localServiceClient.operator.query.readFile({
+	                filePath: "roamingConfig.json"
+	            })).content;
+	            if (storageJson)
+	            {
+	                let storageObj = JSON.parse(storageJson);
+	                storageRoamingSet(storageObj);
+	                storageRoamingSave(true);
+	                showNotice("forge本地服务", `漫游配置已更新`);
+	            }
+	        }
+	    },
+	    broadcast: () => { },
+	});
+
+	let textDecoder = new TextDecoder("utf-8");
+	let jsobinContext = new JSOBin();
+
+	/**
+	 * 本地服务客户端
+	 * 用于连接forge本地服务
+	 */
+	class LocalServiceClient
+	{
+	    /**
+	     * 本地服务的url
+	     */
+	    url = "ws://127.0.0.1:21909/forgeLocalServer";
+
+	    /**
+	     * qwqsocket客户端上下文
+	     * @type {QwQSocketClient}
+	     */
+	    client = null;
+
+	    /**
+	     * qwqsocket操作器上下文
+	     */
+	    operator = null;
+
+	    /**
+	     * websocket连接
+	     * @type {WebSocket}
+	     */
+	    socket = null;
+
+	    serviceAvailable = false;
+
+	    constructor()
+	    {
+	    }
+
+	    /**
+	     * 断开连接
+	     */
+	    close()
+	    {
+	        this.serviceAvailable = false;
+	        if (this.socket)
+	        {
+	            this.socket.close();
+	            this.socket = null;
+	        }
+	        if (this.client)
+	        {
+	            this.client.sendData.removeAll();
+	            this.client = null;
+	        }
+	        if (this.operator)
+	            this.operator = null;
+	    }
+
+	    /**
+	     * 等待连接
+	     * 如果未在连接则发起连接
+	     * @returns {Promise<void>}
+	     */
+	    waitConnect()
+	    {
+	        return new Promise(resolve =>
+	        {
+	            if (this.socket?.readyState == WebSocket.OPEN)
+	            {
+	                resolve();
+	                return;
+	            }
+
+	            if (this.socket == null || this.socket.readyState != WebSocket.CONNECTING)
+	            {
+	                this.connect();
+	            }
+	            this.socket.addEventListener("open", () =>
+	            {
+	                resolve();
+	            });
+	        });
+	    }
+
+	    /**
+	     * 连接或重连服务
+	     */
+	    connect()
+	    {
+	        showNotice("forge本地服务", `正在尝试与本地服务建立连接`);
+
+	        if (this.socket)
+	            this.socket.close();
+
+
+	        this.socket = new WebSocket(this.url);
+	        this.socket.binaryType = "arraybuffer";
+
+	        this.client = new QwQSocketClient();
+	        clientBinder.applyToInstance(this.client);
+	        this.client.sendData.add(e =>
+	        {
+	            if (this.socket)
+	                this.socket.send(e.prefix + "\0" + JSON.stringify(e.body));
+	        });
+	        this.operator = clientBinder.createOperator(this.client);
+
+	        this.socket.addEventListener("open", () =>
+	        {
+	            this.serviceAvailable = true;
+	        });
+	        this.socket.addEventListener("message", e =>
+	        {
+	            let rawData = e.data;
+	            try
+	            {
+	                if (typeof (rawData) == "object")
+	                {
+	                    let data = new Uint8Array(/** @type {ArrayBuffer} */(rawData));
+	                    let separatorIndex = data.indexOf(0);
+	                    if (this.client)
+	                    {
+	                        if (separatorIndex != -1)
+	                            this.client.receiveData(
+	                                textDecoder.decode(data.subarray(0, separatorIndex)),
+	                                jsobinContext.decode(data.subarray(separatorIndex + 1))
+	                            );
+	                        else
+	                            this.client.receiveData(
+	                                textDecoder.decode(data),
+	                                undefined
+	                            );
+	                    }
+	                    else
+	                        this.close();
+	                }
+	                else
+	                {
+	                    let data = rawData;
+	                    let separatorIndex = data.indexOf("\0");
+	                    if (this.client)
+	                    {
+	                        if (separatorIndex != -1)
+	                            this.client.receiveData(
+	                                data.slice(0, separatorIndex),
+	                                JSON.parse(data.slice(separatorIndex + 1))
+	                            );
+	                        else
+	                            this.client.receiveData(
+	                                data,
+	                                undefined
+	                            );
+	                    }
+	                    else
+	                        this.close();
+	                }
+	            }
+	            catch (err)
+	            {
+	                console.error("LocalServiceClient error:", err);
+	            }
+	        });
+
+	        this.socket.addEventListener("close", e =>
+	        {
+	            this.serviceAvailable = false;
+	            setTimeout(() =>
+	            {
+	                if (this.socket == null || this.socket.readyState == WebSocket.CLOSED)
+	                {
+	                    this.connect();
+	                }
+	            }, 10 * 1000);
+	        });
+	        this.socket.addEventListener("error", e =>
+	        {
+	            this.serviceAvailable = false;
+	            showNotice("forge本地服务", `与本地服务器的连接意外断开`);
+	        });
+	    }
+
+	}
+
+	let localServiceClient = new LocalServiceClient();
+
+	/**
+	 * html特殊符号转义
+	 * @param {string} e 
+	 * @returns {string}
+	 */
+	function htmlSpecialCharsEscape(e)
+	{
+	    e = e.replaceAll(`&`, "&amp;");
+
+	    e = e.replaceAll(`<`, "&lt;");
+	    e = e.replaceAll(`>`, "&gt;");
+	    e = e.replaceAll(`"`, "&quot;");
+	    e = e.replaceAll(`'`, "&#039;");
+	    e = e.replaceAll(`\\`, "&#092;");
+	    
+	    return e;
+	}
+	/**
+	 * html特殊符号反转义
+	 * @param {string} e 
+	 * @returns {string}
+	 */
+	function htmlSpecialCharsDecode(e)
+	{
+	    e = e.replaceAll("&lt;", `<`);
+	    e = e.replaceAll("&gt;", `>`);
+	    e = e.replaceAll("&quot;", `"`);
+	    e = e.replaceAll("&#039;", `'`);
+	    e = e.replaceAll("&#092;", `\\`);
+
+	    e = e.replaceAll("&amp;", `&`);
+
+	    return e;
+	}
+
+	const forgeOccupyPlugNameSet = new Set([
+	    "forge",
+	    "iiroseForge",
+	    "forgeFrame",
+	    "iiroseForgeFrame",
+	]);
+
+	/**
+	 * 暴露的forge接口
+	 */
+	const forgeApi = {
+	    /**
+	     * 接口状态
+	     */
+	    state: {
+	        /**
+	         * 当前执行操作的插件
+	         * @type {{ name: string }}
+	         */
+	        plug: null
+	    },
+
+	    /**
+	     * 操作列表
+	     */
+	    operation: {
+	        /**
+	         * 显示forge通知
+	         * @param {string} content
+	         * @param {Function} callback
+	         */
+	        showForgeNotice: (content, callback) =>
+	        {
+	            content = String(content);
+	            showNotice("插件提示", content, `插件 ${forgeApi.state.plug?.name}`, callback);
+	        },
+
+
+	        /**
+	         * 获取用户蔷薇昵称
+	         * @returns {string}
+	         */
+	        getUserName: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["myself"])
+	                return iframeContext.iframeWindow["myself"];
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇uid
+	         * @returns {string}
+	         */
+	        getUserUid: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["uid"])
+	                return iframeContext.iframeWindow["uid"];
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇所在房间id
+	         * @returns {string}
+	         */
+	        getUserRoomId: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["roomn"])
+	                return iframeContext.iframeWindow["roomn"];
+	            return null;
+	        },
+
+	        /**
+	         * 通过房间id获取房间信息
+	         * @param {string} roomId
+	         * @returns {{
+	         *  name: string,
+	         *  roomPath: Array<string>,
+	         *  color: string,
+	         *  description: string,
+	         *  roomImage: string,
+	         *  currentUserNum: number | "hidden",
+	         *  ownerName: string,
+	         *  member: Array<{ name: string, auth: "member" | "admin"| "unknow" }>
+	         * }}
+	         */
+	        getRoomInfoById: (roomId) =>
+	        {
+	            roomId = String(roomId);
+	            let roomInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.Assets?.roomJson?.[roomId];
+	            if (roomInfoArray)
+	            {
+	                /** @type {Array<Array<string>>} */
+	                let roomInfoPart = roomInfoArray[5].split("&&").map((/** @type {string} */ o) => o.split(" & "));
+	                let imageAndDescription = htmlSpecialCharsDecode(roomInfoPart[0][0]);
+	                let firstSpaceIndex = imageAndDescription.indexOf(" ");
+	                return {
+	                    name: roomInfoArray[1],
+	                    color: roomInfoArray[2],
+	                    roomPath: (/** @type {string} */(roomInfoArray[0])).split("_"),
+	                    description: imageAndDescription.slice(firstSpaceIndex + 1),
+	                    roomImage: imageAndDescription.slice(0, firstSpaceIndex),
+	                    currentUserNum: (typeof (roomInfoArray[7]) == "number" ? roomInfoArray[7] : "hidden"),
+	                    ownerName: roomInfoPart[1][0],
+	                    member: roomInfoPart[4].map(o => ({
+	                        name: htmlSpecialCharsDecode(o.slice(1)),
+	                        auth: (o[0] == "0" ? "member" : o[0] == "1" ? "admin" : "unknow")
+	                    }))
+	                };
+	            }
+	            else
+	                return null;
+	        },
+
+	        /**
+	         * 通过uid获取在线用户的信息
+	         * @param {string} uid
+	         * @returns {{
+	         *  name: string,
+	         *  uid: string,
+	         *  color: string,
+	         *  avatar: string,
+	         *  roomId: string,
+	         *  personalizedSignature: string
+	         * }}
+	         */
+	        getOnlineUserInfoById: (uid) =>
+	        {
+	            uid = String(uid);
+	            let userInfoArray = iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.findUserByUid?.(uid);
+	            if (userInfoArray)
+	            {
+	                return {
+	                    name: userInfoArray[2],
+	                    uid: uid,
+	                    color: userInfoArray[3],
+	                    avatar: userInfoArray[0],
+	                    roomId: userInfoArray[4],
+	                    personalizedSignature: userInfoArray[6]
+	                };
+	            }
+	            else
+	                return null;
+	        },
+
+	        /**
+	         * 通过uid获取在线用户的信息
+	         * @returns {Array<{
+	         *  name: string,
+	         *  uid: string,
+	         *  color: string,
+	         *  avatar: string,
+	         *  roomId: string,
+	         *  personalizedSignature: string
+	         * }>}
+	         */
+	        getAllOnlineUserInfo: () =>
+	        {
+	            let userInfoMapObj = iframeContext.iframeWindow?.["Objs"]?.mapHolder.Assets.userJson;
+	            if (userInfoMapObj)
+	            {
+	                return (Object.keys(userInfoMapObj)).map(key =>
+	                {
+	                    let o = userInfoMapObj[key];
+	                    return {
+	                        name: o[2],
+	                        uid: o[8],
+	                        color: o[3],
+	                        avatar: o[0],
+	                        roomId: o[4],
+	                        personalizedSignature: o[6]
+	                    };
+	                });
+	            }
+	            else
+	                return null;
+	        },
+
+	        /**
+	         * 切换房间
+	         * @param {string} roomId
+	         */
+	        changeRoom: (roomId) =>
+	        {
+	            roomId = String(roomId);
+	            if (roomId)
+	                iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger(roomId);
+	        },
+
+	        /**
+	         * 获取用户蔷薇头像url
+	         * @returns {string}
+	         */
+	        getUserProfilePictureUrl: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["avatar2"] && iframeContext.iframeWindow?.["avatarconv"])
+	                return iframeContext.iframeWindow["avatarconv"](iframeContext.iframeWindow["avatar2"]);
+	            return null;
+	        },
+
+	        /**
+	         * 获取用户蔷薇输入颜色
+	         * @returns {string}
+	         */
+	        getUserInputColor: () =>
+	        {
+	            if (iframeContext.iframeWindow?.["inputcolorhex"])
+	                return iframeContext.iframeWindow["inputcolorhex"];
+	            return null;
+	        },
+
+	        /**
+	         * 在用户所在房间发送消息
+	         * @param {string} content
+	         */
+	        sendRoomMessage: (content) =>
+	        {
+	            content = String(content);
+	            if (!content)
+	                return;
+	            iframeContext.socketApi.send(JSON.stringify({
+	                "m": content,
+	                "mc": forgeApi.operation.getUserInputColor(),
+	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+	            }));
+	        },
+
+	        /**
+	         * 在用户所在房间发送forge包消息
+	         * @param {Object} obj
+	         */
+	        sendRoomForgePacket: (obj) =>
+	        {
+	            if (
+	                typeof (obj) != "object" ||
+	                (forgeApi.state.plug && forgeOccupyPlugNameSet.has(obj.plug))
+	            )
+	                return;
+	            let forgePacket = writeForgePacket(obj);
+	            if (typeof (forgePacket) == "string")
+	                forgeApi.operation.sendRoomMessage(forgePacket);
+	            else
+	                (async () =>
+	                {
+	                    for (let i = 0; i < forgePacket.length; i++)
+	                    {
+	                        forgeApi.operation.sendRoomMessage(forgePacket[i]);
+	                        await delayPromise(60);
+	                    }
+	                })();
+	        },
+
+	        /**
+	         * 私聊发送forge包消息
+	         * @param {string} targetUid
+	         * @param {Object} obj
+	         */
+	        sendPrivateForgePacket: (targetUid, obj) =>
+	        {
+	            if (
+	                typeof (obj) != "object" ||
+	                (forgeApi.state.plug && forgeOccupyPlugNameSet.has(obj.plug))
+	            )
+	                return;
+	            let forgePacket = writeForgePacket(obj);
+	            if (typeof (forgePacket) == "string")
+	                forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket);
+	            else
+	                (async () =>
+	                {
+	                    for (let i = 0; i < forgePacket.length; i++)
+	                    {
+	                        forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket[i]);
+	                        await delayPromise(60);
+	                    }
+	                })();
+	        },
+
+	        /**
+	         * 给自己私聊发送forge包消息
+	         * @param {Object} obj
+	         */
+	        sendSelfPrivateForgePacket: (obj) =>
+	        {
+	            forgeApi.operation.sendPrivateForgePacket(forgeApi.operation.getUserUid(), obj);
+	        },
+
+	        /**
+	         * 静默发送私聊
+	         * @param {string} targetUid
+	         * @param {string} content
+	         * @returns {{
+	         *  messageId: string
+	         * }}
+	         */
+	        sendPrivateMessageSilence: (targetUid, content) =>
+	        {
+	            targetUid = String(targetUid);
+	            content = String(content);
+	            if (!content || !targetUid)
+	                return;
+	            let messageId = String(Date.now()).slice(-5) + String(Math.random()).slice(-7);
+	            iframeContext.socketApi.send(JSON.stringify({
+	                "g": targetUid,
+	                "m": content,
+	                "mc": forgeApi.operation.getUserInputColor(),
+	                "i": messageId
+	            }));
+	            return { messageId };
+	        },
+
+	        /**
+	         * 发送私聊
+	         * @param {string} targetUid
+	         * @param {string} content
+	         */
+	        sendPrivateMessage: (targetUid, content) =>
+	        {
+	            targetUid = String(targetUid);
+	            content = String(content);
+	            if (!content || !targetUid)
+	                return;
+	            let messageId = forgeApi.operation.sendPrivateMessageSilence(targetUid, content).messageId;
+	            iframeContext.iframeWindow?.["privatechatfunc"](([
+	                Math.floor(Date.now() / 1000).toString(10), // 0
+	                forgeApi.operation.getUserUid(), // 1
+	                htmlSpecialCharsEscape(forgeApi.operation.getUserName()), // 2
+	                htmlSpecialCharsEscape(forgeApi.operation.getUserProfilePictureUrl()), // 3
+	                htmlSpecialCharsEscape(content), // 4
+	                htmlSpecialCharsEscape(forgeApi.operation.getUserInputColor()), // 5
+	                "", // 6
+	                htmlSpecialCharsEscape(forgeApi.operation.getUserInputColor()), // 7
+	                "", // 8
+	                "", // 9
+	                messageId, // 10
+	                targetUid, // 11
+	                "", // 12
+	                "", // 13
+	                "", // 14
+	                "", // 15
+	                "", // 16
+	            ]).join(">"));
+	        },
+
+	        /**
+	         * 静默给自己发送私聊
+	         * @param {string} content
+	         */
+	        sendSelfPrivateMessageSilence: (content) =>
+	        {
+	            forgeApi.operation.sendPrivateMessageSilence(forgeApi.operation.getUserUid(), content);
+	        },
+
+	        /**
+	         * 点赞
+	         * @param {string} targetUid
+	         * @param {string} [content]
+	         */
+	        giveALike: (targetUid, content = "") =>
+	        {
+	            targetUid = String(targetUid);
+	            content = String(content);
+	            if (!targetUid)
+	                return;
+	            iframeContext.socketApi.send(`+*${targetUid}${content ? " " + content : ""}`);
+	        },
+
+	        /**
+	         * 切换房间
+	         * @param {string} roomId
+	         */
+	        switchRoom: (roomId) =>
+	        {
+	            roomId = String(roomId);
+	            if (iframeContext.iframeWindow?.["Objs"]?.mapHolder?.function?.roomchanger)
+	                iframeContext.iframeWindow["Objs"].mapHolder.function.roomchanger(roomId);
+	        },
+
+	        /**
+	         * 执行终端命令
+	         * 插件暂时无法申请此权限
+	         * @param {string} command
+	         */
+	        runTerminalCommand: (command) =>
+	        {
+	            command = String(command);
+	            runTerminalCommand(command);
+	        },
+
+	        /**
+	         * 在当前用户所在的页面发送信息
+	         * 插件暂时无法申请此权限
+	         * @param {string} content
+	         */
+	        sendCurrentPageMessage: (content) =>
+	        {
+	            content = String(content);
+	            sendMessageOnCurrentPage(content);
+	        }
+	    },
+
+	    /**
+	     * 事件列表
+	     */
+	    event: {
+	        /**
+	         * 接收到房间消息
+	         * @type {EventHandler<{ senderId: string, senderName: string, content: string }>}
+	         */
+	        roomMessage: new EventHandler$2(),
+
+	        /**
+	         * 接受到私聊消息
+	         * 不包括自己发出的
+	         * 不包括自己发送给自己的
+	         * @type {EventHandler<{ senderId: string, senderName: string, content: string }>}
+	         */
+	        privateMessage: new EventHandler$2(),
+
+	        /**
+	         * 接受到自己发送给自己的私聊消息
+	         * @type {EventHandler<{ content: string }>}
+	         */
+	        selfPrivateMessage: new EventHandler$2(),
+
+	        /**
+	         * 接收到房间的forge数据包
+	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
+	         */
+	        roomForgePacket: new EventHandler$2(),
+	        /**
+	         * 接收到私聊的forge数据包
+	         * @type {EventHandler<{ senderId: string, senderName: string, content: Object }>}
+	         */
+	        privateForgePacket: new EventHandler$2(),
+	        /**
+	         * 接收到自己发给自己的forge数据包
+	         * @type {EventHandler<{ content: Object }>}
+	         */
+	        selfPrivateForgePacket: new EventHandler$2(),
+	    },
+
+	    /**
+	     * 本地服务
+	     */
+	    localService: {
+	        /**
+	         * 写入文件
+	         * @param {string} path 
+	         * @param {string} content 
+	         * @returns {Promise<void>} 
+	         */
+	        writeFile: async (path, content) =>
+	        {
+	            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
+	                throw "Local services cannot be accessed";
+	            if (!localServiceClient.serviceAvailable)
+	                throw "Local services is not available";
+	            let result = await localServiceClient.operator.query.writeFile({ filePath: "plug/" + path, content: String(content) });
+	            if (!result?.ok)
+	                throw "writeFile error";
+	        },
+
+	        /**
+	         * 追加写入文件
+	         * @param {string} path 
+	         * @param {string} content 
+	         * @returns {Promise<void>} 
+	         */
+	        appendWriteFile: async (path, content) =>
+	        {
+	            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
+	                throw "Local services cannot be accessed";
+	            if (!localServiceClient.serviceAvailable)
+	                throw "Local services is not available";
+	            let result = await localServiceClient.operator.query.appendWriteFile({ filePath: "plug/" + path, content: String(content) });
+	            if (!result?.ok)
+	                throw "appendWriteFile error";
+	        },
+
+	        /**
+	         * 覆盖写入json到文件
+	         * @param {string} path 
+	         * @param {string} content 
+	         * @returns {Promise<void>} 
+	         */
+	        overlayWriteJson: async (path, content) =>
+	        {
+	            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
+	                throw "Local services cannot be accessed";
+	            if (!localServiceClient.serviceAvailable)
+	                throw "Local services is not available";
+	            let result = await localServiceClient.operator.query.traversalWriteJson({
+	                filePath: "roamingConfig.json",
+	                json: content,
+	                deleteTree: ""
+	            });
+	            if (!result?.ok)
+	                throw "overlayWriteJson error";
+	        },
+
+	        /**
+	         * 读取文件
+	         * @param {string} path 
+	         * @param {string} content
+	         * @returns {Promise<string>} 
+	         */
+	        readFile: async (path, content) =>
+	        {
+	            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
+	                throw "Local services cannot be accessed";
+	            if (!localServiceClient.serviceAvailable)
+	                throw "Local services is not available";
+	            let result = await localServiceClient.operator.query.readFile({ filePath: "plug/" + path });
+	            if (!result)
+	                throw "read file error";
+	            return result.content;
+	        }
+	    }
+	};
+
+	window["iiroseForgeApi"] = forgeApi; // 给外侧侧载脚本预留forgeApi
+
+	let globalState = {
+	    debugMode: false
+	};
+
+	let debugModeContext = {
+	    /**
+	     * 发送数据包
+	     * @param {string} packet 
+	     */
+	    send: (packet) =>
+	    {
+	        iframeContext.socketApi.send(packet);
+	    },
+
+	    /**
+	     * 模拟客户端发送数据包
+	     * @param {string} packet 
+	     */
+	    clientSend: (packet) =>
+	    {
+	        iframeContext.socket.send(packet);
+	    },
+
+	    /**
+	     * 模拟收到数据包
+	     * @param {string} packet 
+	     */
+	    receive: (packet) =>
+	    {
+	        iframeContext.socket._onmessage(packet);
+	    },
+	};
+
+	/**
+	 * 启用调试模式
+	 * @param {Boolean} enable 
+	 */
+	function enableForgeDebugMode(enable)
+	{
+	    enable = Boolean(enable);
+
+	    globalState.debugMode = enable;
+
+	    if (enable)
+	    {
+	        window["fdb"] = debugModeContext;
+	        if (iframeContext.iframeWindow)
+	            iframeContext.iframeWindow["fdb"] = debugModeContext;
+	        sessionStorage.setItem("iiroseForgeDebugMode", "true");
+	    }
+	    else
+	    {
+	        if (window["fdb"])
+	            delete window["fdb"];
+	        if (iframeContext.iframeWindow?.["fdb"])
+	            delete iframeContext.iframeWindow["fdb"];
+	        sessionStorage.removeItem("iiroseForgeDebugMode");
+	    }
+	}
+
+	let injectorScript = "!function(){\"use strict\";!function(){if(\"iirose.com\"!=location.host)return;let e=null;if(\"/\"==location.pathname)e=window;else{if(\"/messages.html\"!=location.pathname)return;e=parent.window}if(e.iiroseForgeInjected)return;let t=!1,o=!1,i=[\"https://qwq0.github.io/iiroseForge/iiroseForge.js\",\"https://cdn.jsdelivr.net/gh/qwq0/iiroseForge@page/iiroseForge.js\"];!function n(a){!async function(n){let a=await fetch(n,{cache:\"no-cache\"});if(a.ok){let c=await a.text();if(c&&(t||(t=!0,console.log(`[iiroseForgeInjector] load from ${n}`),new e.Function(c)()),!o)){o=!0;let e=await(window?.caches?.open?.(\"v\"));if(e){let t=new Response(new Blob([c],{type:\"text/javascript\"}),{status:200,statusText:\"OK\"});e.put(i[0],t),console.log(\"[iiroseForgeInjector] cache updated\")}}}}(i[a]),a<i.length-1&&setTimeout((()=>{t||n(a+1)}),2e3)}(0),(async()=>{if(t)return;let o=await((await(window?.caches?.open?.(\"v\")))?.match(i[0]));if(o&&o.ok){let i=await o.text();i&&!t&&(t=!0,console.log(\"[iiroseForgeInjector] load from cache\"),new e.Function(i)())}})()}()}();";
+
+	const injectCacheStartTag = `<!-- iiroseForge Installed Start -->`;
+	const injectCacheEndTag = `<!-- iiroseForge Installed End -->`;
+
+	/**
+	 * 在缓存字符串中加入forge注入器
+	 * @param {string} originalCacheStr
+	 * @param {boolean} requireUpdate
+	 * @returns {string}
+	 */
+	function insertForgeInjectorToString(originalCacheStr, requireUpdate)
+	{
+	    let cacheStr = originalCacheStr;
+	    if (cacheStr.indexOf(injectCacheStartTag) != -1)
+	    {
+	        if (!requireUpdate)
+	            return originalCacheStr;
+	    }
+	    cacheStr = removeForgeInjectorFromString(cacheStr);
+	    let insertIndex = cacheStr.lastIndexOf("</body></html>");
+	    if (insertIndex == -1)
+	    {
+	        showNotice("安装forge", "无法安装forge (缓存错误)");
+	        return originalCacheStr;
+	    }
+	    return ([
+	        cacheStr.slice(0, insertIndex),
+
+	        injectCacheStartTag,
+	        "<script>",
+	        injectorScript,
+	        "</script>",
+	        injectCacheEndTag,
+
+	        cacheStr.slice(insertIndex)
+	    ]).join("");
+	}
+
+	/**
+	 * 从缓存字符串中移除forge注入器
+	 * @param {string} originalCacheStr
+	 * @returns {string}
+	 */
+	function removeForgeInjectorFromString(originalCacheStr)
+	{
+	    const oldForgeLoaderElementHtml = `<script type="text/javascript" src="https://qwq0.github.io/iiroseForge/l.js"></script>`;
+
+	    let cacheStr = originalCacheStr;
+
+	    let oldRemoveIndex = cacheStr.indexOf(oldForgeLoaderElementHtml);
+	    if (oldRemoveIndex != -1)
+	        cacheStr = cacheStr.slice(0, oldRemoveIndex) + cacheStr.slice(oldRemoveIndex + oldForgeLoaderElementHtml.length);
+
+	    let removeStartIndex = cacheStr.indexOf(injectCacheStartTag);
+	    let removeEndIndex = cacheStr.lastIndexOf(injectCacheEndTag);
+	    if (removeStartIndex != -1 && removeEndIndex != -1)
+	        cacheStr = cacheStr.slice(0, removeStartIndex) + cacheStr.slice(removeEndIndex + injectCacheEndTag.length);
+
+	    return cacheStr;
+	}
+
+	/**
+	 * 向缓存中注入iiroseForge
+	 * @param {boolean} requireUpdate
+	 * @returns {Promise<void>}
+	 */
+	async function writeForgeToCache(requireUpdate)
+	{
+	    let cache = await caches.open("v");
+	    let catchMatch = await caches.match("/");
+	    if (catchMatch)
+	    {
+	        let mainPageCacheStr = await catchMatch.text();
+	        let newCacheMainPage = insertForgeInjectorToString(mainPageCacheStr, requireUpdate);
+	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	    }
+	    else
+	    {
+	        let newMainPageCacheStr = ([
+	            `<!DOCTYPE html>`,
+	            `<html>`,
+	            `<head>`,
+	            `</head>`,
+	            `<body>`,
+	            `<script>`,
+	            `(async () => {`,
+
+	            `let cache = await caches.open("v");`,
+	            `await cache.delete("/");`,
+
+	            `let mainPageCacheStr = await (await fetch("/", { cache: "no-cache" })).text();`,
+	            `let insertIndex = mainPageCacheStr.lastIndexOf("</body></html>");`,
+
+	            `if(insertIndex != -1)`,
+	            `mainPageCacheStr = mainPageCacheStr.slice(0, insertIndex) + `,
+	            ` "${injectCacheStartTag}" + "<scr" + "ipt>" + ${JSON.stringify(injectorScript)} + "<\\/sc" + "ript>" + "${injectCacheEndTag}" `,
+	            ` + mainPageCacheStr.slice(insertIndex);`,
+
+	            `await cache.put("/", new Response(new Blob([mainPageCacheStr], { type: "text/html" }), { status: 200, statusText: "OK" }));`,
+
+	            `location.reload();`,
+
+	            `})();`,
+	            `</script>`,
+	            `</body>`,
+	            `</html>`
+	        ]).join("");
+	        await cache.put("/", new Response(new Blob([newMainPageCacheStr], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	    }
+	}
+
+	/**
+	 * 从缓存中清除iiroseForge的注入
+	 * @returns {Promise<void>}
+	 */
+	async function removeForgeFromCache()
+	{
+	    let cache = await caches.open("v");
+	    let catchMatch = await caches.match("/");
+	    if (catchMatch)
+	    {
+	        let mainPageCacheStr = await catchMatch.text();
+	        let newCacheMainPage = removeForgeInjectorFromString(mainPageCacheStr);
+	        await cache.put("/", new Response(new Blob([newCacheMainPage], { type: "text/html" }), { status: 200, statusText: "OK" }));
+	    }
+	}
+
+	if (localStorage.getItem("installForge") == "true")
+	{ // 用户要求安装
+	    writeForgeToCache(false);
 	}
 
 	/**
@@ -12747,7 +12834,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.21.0"
+	    version: "alpha v1.21.1"
 	};
 
 	/**
@@ -15435,6 +15522,94 @@
 	    recordViewerWindow.windowElement.setStyle("pointerEvents", "auto");
 	}
 
+	let enabledLocalService = false;
+
+	/**
+	 * 启用本地服务
+	 */
+	async function enableLocalService()
+	{
+	    if (enabledLocalService)
+	        return;
+	    enabledLocalService = true;
+
+	    let url = storageContext.local.localServiceUrl;
+	    if (url.at(-1) == "/")
+	        url = url.slice(0, -1);
+	    url += "/forgeLocalServer";
+
+	    localServiceClient.url = url;
+	    await localServiceClient.waitConnect();
+	    processingConsole(window);
+	}
+
+	async function enableInsideLocalService()
+	{
+	    processingConsole(iframeContext.iframeWindow, "inside");
+	}
+
+	let processedConsoleSymbol = Symbol();
+	/**
+	 * 代理控制台日志
+	 * @param {Window | WindowProxy} globalObj
+	 * @param {string} [contextName]
+	 */
+	function processingConsole(globalObj, contextName = "")
+	{
+	    let consoleObj = globalObj["console"];
+	    if (consoleObj[processedConsoleSymbol])
+	        return;
+	    consoleObj[processedConsoleSymbol] = true;
+
+	    let oldConsoleInfo = consoleObj.info.bind(consoleObj);
+	    let oldConsoleLog = consoleObj.log.bind(consoleObj);
+	    let oldConsoleWarn = consoleObj.warn.bind(consoleObj);
+	    let oldConsoleError = consoleObj.error.bind(consoleObj);
+	    let oldConsoleDebug = consoleObj.debug.bind(consoleObj);
+
+	    consoleObj.info = (/** @type {any} */ ...param) =>
+	    {
+	        writeLogFile("info", param);
+	        return oldConsoleInfo(...param);
+	    };
+	    consoleObj.log = (/** @type {any} */ ...param) =>
+	    {
+	        writeLogFile("log", param);
+	        return oldConsoleLog(...param);
+	    };
+	    consoleObj.warn = (/** @type {any} */ ...param) =>
+	    {
+	        writeLogFile("warn", param);
+	        return oldConsoleWarn(...param);
+	    };
+	    consoleObj.error = (/** @type {any} */ ...param) =>
+	    {
+	        writeLogFile("error", param);
+	        return oldConsoleError(...param);
+	    };
+	    consoleObj.debug = (/** @type {any} */ ...param) =>
+	    {
+	        writeLogFile("debug", param);
+	        return oldConsoleDebug(...param);
+	    };
+
+	    /**
+	     * @param {string} type
+	     * @param {Array<any>} content
+	     */
+	    async function writeLogFile(type, content)
+	    {
+	        if (!localServiceClient.serviceAvailable)
+	            return;
+	        let fileName = (new Date()).toLocaleDateString().replaceAll("/", "-").replaceAll(" ", "_").replaceAll(":", "-");
+	        let timeStr = (new Date()).toLocaleString();
+	        await localServiceClient.operator.query.appendWriteFile({
+	            filePath: `consoleLog/${fileName}.log`,
+	            content: `${timeStr} [${type}${contextName ? `|${contextName}` : ""}] ${content.map(o => (o?.toString ? o.toString() : "[unknow string]")).join(" ")}\n`
+	        });
+	    }
+	}
+
 	/**
 	 * 初始化注入iframe元素
 	 */
@@ -15536,6 +15711,10 @@
 
 	        // 附加功能
 	        ([
+	            {
+	                func: enableInsideLocalService,
+	                condition: "enableLocalService"
+	            },
 	            {
 	                func: enableSyncConfig,
 	            },
@@ -15639,20 +15818,6 @@
 	            iframeWindow["iiroseForgeClearCacheInjected"] = true;
 	        }, 5);
 	    }
-	}
-
-	/**
-	 * 启动本地服务
-	 */
-	function enableLocalService()
-	{
-	    let url = storageContext.local.localServiceUrl;
-	    if (url.at(-1) == "/")
-	        url = url.slice(0, -1);
-	    url += "/forgeLocalServer";
-	    
-	    localServiceClient.url = url;
-	    localServiceClient.connect();
 	}
 
 	if (location.host == "iirose.com")

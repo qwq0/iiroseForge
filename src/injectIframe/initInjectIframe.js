@@ -23,6 +23,7 @@ import { enablePatch } from "../feature/patch.js";
 import { enableAudioTakeover } from "../feature/audioTakeover.js";
 import { enablePinSession } from "../feature/pinSession.js";
 import { enableRecordViewer } from "../feature/recordViewer.js";
+import { enableInsideLocalService } from "../feature/localService.js";
 
 
 
@@ -127,6 +128,10 @@ export function initInjectIframe()
 
         // 附加功能
         ([
+            {
+                func: enableInsideLocalService,
+                condition: "enableLocalService"
+            },
             {
                 func: enableSyncConfig,
             },

@@ -162,7 +162,7 @@ export class LocalServiceClient
             }
             catch (err)
             {
-                this.close();
+                console.error("LocalServiceClient error:", err);
             }
         });
 
