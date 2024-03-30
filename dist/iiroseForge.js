@@ -6305,7 +6305,7 @@
 	        },
 
 	        /**
-	         * 通过uid获取在线用户的信息
+	         * 获取所有在线用户的信息
 	         * @returns {Array<{
 	         *  name: string,
 	         *  uid: string,
@@ -6501,6 +6501,8 @@
 	                "", // 15
 	                "", // 16
 	            ]).join(">"));
+	            let targetName = forgeApi.operation.getOnlineUserInfoById(targetUid)?.name;
+	            forgeApi.event.sendPrivateMessage.trigger({ targetId: targetUid, targetName: targetName ? targetName : "", content: content });
 	        },
 
 	        /**
@@ -6579,6 +6581,13 @@
 	        privateMessage: new EventHandler$2(),
 
 	        /**
+	         * 发送的私聊消息
+	         * 不包括自己发送给自己的
+	         * @type {EventHandler<{ targetId: string, targetName: string, content: string }>}
+	         */
+	        sendPrivateMessage: new EventHandler$2(),
+
+	        /**
 	         * 接受到自己发送给自己的私聊消息
 	         * @type {EventHandler<{ content: string }>}
 	         */
@@ -6599,6 +6608,11 @@
 	         * @type {EventHandler<{ content: Object }>}
 	         */
 	        selfPrivateForgePacket: new EventHandler$2(),
+	        /**
+	         * 接收到全局频道消息(弹幕消息)
+	         * @type {EventHandler<{ senderId: string, senderName: string, content: string }>}
+	         */
+	        globalChannelMessage: new EventHandler$2(),
 	    },
 
 	    /**
@@ -6652,7 +6666,7 @@
 	            if (!localServiceClient.serviceAvailable)
 	                throw "Local services is not available";
 	            let result = await localServiceClient.operator.query.traversalWriteJson({
-	                filePath: "roamingConfig.json",
+	                filePath: "plug/" + path,
 	                json: content,
 	                deleteTree: ""
 	            });
@@ -6662,11 +6676,10 @@
 
 	        /**
 	         * 读取文件
-	         * @param {string} path 
-	         * @param {string} content
+	         * @param {string} path
 	         * @returns {Promise<string>} 
 	         */
-	        readFile: async (path, content) =>
+	        readFile: async (path) =>
 	        {
 	            if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
 	                throw "Local services cannot be accessed";
@@ -8104,6 +8117,12 @@
 	                let forgePacket = readForgePacket(content, senderId);
 	                if (forgePacket != undefined)
 	                    return undefined;
+	                let receiverName = htmlSpecialCharsDecode(part[12]);
+	                forgeApi.event.sendPrivateMessage.trigger({
+	                    targetId: receiverId,
+	                    targetName: receiverName,
+	                    content: htmlSpecialCharsDecode(content)
+	                });
 	            }
 
 	            if (messageNeedBlock(senderId, content, senderName))
@@ -8127,17 +8146,41 @@
 	    }).filter(o => o != undefined).join("<");
 	});
 
+	toClientTrie.addPath(`=`, (data) =>
+	{
+	    let part = data.split(">");
+	    let senderId = part[7];
+	    let senderName = part[0];
+	    let content = part[1];
 
+	    forgeApi.event.globalChannelMessage.trigger({
+	        senderId,
+	        senderName,
+	        content
+	    });
+	});
+
+	toServerTrie.addPath(`~{`, (_, data) =>
+	{
+	    let obj = JSON.parse(data.slice(1));
+	    forgeApi.event.globalChannelMessage.trigger({
+	        senderId: forgeApi.operation.getUserUid(),
+	        senderName: forgeApi.operation.getUserName(),
+	        content: obj["t"]
+	    });
+	});
 
 	toServerTrie.addPath(`{`, (_, data) =>
 	{
 	    try
 	    {
 	        let obj = JSON.parse(data);
-	        // console.log("send message", obj);
-	        let objJsob = JSON.stringify(obj);
-	        if (objJsob[0] == "{")
-	            packageData[0] = objJsob;
+	        if (obj["g"])
+	        {
+	            let targetUid = obj["g"];
+	            let targetName = forgeApi.operation.getOnlineUserInfoById(targetUid)?.name;
+	            forgeApi.event.sendPrivateMessage.trigger({ targetId: targetUid, targetName: targetName ? targetName : "", content: obj["m"] });
+	        }
 	    }
 	    catch (err)
 	    {
@@ -12834,7 +12877,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.21.1"
+	    version: "alpha v1.21.2"
 	};
 
 	/**
@@ -14308,12 +14351,15 @@
 	}
 
 	let textEncoder = new TextEncoder();
+	let roomName = "";
 
 	/**
 	 * 启用实验性功能
 	 */
 	function enableExperimental()
 	{
+	    roomName = forgeApi.operation.getRoomInfoById(forgeApi.operation.getUserRoomId()).name;
+
 	    let shiftDown = false;
 
 	    keyboardBind(iframeContext.iframeBody.element, e =>
@@ -14341,6 +14387,7 @@
 	            return false;
 	        }
 	    );
+
 
 	    if (storageContext.local.experimentalOption["ejectionButton"])
 	    {
@@ -14389,6 +14436,11 @@
 	    if (storageContext.local.experimentalOption["interceptState"])
 	    {
 	        takeoverState();
+	    }
+
+	    if (storageContext.local.experimentalOption["recorder"])
+	    {
+	        recorder();
 	    }
 	}
 
@@ -14484,6 +14536,54 @@
 	    {
 	        if (srcData == "s")
 	            setPackageData("");
+	    });
+	}
+
+	let hadRecorder = false;
+	function recorder()
+	{
+	    if (hadRecorder)
+	        return;
+	    hadRecorder = true;
+
+	    function getDateFileName()
+	    {
+	        return (new Date()).toLocaleDateString().replaceAll("/", "-").replaceAll(" ", "_").replaceAll(":", "-");
+	    }
+	    forgeApi.event.roomMessage.add(e =>
+	    {
+	        let timeStr = (new Date()).toLocaleString();
+	        let senderRemark = storageContext.roaming.userRemark[e.senderId];
+	        localServiceClient.operator.query.appendWriteFile({
+	            filePath: `record/${forgeApi.operation.getUserUid()}/room_${getDateFileName()}.txt`,
+	            content: `${timeStr} [${roomName} | ${e.senderName}${senderRemark ? `(${senderRemark})` : ""}]: ${JSON.stringify(e.content)}\n`
+	        });
+	    });
+	    forgeApi.event.globalChannelMessage.add(e =>
+	    {
+	        let timeStr = (new Date()).toLocaleString();
+	        let senderRemark = storageContext.roaming.userRemark[e.senderId];
+	        localServiceClient.operator.query.appendWriteFile({
+	            filePath: `record/${forgeApi.operation.getUserUid()}/global_${getDateFileName()}.txt`,
+	            content: `${timeStr} [global | ${e.senderName}${senderRemark ? `(${senderRemark})` : ""}]: ${JSON.stringify(e.content)}\n`
+	        });
+	    });
+	    forgeApi.event.privateMessage.add(e =>
+	    {
+	        let timeStr = (new Date()).toLocaleString();
+	        let senderRemark = storageContext.roaming.userRemark[e.senderId];
+	        localServiceClient.operator.query.appendWriteFile({
+	            filePath: `record/${forgeApi.operation.getUserUid()}/private_${e.senderId}.txt`,
+	            content: `${timeStr} [${e.senderName}${senderRemark ? `(${senderRemark})` : ""}]: ${JSON.stringify(e.content)}\n`
+	        });
+	    });
+	    forgeApi.event.sendPrivateMessage.add(e =>
+	    {
+	        let timeStr = (new Date()).toLocaleString();
+	        localServiceClient.operator.query.appendWriteFile({
+	            filePath: `record/${forgeApi.operation.getUserUid()}/private_${e.targetId}.txt`,
+	            content: `${timeStr} [${forgeApi.operation.getUserName()}]: ${JSON.stringify(e.content)}\n`
+	        });
 	    });
 	}
 

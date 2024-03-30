@@ -10,14 +10,18 @@ import { cssG } from "../../lib/qwqframe.js";
 import { addMenuHook } from "./uiHook.js";
 import { forgeApi } from "../forgeApi/forgeApi.js";
 import { showCopyBox } from "../ui/infobox.js";
+import { localServiceClient } from "../storage/localService/LocalServiceClient.js";
 
 let textEncoder = new TextEncoder();
+let roomName = "";
 
 /**
  * 启用实验性功能
  */
 export function enableExperimental()
 {
+    roomName = forgeApi.operation.getRoomInfoById(forgeApi.operation.getUserRoomId()).name;
+
     let shiftDown = false;
 
     keyboardBind(iframeContext.iframeBody.element, e =>
@@ -45,6 +49,7 @@ export function enableExperimental()
             return false;
         }
     );
+
 
     if (storageContext.local.experimentalOption["ejectionButton"])
     {
@@ -93,6 +98,11 @@ export function enableExperimental()
     if (storageContext.local.experimentalOption["interceptState"])
     {
         takeoverState();
+    }
+
+    if (storageContext.local.experimentalOption["recorder"])
+    {
+        recorder();
     }
 }
 
@@ -188,5 +198,53 @@ function takeoverState()
     {
         if (srcData == "s")
             setPackageData("");
+    });
+}
+
+let hadRecorder = false;
+function recorder()
+{
+    if (hadRecorder)
+        return;
+    hadRecorder = true;
+
+    function getDateFileName()
+    {
+        return (new Date()).toLocaleDateString().replaceAll("/", "-").replaceAll(" ", "_").replaceAll(":", "-");
+    }
+    forgeApi.event.roomMessage.add(e =>
+    {
+        let timeStr = (new Date()).toLocaleString();
+        let senderRemark = storageContext.roaming.userRemark[e.senderId];
+        localServiceClient.operator.query.appendWriteFile({
+            filePath: `record/${forgeApi.operation.getUserUid()}/room_${getDateFileName()}.txt`,
+            content: `${timeStr} [${roomName} | ${e.senderName}${senderRemark ? `(${senderRemark})` : ""}]: ${JSON.stringify(e.content)}\n`
+        });
+    });
+    forgeApi.event.globalChannelMessage.add(e =>
+    {
+        let timeStr = (new Date()).toLocaleString();
+        let senderRemark = storageContext.roaming.userRemark[e.senderId];
+        localServiceClient.operator.query.appendWriteFile({
+            filePath: `record/${forgeApi.operation.getUserUid()}/global_${getDateFileName()}.txt`,
+            content: `${timeStr} [global | ${e.senderName}${senderRemark ? `(${senderRemark})` : ""}]: ${JSON.stringify(e.content)}\n`
+        });
+    });
+    forgeApi.event.privateMessage.add(e =>
+    {
+        let timeStr = (new Date()).toLocaleString();
+        let senderRemark = storageContext.roaming.userRemark[e.senderId];
+        localServiceClient.operator.query.appendWriteFile({
+            filePath: `record/${forgeApi.operation.getUserUid()}/private_${e.senderId}.txt`,
+            content: `${timeStr} [${e.senderName}${senderRemark ? `(${senderRemark})` : ""}]: ${JSON.stringify(e.content)}\n`
+        });
+    });
+    forgeApi.event.sendPrivateMessage.add(e =>
+    {
+        let timeStr = (new Date()).toLocaleString();
+        localServiceClient.operator.query.appendWriteFile({
+            filePath: `record/${forgeApi.operation.getUserUid()}/private_${e.targetId}.txt`,
+            content: `${timeStr} [${forgeApi.operation.getUserName()}]: ${JSON.stringify(e.content)}\n`
+        });
     });
 }

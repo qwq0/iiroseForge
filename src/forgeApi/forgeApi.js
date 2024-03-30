@@ -155,7 +155,7 @@ export const forgeApi = {
         },
 
         /**
-         * 通过uid获取在线用户的信息
+         * 获取所有在线用户的信息
          * @returns {Array<{
          *  name: string,
          *  uid: string,
@@ -351,6 +351,8 @@ export const forgeApi = {
                 "", // 15
                 "", // 16
             ]).join(">"));
+            let targetName = forgeApi.operation.getOnlineUserInfoById(targetUid)?.name;
+            forgeApi.event.sendPrivateMessage.trigger({ targetId: targetUid, targetName: targetName ? targetName : "", content: content });
         },
 
         /**
@@ -429,6 +431,13 @@ export const forgeApi = {
         privateMessage: new EventHandler(),
 
         /**
+         * 发送的私聊消息
+         * 不包括自己发送给自己的
+         * @type {EventHandler<{ targetId: string, targetName: string, content: string }>}
+         */
+        sendPrivateMessage: new EventHandler(),
+
+        /**
          * 接受到自己发送给自己的私聊消息
          * @type {EventHandler<{ content: string }>}
          */
@@ -449,6 +458,11 @@ export const forgeApi = {
          * @type {EventHandler<{ content: Object }>}
          */
         selfPrivateForgePacket: new EventHandler(),
+        /**
+         * 接收到全局频道消息(弹幕消息)
+         * @type {EventHandler<{ senderId: string, senderName: string, content: string }>}
+         */
+        globalChannelMessage: new EventHandler(),
     },
 
     /**
@@ -502,7 +516,7 @@ export const forgeApi = {
             if (!localServiceClient.serviceAvailable)
                 throw "Local services is not available";
             let result = await localServiceClient.operator.query.traversalWriteJson({
-                filePath: "roamingConfig.json",
+                filePath: "plug/" + path,
                 json: content,
                 deleteTree: ""
             });
@@ -512,11 +526,10 @@ export const forgeApi = {
 
         /**
          * 读取文件
-         * @param {string} path 
-         * @param {string} content
+         * @param {string} path
          * @returns {Promise<string>} 
          */
-        readFile: async (path, content) =>
+        readFile: async (path) =>
         {
             if (!(storageContext.local.enableExperimental && storageContext.local.experimentalOption["localServiceApi"]))
                 throw "Local services cannot be accessed";

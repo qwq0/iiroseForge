@@ -153,6 +153,12 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
                 let forgePacket = readForgePacket(content, senderId);
                 if (forgePacket != undefined)
                     return undefined;
+                let receiverName = htmlSpecialCharsDecode(part[12]);
+                forgeApi.event.sendPrivateMessage.trigger({
+                    targetId: receiverId,
+                    targetName: receiverName,
+                    content: htmlSpecialCharsDecode(content)
+                });
             }
 
             if (messageNeedBlock(senderId, content, senderName))
@@ -176,17 +182,41 @@ toClientTrie.addPath(`""`, (data) => // 私聊消息
     }).filter(o => o != undefined).join("<");
 });
 
+toClientTrie.addPath(`=`, (data) =>
+{
+    let part = data.split(">");
+    let senderId = part[7];
+    let senderName = part[0];
+    let content = part[1];
 
+    forgeApi.event.globalChannelMessage.trigger({
+        senderId,
+        senderName,
+        content
+    });
+});
+
+toServerTrie.addPath(`~{`, (_, data) =>
+{
+    let obj = JSON.parse(data.slice(1));
+    forgeApi.event.globalChannelMessage.trigger({
+        senderId: forgeApi.operation.getUserUid(),
+        senderName: forgeApi.operation.getUserName(),
+        content: obj["t"]
+    });
+});
 
 toServerTrie.addPath(`{`, (_, data) =>
 {
     try
     {
         let obj = JSON.parse(data);
-        // console.log("send message", obj);
-        let objJsob = JSON.stringify(obj);
-        if (objJsob[0] == "{")
-            packageData[0] = objJsob;
+        if (obj["g"])
+        {
+            let targetUid = obj["g"];
+            let targetName = forgeApi.operation.getOnlineUserInfoById(targetUid)?.name;
+            forgeApi.event.sendPrivateMessage.trigger({ targetId: targetUid, targetName: targetName ? targetName : "", content: obj["m"] });
+        }
     }
     catch (err)
     {
