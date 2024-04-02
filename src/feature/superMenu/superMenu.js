@@ -238,7 +238,7 @@ export function enableSuperMenu()
                 case "KeyW":
                     e.preventDefault();
                     e.stopPropagation();
-                    
+
                     supperMenu.menuPointerMove(0, -supperMenu.cursorScaleSizeY);
                     break;
                 case "KeyA":
@@ -283,6 +283,66 @@ export function enableSuperMenu()
                     canceled = true;
                     document.exitPointerLock();
                     iframeContext.iframeDocument.exitPointerLock();
+                    break;
+                case "Digit1":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(0);
+                    break;
+                case "Digit2":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(1);
+                    break;
+                case "Digit3":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(2);
+                    break;
+                case "Digit4":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(3);
+                    break;
+                case "Digit5":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(4);
+                    break;
+                case "Digit6":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(5);
+                    break;
+                case "Digit7":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(6);
+                    break;
+                case "Digit8":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(7);
+                    break;
+                case "Digit9":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(8);
+                    break;
+                case "Digit0":
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    supperMenu.menuMovePointerToRow(9);
                     break;
             }
     };

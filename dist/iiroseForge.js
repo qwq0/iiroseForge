@@ -12340,6 +12340,18 @@
 	        this.menuPointerX += offsetX * 1;
 	        this.menuPointerY += offsetY * 1;
 	    }
+
+	    /**
+	     * 菜单指针移动到指定列
+	     * @param {number} row
+	     */
+	    menuMovePointerToRow(row)
+	    {
+	        let nowColumn = this.menuList[this.currentColumnIndex];
+	        if (nowColumn)
+	            this.menuPointerY = (row - nowColumn.startRowIndex) * this.cursorScaleSizeY;
+	    }
+
 	    /**
 	     * 菜单指针位置重置
 	     */
@@ -12877,7 +12889,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.21.3"
+	    version: "alpha v1.21.4"
 	};
 
 	/**
@@ -14137,7 +14149,7 @@
 	                case "KeyW":
 	                    e.preventDefault();
 	                    e.stopPropagation();
-	                    
+
 	                    supperMenu.menuPointerMove(0, -supperMenu.cursorScaleSizeY);
 	                    break;
 	                case "KeyA":
@@ -14182,6 +14194,66 @@
 	                    canceled = true;
 	                    document.exitPointerLock();
 	                    iframeContext.iframeDocument.exitPointerLock();
+	                    break;
+	                case "Digit1":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(0);
+	                    break;
+	                case "Digit2":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(1);
+	                    break;
+	                case "Digit3":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(2);
+	                    break;
+	                case "Digit4":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(3);
+	                    break;
+	                case "Digit5":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(4);
+	                    break;
+	                case "Digit6":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(5);
+	                    break;
+	                case "Digit7":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(6);
+	                    break;
+	                case "Digit8":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(7);
+	                    break;
+	                case "Digit9":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(8);
+	                    break;
+	                case "Digit0":
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    supperMenu.menuMovePointerToRow(9);
 	                    break;
 	            }
 	    };

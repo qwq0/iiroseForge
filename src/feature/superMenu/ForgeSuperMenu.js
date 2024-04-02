@@ -239,6 +239,18 @@ export class ForgeSuperMenu
         this.menuPointerX += offsetX * 1;
         this.menuPointerY += offsetY * 1;
     }
+
+    /**
+     * 菜单指针移动到指定列
+     * @param {number} row
+     */
+    menuMovePointerToRow(row)
+    {
+        let nowColumn = this.menuList[this.currentColumnIndex];
+        if (nowColumn)
+            this.menuPointerY = (row - nowColumn.startRowIndex) * this.cursorScaleSizeY;
+    }
+
     /**
      * 菜单指针位置重置
      */
