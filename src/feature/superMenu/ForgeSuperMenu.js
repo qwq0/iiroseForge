@@ -94,7 +94,7 @@ export class ForgeSuperMenu
                             textAlign: "center"
                         }),
 
-                        "鼠标 或 WASD 移动 | 松开右键 确认 | E 选项设置 | Q 放弃选择"
+                        "鼠标 或 WASD 移动 | 松开右键 确认 | E 选项设置 | Q 放弃选择 | 数字键 快速移动"
                     ] :
                     null
             ),
