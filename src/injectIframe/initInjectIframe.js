@@ -24,6 +24,7 @@ import { enableAudioTakeover } from "../feature/audioTakeover.js";
 import { enablePinSession } from "../feature/pinSession.js";
 import { enableRecordViewer } from "../feature/recordViewer.js";
 import { enableInsideLocalService } from "../feature/localService.js";
+import { enablePlayTogether } from "../feature/playTogether.js";
 
 
 
@@ -184,6 +185,10 @@ export function initInjectIframe()
             {
                 func: enableRecordViewer,
                 condition: "enableRecordViewer"
+            },
+            {
+                func: enablePlayTogether,
+                condition: "enablePlayTogether"
             }
         ]).forEach(o =>
         {

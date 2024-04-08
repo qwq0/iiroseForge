@@ -52,17 +52,17 @@ function init()
 
     // 私聊选项卡列表
     let sessionHolderPmTaskBox = iframeContext.iframeDocument.getElementsByClassName("sessionHolderPmTaskBox")[0];
-    let recentSessionLable = sessionHolderPmTaskBox.children[1];
-    let pinnedSessionLable = NList.getElement([
+    let recentSessionLabel = sessionHolderPmTaskBox.children[1];
+    let pinnedSessionLabel = NList.getElement([
         className("sessionHolderSpliter"),
         "置顶会话"
     ]).element;
-    sessionHolderPmTaskBox.children[0].after(pinnedSessionLable);
+    sessionHolderPmTaskBox.children[0].after(pinnedSessionLabel);
     refreshList = () =>
     {
-        if (!recentSessionLable.parentElement)
+        if (!recentSessionLabel.parentElement)
         {
-            pinnedSessionLable.after(recentSessionLable);
+            pinnedSessionLabel.after(recentSessionLabel);
         }
 
         Array.from(sessionHolderPmTaskBox.children).reverse().forEach(o =>
@@ -76,14 +76,14 @@ function init()
             {
                 let uid = o.getAttribute("ip");
                 let pinned = storageContext.processed.pinSessionSet.has(uid);
-                let positionBitmap = recentSessionLable.compareDocumentPosition(o);
+                let positionBitmap = recentSessionLabel.compareDocumentPosition(o);
                 if ((positionBitmap & 2) && !pinned)
                 {
-                    recentSessionLable.after(o);
+                    recentSessionLabel.after(o);
                 }
                 else if ((positionBitmap & 4) && pinned)
                 {
-                    pinnedSessionLable.after(o);
+                    pinnedSessionLabel.after(o);
                 }
             }
         });
@@ -92,7 +92,7 @@ function init()
     {
         let paddingElement = document.createElement("div");
         paddingElement.style.display = "none";
-        recentSessionLable.after(paddingElement);
+        recentSessionLabel.after(paddingElement);
     }
     (new MutationObserver(mutationsList =>
     {
@@ -113,31 +113,31 @@ function init()
                             let uid = o.getAttribute("ip");
                             // console.log("on list item change", uid);
                             let pinned = storageContext.processed.pinSessionSet.has(uid);
-                            if ((recentSessionLable.compareDocumentPosition(o) & 2) && !pinned)
+                            if ((recentSessionLabel.compareDocumentPosition(o) & 2) && !pinned)
                             {
-                                recentSessionLable.after(o);
+                                recentSessionLabel.after(o);
                             }
-                            else if ((recentSessionLable.compareDocumentPosition(o) & 4) && pinned)
+                            else if ((recentSessionLabel.compareDocumentPosition(o) & 4) && pinned)
                             {
-                                pinnedSessionLable.after(o);
+                                pinnedSessionLabel.after(o);
                             }
 
                         }
                     }
                 });
 
-                if (!recentSessionLable.parentElement || !recentSessionLable.nextElementSibling)
+                if (!recentSessionLabel.parentElement || !recentSessionLabel.nextElementSibling)
                 {
-                    if (!recentSessionLable.parentElement)
+                    if (!recentSessionLabel.parentElement)
                     {
-                        pinnedSessionLable.after(recentSessionLable);
+                        pinnedSessionLabel.after(recentSessionLabel);
                         refreshList();
                     }
-                    if (!recentSessionLable.nextSibling)
+                    if (!recentSessionLabel.nextSibling)
                     {
                         let paddingElement = document.createElement("div");
                         paddingElement.style.display = "none";
-                        recentSessionLable.after(paddingElement);
+                        recentSessionLabel.after(paddingElement);
                     }
                 }
             }

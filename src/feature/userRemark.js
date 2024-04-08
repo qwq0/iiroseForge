@@ -110,7 +110,7 @@ function processingMessageElement(messageElement)
         let uid = (
             messageElement.dataset.id ?
                 messageElement.dataset.id.split("_")[0] :
-                (/** @type {HTMLElement} */(domPath(messageElement, [0, -1, 0])))?.dataset?.uid
+                (/** @type {HTMLElement} */(domPath(messageElement, [0, -1])))?.dataset?.uid || (/** @type {HTMLElement} */(domPath(messageElement, [0, -1, 0])))?.dataset?.uid
         );
         let pubUserInfoElement = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, -1, -1])));
         if (pubUserInfoElement)

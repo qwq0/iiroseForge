@@ -63,7 +63,7 @@ export function readForgePacket(dataStr, creatorId)
                     return undefined;
                 return jsob.decode(base64ToUint8(dataBase64));
             }
-            else if (metaArr[1] == "slice") // 分片数据
+            else if (metaArr[1] == "slice" && creatorId) // 分片数据
             {
                 if (metaArr.length < 5)
                     return undefined;
@@ -116,6 +116,8 @@ export function readForgePacket(dataStr, creatorId)
                     return jsob.decode(base64ToUint8(sliceInfo.slices.join("")));
                 }
             }
+            else
+                return undefined;
         }
         catch (err)
         {
@@ -134,25 +136,26 @@ export function readForgePacket(dataStr, creatorId)
  */
 export function writeForgePacket(obj)
 {
-    const maxBodyLength = 8192;
+    const maxSingleBodyLength = 8192;
+    const maxMultiLength = 8192 * 50;
     try
     {
         let dataBase64 = uint8ToBase64(jsob.encode(obj, { referenceString: true }));
-        if (dataBase64.length <= maxBodyLength)
+        if (dataBase64.length <= maxSingleBodyLength)
         {
             let metaArr = ["", "single"];
             return `iiroseForge:${dataBase64.length.toString(36)},${dataBase64}${metaArr.join(",")}:end`;
         }
-        else
+        else if (dataBase64.length <= maxMultiLength)
         {
             let packetTime = Date.now();
             let packetTimeStr = packetTime.toString(36);
             let packetId = uniqueIdentifierString();
-            let sliceCount = Math.ceil(dataBase64.length / maxBodyLength);
+            let sliceCount = Math.ceil(dataBase64.length / maxSingleBodyLength);
             let sliceCountStr = sliceCount.toString(36);
             return Array(sliceCount).fill(0).map((_, i) =>
             {
-                let dataSlice = dataBase64.slice(i * maxBodyLength, (i + 1) * maxBodyLength);
+                let dataSlice = dataBase64.slice(i * maxSingleBodyLength, (i + 1) * maxSingleBodyLength);
                 let metaArr = [
                     packetId,
                     "slice",
@@ -163,6 +166,8 @@ export function writeForgePacket(obj)
                 return `iiroseForge:${dataSlice.length.toString(36)},${dataSlice}${metaArr.join(",")}:end`;
             });
         }
+        else
+            throw "packet is too big";
     }
     catch (err)
     {

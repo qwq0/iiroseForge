@@ -1,7 +1,7 @@
 /**
  * rco操作上下文
  */
-declare class RcoCcontext {
+declare class RcoContext {
     /**
      * 绑定输出流
      * 会覆盖之前绑定的输出流
@@ -41,4 +41,4 @@ declare class RcoCcontext {
     #private;
 }
 
-export { RcoCcontext };
+export { RcoContext };

@@ -114,33 +114,71 @@
 	}
 
 	/**
-	 * 代理对象 到 钩子映射和源对象 映射
-	 * 
-	 * @type {WeakMap<object, {
-	 *  hookMap: Map<string | symbol, Set<import("./HookBindValue").HookBindValue | import("./HookBindCallback").HookBindCallback>>,
-	 *  srcObj: object
-	 * }>}
+	 * 为绑定回收的钩子
 	 */
-	const proxyMap = new WeakMap();
+	let unboundHook = new Set();
+
 	/**
-	 * 目标对象 到 引用集合 映射
-	 *
-	 * 确保当目标对象存活时引用集合的引用存活
-	 * 目前仅在HookBindCallback中使用
-	 * @type {WeakMap<object, Set<any>>}
+	 * 所有钩子绑定类
+	 * @typedef { null |
+	 *  import("./array/ArrayHookBind").ArrayHookBind | 
+	 *  import("./map/MapHookBind").MapHookBind | 
+	 *  import("./object/HookBindValue").HookBindValue | 
+	 *  import("./object/HookBindCallback").HookBindCallback | 
+	 *  import("./set/SetHookBind").SetHookBind
+	 * } AllHookBind
 	 */
-	const targetRefMap$1 = new WeakMap();
+
+	/**
+	 * 目标钩子 到 绑定销毁此钩子的对象的数量 映射
+	 * @type {WeakMap<AllHookBind, number>}
+	 */
+	const hookBindDestroyCountMap = new WeakMap();
 
 	/**
 	 * 记录器
 
 	 * 在目标对象销毁时销毁钩子
-	 * @type {FinalizationRegistry<import("./HookBindValue").HookBindValue | import("./HookBindCallback").HookBindCallback>}
+	 * @type {FinalizationRegistry<AllHookBind>}
 	 */
-	const register$1 = new FinalizationRegistry(heldValue =>
+	const register = new FinalizationRegistry(heldValue =>
 	{
-	    heldValue.destroy();
+	    let hookBindDestroyCount = hookBindDestroyCountMap.get(heldValue);
+
+	    if (hookBindDestroyCount >= 2)
+	        hookBindDestroyCountMap.set(heldValue, hookBindDestroyCount - 1);
+	    else
+	        heldValue.destroy();
 	});
+
+	/**
+	 * 钩子绑定销毁
+	 * 用于在目标对象销毁时销毁钩子
+	 * @param {object} targetObj 
+	 * @param {AllHookBind} targetHook 
+	 */
+	function hookBindDestroy(targetObj, targetHook)
+	{
+	    let hookBindDestroyCount = hookBindDestroyCountMap.get(targetHook);
+
+	    if (hookBindDestroyCount == undefined)
+	        hookBindDestroyCount = 0;
+
+	    hookBindDestroyCountMap.set(targetHook, hookBindDestroyCount + 1);
+
+	    register.register(targetObj, targetHook, targetHook);
+	}
+
+	/**
+	 * 释放钩子绑定销毁
+	 * 解除 用于销毁钩子的对象 对 钩子 的引用
+	 * 防止手动销毁钩子时内存泄漏
+	 * @param {AllHookBind} targetHook
+	 */
+	function freeHookBindDestroy(targetHook)
+	{
+	    register.unregister(targetHook);
+	}
 
 	/**
 	 * 钩子绑定到回调类
@@ -151,19 +189,26 @@
 	     * 钩子信息
 	     * @type {import("./HookBindInfo").HookBindInfo}
 	     */
-	    info = null;
+	    #info = null;
 
 	    /**
 	     * 回调函数的弱引用
 	     * @type {WeakRef<function(any): void>}
 	     */
-	    cbRef = null;
+	    #cbRef = null;
 	    /**
 	     * 回调函数
 	     * 当此钩子绑定自动释放时为null
 	     * @type {function(any): void}
 	     */
-	    callback = null;
+	    #callback = null;
+
+	    /**
+	     * 目标对象引用映射
+	     * 用于建立目标对象到指定对象的强引用关系
+	     * @type {WeakMap<object, Set<object>>}
+	     */
+	    #targetRefMap = new WeakMap();
 
 	    /**
 	     * @param {import("./HookBindInfo").HookBindInfo} info
@@ -171,10 +216,13 @@
 	     */
 	    constructor(info, callback)
 	    {
-	        this.info = info;
-	        this.cbRef = new WeakRef(callback);
-	        this.callback = callback;
+	        this.#info = info;
+	        this.#cbRef = new WeakRef(callback);
+	        this.#callback = callback;
 	        info.addHook(this);
+
+	        // 添加调试未绑定探针
+	        unboundHook.add(this);
 	    }
 
 	    /**
@@ -182,12 +230,12 @@
 	     */
 	    emit()
 	    {
-	        let callback = this.cbRef.deref();
+	        let callback = this.#cbRef.deref();
 	        if (callback)
 	        {
 	            try
 	            {
-	                callback(this.info.getValue());
+	                callback(this.#info.getValue());
 	            }
 	            catch (err)
 	            {
@@ -202,8 +250,11 @@
 	     */
 	    destroy()
 	    {
-	        this.info.removeHook(this);
-	        register$1.unregister(this);
+	        this.#info.removeHook(this);
+	        freeHookBindDestroy(this);
+
+	        // 移除调试未绑定探针
+	        unboundHook.delete(this);
 	    }
 
 	    /**
@@ -214,15 +265,19 @@
 	     */
 	    bindDestroy(targetObj)
 	    {
-	        let targetRefSet = targetRefMap$1.get(targetObj);
+	        let targetRefSet = this.#targetRefMap.get(targetObj);
 	        if (targetRefSet == undefined)
 	        {
 	            targetRefSet = new Set();
-	            targetRefMap$1.set(targetObj, targetRefSet);
+	            this.#targetRefMap.set(targetObj, targetRefSet);
 	        }
-	        targetRefSet.add(this.callback);
-	        this.callback = null;
-	        register$1.register(targetObj, this, this);
+	        targetRefSet.add(this.#callback);
+	        this.#callback = null;
+	        hookBindDestroy(targetObj, this);
+
+	        // 移除调试未绑定探针
+	        unboundHook.delete(this);
+
 	        return this;
 	    }
 	}
@@ -236,18 +291,18 @@
 	     * 钩子信息
 	     * @type {import("./HookBindInfo").HookBindInfo}
 	     */
-	    info = null;
+	    #info = null;
 
 	    /**
 	     * 目标对象
 	     * @type {WeakRef<object>}
 	     */
-	    targetRef = null;
+	    #targetRef = null;
 	    /**
 	     * 目标对象的键
 	     * @type {string | symbol}
 	     */
-	    targetKey = "";
+	    #targetKey = "";
 
 	    /**
 	     * @param {import("./HookBindInfo").HookBindInfo} info
@@ -256,11 +311,11 @@
 	     */
 	    constructor(info, targetObj, targetKey)
 	    {
-	        this.info = info;
-	        this.targetRef = new WeakRef(targetObj);
-	        this.targetKey = targetKey;
+	        this.#info = info;
+	        this.#targetRef = new WeakRef(targetObj);
+	        this.#targetKey = targetKey;
 	        info.addHook(this);
-	        register$1.register(targetObj, this, this);
+	        hookBindDestroy(targetObj, this);
 	    }
 
 	    /**
@@ -269,12 +324,12 @@
 	     */
 	    emit()
 	    {
-	        let target = this.targetRef.deref();
+	        let target = this.#targetRef.deref();
 	        if (target != undefined)
 	        {
 	            try
 	            {
-	                target[this.targetKey] = this.info.getValue();
+	                target[this.#targetKey] = this.#info.getValue();
 	            }
 	            catch (err)
 	            {
@@ -289,8 +344,8 @@
 	     */
 	    destroy()
 	    {
-	        this.info.removeHook(this);
-	        register$1.unregister(this);
+	        this.#info.removeHook(this);
+	        freeHookBindDestroy(this);
 	    }
 	}
 
@@ -303,28 +358,29 @@
 	     * 代理对象
 	     * @type {object}
 	     */
-	    proxyObj = null;
+	    #proxyObj = null;
 	    /**
 	     * 源对象
 	     * @type {object}
 	     */
-	    srcObj = null;
+	    #srcObj = null;
 	    /**
 	     * 需要监听代理对象上的值
 	     * @type {Array<string | symbol>}
 	     */
-	    keys = [];
+	    #keys = [];
 	    /**
 	     * 修改指定值时需要触发的钩子
+	     * 此值为 hookStatus 文件中 proxyMap 的 hookMap 的引用
 	     * @type {Map<string | symbol, Set<HookBindValue | HookBindCallback>>}
 	     */
-	    hookMap = null;
+	    #hookMap = null;
 	    /**
 	     * 值处理函数
 	     * 若存在此函数则需要调用
 	     * @type {function(...any): any} 
 	     */
-	    ctFunc = null;
+	    #ctFunc = null;
 
 	    /**
 	     * @param {object} proxyObj
@@ -336,10 +392,10 @@
 	    constructor(proxyObj, srcObj, keys, hookMap, ctFunc)
 	    {
 	        this.proxyObj = proxyObj;
-	        this.srcObj = srcObj;
-	        this.keys = keys;
-	        this.hookMap = hookMap;
-	        this.ctFunc = ctFunc;
+	        this.#srcObj = srcObj;
+	        this.#keys = keys;
+	        this.#hookMap = hookMap;
+	        this.#ctFunc = ctFunc;
 	    }
 
 	    /**
@@ -347,7 +403,7 @@
 	     */
 	    getValue()
 	    {
-	        return (this.ctFunc ? this.ctFunc(...this.keys.map(o => this.srcObj[o])) : this.srcObj[this.keys[0]]);
+	        return (this.#ctFunc ? this.#ctFunc(...this.#keys.map(o => this.#srcObj[o])) : this.#srcObj[this.#keys[0]]);
 	    }
 
 	    /**
@@ -357,13 +413,13 @@
 	     */
 	    addHook(hookObj)
 	    {
-	        this.keys.forEach(o =>
+	        this.#keys.forEach(o =>
 	        {
-	            let set = this.hookMap.get(o);
+	            let set = this.#hookMap.get(o);
 	            if (set == undefined)
 	            {
 	                set = new Set();
-	                this.hookMap.set(o, set);
+	                this.#hookMap.set(o, set);
 	            }
 	            set.add(hookObj);
 	        });
@@ -376,14 +432,14 @@
 	     */
 	    removeHook(hookObj)
 	    {
-	        this.keys.forEach(o =>
+	        this.#keys.forEach(o =>
 	        {
-	            let set = this.hookMap.get(o);
+	            let set = this.#hookMap.get(o);
 	            if (set)
 	            {
 	                set.delete(hookObj);
 	                if (set.size == 0)
-	                    this.hookMap.delete(o);
+	                    this.#hookMap.delete(o);
 	            }
 	        });
 	    }
@@ -412,17 +468,136 @@
 	}
 
 	/**
+	 * Comment节点的封装
+	 * 用于进行节点定位
+	 * @typedef {import("./NElement").NElement} NElement
+	 * @typedef {import("./NText").NText} NText
+	 */
+	class NLocate
+	{
+	    /**
+	     * Comment节点
+	     * @type {Comment}
+	     */
+	    node = null;
+
+	    /**
+	     * @param {Comment} [node]
+	     */
+	    constructor(node)
+	    {
+	        if (node instanceof Comment)
+	            this.node = node;
+	        else
+	            this.node = new Comment();
+	    }
+
+	    /**
+	     * 在此节点之前插入节点
+	     * @param {NElement | NLocate | NText} target
+	     */
+	    insBefore(target)
+	    {
+	        this.node.before(target.node);
+	    }
+
+	    /**
+	     * 在此节点之后插入节点
+	     * @param {NElement | NLocate | NText} target
+	     */
+	    insAfter(target)
+	    {
+	        this.node.after(target.node);
+	    }
+
+	    /**
+	     * 使用指定节点替换此节点
+	     * @param {Array<NElement | NText | NLocate>} elements
+	     */
+	    replaceWith(...elements)
+	    {
+	        this.node.replaceWith(...(elements.map(o => o.node)));
+	    }
+	}
+
+	/**
+	 * Text节点的封装
+	 * 用于进行节点定位
+	 * @typedef {import("./NElement").NElement} NElement
+	 * @typedef {import("./NLocate").NLocate} NLocate
+	 */
+	class NText
+	{
+	    /**
+	     * Text节点
+	     * @type {Text}
+	     */
+	    node = null;
+
+	    /**
+	     * @param {string | Text} text
+	     */
+	    constructor(text)
+	    {
+	        if (text instanceof Text)
+	            this.node = text;
+	        else
+	        {
+	            this.node = new Text();
+	            if (text)
+	                this.setText(text);
+	        }
+	    }
+
+	    /**
+	     * 设置此文本节点的文本
+	     * @param {string} text 
+	     */
+	    setText(text)
+	    {
+	        this.node.data = text;
+	    }
+
+	    /**
+	     * 在此节点之前插入节点
+	     * @param {NElement | NLocate | NText} target
+	     */
+	    insBefore(target)
+	    {
+	        this.node.before(target.node);
+	    }
+
+	    /**
+	     * 在此节点之后插入节点
+	     * @param {NElement | NLocate | NText} target
+	     */
+	    insAfter(target)
+	    {
+	        this.node.after(target.node);
+	    }
+
+	    /**
+	     * 使用指定节点替换此节点
+	     * @param {Array<NElement | NText | NLocate>} elements
+	     */
+	    replaceWith(...elements)
+	    {
+	        this.node.replaceWith(...(elements.map(o => o.node)));
+	    }
+	}
+
+	/**
 	 * 流水线
 	 */
 	class NAsse
 	{
 	    /**
-	     * @type {function(import("../element/NElement").NElement): void}
+	     * @type {function(import("../node/NElement").NElement): void}
 	     */
 	    callback = null;
 
 	    /**
-	     * @param {function(import("../element/NElement").NElement): void} callback
+	     * @param {function(import("../node/NElement").NElement): void} callback
 	     */
 	    constructor(callback)
 	    {
@@ -431,7 +606,7 @@
 
 	    /**
 	     * 将此特征应用于元素
-	     * @param {import("../element/NElement").NElement} e
+	     * @param {import("../node/NElement").NElement} e
 	     */
 	    apply(e)
 	    {
@@ -471,7 +646,7 @@
 
 	    /**
 	     * 将此特征应用于元素
-	     * @param {import("../element/NElement").NElement} e
+	     * @param {import("../node/NElement").NElement} e
 	     */
 	    apply(e)
 	    {
@@ -479,10 +654,10 @@
 	        {
 	            let cbRet = this.value(e);
 	            if (cbRet != undefined)
-	                e.element.setAttribute(this.key, cbRet);
+	                e.node.setAttribute(this.key, cbRet);
 	        }
 	        else
-	            e.element.setAttribute(this.key, this.value);
+	            e.node.setAttribute(this.key, this.value);
 	    }
 	}
 
@@ -497,13 +672,13 @@
 	     */
 	    eventName = null;
 	    /**
-	     * @type {(event: HTMLElementEventMap[T], currentElement: import("../element/NElement").NElement) => void}
+	     * @type {(event: HTMLElementEventMap[T], currentElement: import("../node/NElement").NElement) => void}
 	     */
 	    callback = null;
 
 	    /**
 	     * @param {T} key
-	     * @param {(event: HTMLElementEventMap[T], currentElement: import("../element/NElement").NElement) => void} callback
+	     * @param {(event: HTMLElementEventMap[T], currentElement: import("../node/NElement").NElement) => void} callback
 	     */
 	    constructor(key, callback)
 	    {
@@ -513,7 +688,7 @@
 
 	    /**
 	     * 将此特征应用于元素
-	     * @param {import("../element/NElement").NElement} element
+	     * @param {import("../node/NElement").NElement} element
 	     */
 	    apply(element)
 	    {
@@ -523,6 +698,24 @@
 	        });
 	    }
 	}
+
+	/**
+	 * 快速创建 NEvent 实例
+	 * @type {{
+	 *  [x in keyof HTMLElementEventMap]?: (callback: (event: HTMLElementEventMap[x], currentElement: import("../node/NElement").NElement) => void) => NEvent<x>
+	 * }}
+	 */
+	let eventName = new Proxy({}, {
+	    get: (_target, key) =>
+	    {
+	        return (/** @type {(event: Event , currentElement: import("../node/NElement").NElement<any>) => void} */ callback) =>
+	        {
+	            // @ts-ignore
+	            return new NEvent(key, callback);
+	        };
+	    },
+	    set: () => false
+	});
 
 	/**
 	 * @typedef {(keyof CSSStyleDeclaration & string) | (string & {})} keyOfStyle
@@ -554,7 +747,7 @@
 
 	    /**
 	     * 将此特征应用于元素
-	     * @param {import("../element/NElement").NElement} e
+	     * @param {import("../node/NElement.js").NElement} e
 	     */
 	    apply(e)
 	    {
@@ -605,8 +798,24 @@
 	}
 
 	/**
+	 * 快速创建 NTagName 实例
+	 * @type {{
+	 *  [x in keyof HTMLElementTagNameMap]?: NTagName<x>
+	 * }}
+	 */
+	new Proxy({}, {
+	    get: (_target, key) =>
+	    {
+	        // @ts-ignore
+	        return new NTagName(key);
+	    },
+	    set: () => false
+	});
+
+	/**
 	 * 特征列表
-	 * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement | ((e: NElement) => void)>} NList_list
+	 * @typedef {Array<string | HookBindInfo | NTagName | NStyle | NAttr | NEvent | NAsse | NList | NList_list | NElement | NText | NLocate | ((e: NElement) => void)>} NList_list
+	 * @typedef {NList_list[number]} NList_item
 	 */
 	class NList
 	{
@@ -672,8 +881,10 @@
 	                        break;
 	                    }
 
-	                    case NElement: { // 子元素
-	                        element.addChild(/** @type {NElement} */(o));
+	                    case NElement: // 子元素
+	                    case NLocate: // 定位节点
+	                    case NText: { // 子文本节点
+	                        element.addChild(/** @type {NElement | NLocate | NText} */(o));
 	                        break;
 	                    }
 
@@ -690,7 +901,7 @@
 	                        element.addChild(NList.getElement((/** @type {Array} */(o))));
 	                        break;
 	                    }
-	                    
+
 	                    default:
 	                        throw "(NList) Untractable feature types were found";
 	                }
@@ -777,7 +988,7 @@
 	     * @readonly
 	     * @type {ElementObjectType}
 	     */
-	    element = null;
+	    node = null;
 	    /**
 	     * 样式名 到 钩子绑定 映射
 	     * @private
@@ -791,40 +1002,53 @@
 	     */
 	    constructor(elementObj)
 	    {
-	        this.element = elementObj;
+	        this.node = elementObj;
+	    }
+
+	    /**
+	     * @returns {ElementObjectType}
+	     */
+	    get element()
+	    {
+	        return this.node;
 	    }
 
 	    /**
 	     * 添加单个子节点
-	     * @param {NElement | Node | string | HookBindInfo} chi
+	     * @param {NElement | NLocate | NText | Node | string | HookBindInfo} chi
 	     */
 	    addChild(chi)
 	    {
-	        if (chi instanceof NElement)
-	            this.element.appendChild(chi.element);
+	        if (
+	            chi instanceof NElement ||
+	            chi instanceof NLocate ||
+	            chi instanceof NText
+	        )
+	            this.node.appendChild(chi.node);
 	        else if (chi instanceof Node)
-	            this.element.appendChild(chi);
+	            this.node.appendChild(chi);
 	        else if (typeof (chi) == "string")
 	            this.addText(chi);
 	        else if (chi instanceof HookBindInfo)
 	        {
+	            /** @type {NElement | NText | NLocate} */
 	            let currentNode = null;
-	            {
-	                let initVal = chi.getValue();
-	                currentNode = (initVal == null ? new Comment() : (typeof (initVal) == "string" ? new Text(initVal) : (initVal instanceof NElement ? initVal.element : initVal)));
-	                this.element.appendChild(currentNode);
-	            }
+
+	            let initVal = chi.getValue();
+	            currentNode = (initVal == null ? new NLocate() : (typeof (initVal) == "string" ? new NText(initVal) : initVal));
+	            this.node.appendChild(currentNode.node);
+
 	            chi.bindToCallback(val =>
 	            {
-	                if (currentNode instanceof Text && typeof (val) == "string")
+	                if (currentNode instanceof NText && typeof (val) == "string")
 	                {
-	                    currentNode.data = val;
+	                    currentNode.setText(val);
 	                    return;
 	                }
 	                else
 	                {
-	                    let newNode = (val == null ? new Comment() : (typeof (val) == "string" ? new Text(val) : (val instanceof NElement ? val.element : val)));
-	                    this.element.replaceChild(newNode, currentNode);
+	                    let newNode = (initVal == null ? new NLocate() : (typeof (initVal) == "string" ? new NText(initVal) : initVal));
+	                    currentNode.replaceWith(currentNode);
 	                    currentNode = newNode;
 	                }
 	            }).bindDestroy(this);
@@ -835,7 +1059,7 @@
 
 	    /**
 	     * 添加多个子节点
-	     * @param {Array<NElement | Node | string | HookBindInfo | Array<NElement | Node | string | HookBindInfo>>} chi
+	     * @param {Array<Parameters<NElement["addChild"]>[0] | Array<Parameters<NElement["addChild"]>[0]>>} chi
 	     */
 	    addChilds(...chi)
 	    {
@@ -851,29 +1075,29 @@
 	    /**
 	     * 插入单个子节点(在中间)
 	     * 如果此节点之前在树中则先移除后加入
-	     * @param {NElement} chi
-	     * @param {number | NElement} pos 添加到的位置 负数从后到前 超过范围添加到最后
+	     * @param {NElement | NLocate | NText} chi
+	     * @param {number | NElement | NLocate | NText} pos 添加到的位置 负数从后到前 超过范围添加到最后
 	     */
 	    insChild(chi, pos)
 	    {
-	        let e = this.element;
+	        let e = this.node;
 	        if (typeof (pos) == "number")
 	        {
 	            if (pos >= 0 || pos < e.childElementCount)
 	            {
-	                e.insertBefore(chi.element, e.children[pos]);
+	                e.insertBefore(chi.node, e.children[pos]);
 	            }
 	            else if (pos < 0 || pos >= (-e.childElementCount))
 	            {
-	                e.insertBefore(chi.element, e.children[e.childElementCount + pos]);
+	                e.insertBefore(chi.node, e.children[e.childElementCount + pos]);
 	            }
 	            else
 	            {
-	                e.appendChild(chi.element);
+	                e.appendChild(chi.node);
 	            }
 	        }
 	        else
-	            e.insertBefore(chi.element, pos.element);
+	            e.insertBefore(chi.node, pos.node);
 	    }
 
 	    /**
@@ -886,9 +1110,9 @@
 	    childInd(chi)
 	    {
 	        let ind = -1;
-	        forEach(this.element.children, (o, i) =>
+	        forEach(this.node.children, (o, i) =>
 	        {
-	            if (o == chi.element)
+	            if (o == chi.node)
 	            {
 	                ind = i;
 	                return true;
@@ -898,11 +1122,29 @@
 	    }
 
 	    /**
+	     * 在此节点之前插入节点
+	     * @param {NElement | NLocate | NText} target
+	     */
+	    insBefore(target)
+	    {
+	        this.node.before(target.node);
+	    }
+
+	    /**
+	     * 在此节点之后插入节点
+	     * @param {NElement | NLocate | NText} target
+	     */
+	    insAfter(target)
+	    {
+	        this.node.after(target.node);
+	    }
+
+	    /**
 	     * 移除此节点
 	     */
 	    remove()
 	    {
-	        this.element.remove();
+	        this.node.remove();
 	    }
 
 	    /**
@@ -912,7 +1154,7 @@
 	     */
 	    removeChilds(begin = 0, end = Infinity)
 	    {
-	        let e = this.element;
+	        let e = this.node;
 	        if (end > e.childElementCount)
 	            end = e.childElementCount;
 	        for (let i = begin; i < end; i++)
@@ -926,7 +1168,7 @@
 	     */
 	    getChilds()
 	    {
-	        return Array.from(this.element.children).map(o => getNElement(/** @type {HTMLElement} */(o)));
+	        return Array.from(this.node.children).map(o => getNElement(/** @type {HTMLElement} */(o)));
 	    }
 
 	    /**
@@ -936,66 +1178,60 @@
 	     */
 	    getChild(ind)
 	    {
-	        return getNElement(/** @type {HTMLElement} */(this.element.children[ind]));
+	        return getNElement(/** @type {HTMLElement} */(this.node.children[ind]));
 	    }
 
 	    /**
-	     * 使用指定元素替换此元素
-	     * @param {Array<NElement>} elements
+	     * 使用指定节点替换此节点
+	     * @param {Array<NElement | NText | NLocate>} elements
 	     */
 	    replaceWith(...elements)
 	    {
-	        this.element.replaceWith(...(elements.map(o => o.element)));
+	        this.node.replaceWith(...(elements.map(o => o.node)));
 	    }
 
 	    /**
 	     * 修改样式
-	     * @param {import("../feature/NStyle").keyOfStyle} styleName
+	     * @param {import("../feature/NStyle.js").keyOfStyle} styleName
 	     * @param {string | number | HookBindInfo} value
-	     * @param {HookBindValue | HookBindCallback} [hookObj]
 	     */
-	    setStyle(styleName, value, hookObj)
+	    setStyle(styleName, value)
 	    {
-	        if (hookObj != this.styleHooks.get(styleName))
+	        if (this.styleHooks.has(styleName))
 	        {
 	            this.styleHooks.get(styleName)?.destroy();
-	            if (hookObj != undefined)
-	                this.styleHooks.set(styleName, hookObj);
-	            else
-	                this.styleHooks.delete(styleName);
+	            this.styleHooks.delete(styleName);
 	        }
+
 	        if (value instanceof HookBindInfo)
-	            value.bindToCallback(o =>
-	            {
-	                this.setStyle(styleName, o, hookObj);
-	            }).bindDestroy(this).emit();
+	        {
+	            let hookBind = value.bindToValue(this.node.style, styleName);
+	            this.styleHooks.set(styleName, hookBind);
+	            hookBind.emit();
+	        }
 	        else
 	            // @ts-expect-error
-	            this.element.style[styleName] = value;
+	            this.node.style[styleName] = value;
 	    }
+
 	    /**
 	     * 获取样式
-	     * @param {import("../feature/NStyle").keyOfStyle} styleName
+	     * @param {import("../feature/NStyle.js").keyOfStyle} styleName
 	     * @returns {string | number}
 	     */
 	    getStyle(styleName)
 	    {
 	        if (typeof (styleName) == "string")
-	            return this.element.style[styleName];
+	            return this.node.style[styleName];
 	    }
 
 	    /**
 	     * 修改多个样式
-	     * @param {{ [x in (import("../feature/NStyle").keyOfStyle)]?: string | number }} obj
+	     * @param {{ [x in (import("../feature/NStyle.js").keyOfStyle)]?: string | number | HookBindInfo }} obj
 	     */
 	    setStyles(obj)
 	    {
-	        forEach(Object.keys(obj), (key) =>
-	        {
-	            let value = obj[key];
-	            if (isAmong(typeof (value), "number", "string"))
-	                this.element.style[key] = obj[key];
-	        });
+	        forEach(Object.keys(obj), (key) => { this.setStyle(key, obj[key]); });
 	    }
 
 	    /**
@@ -1004,7 +1240,7 @@
 	     */
 	    setText(text)
 	    {
-	        this.element.innerText = text;
+	        this.node.innerText = text;
 	    }
 
 	    /**
@@ -1014,7 +1250,17 @@
 	     */
 	    addText(text)
 	    {
-	        return this.element.appendChild(document.createTextNode(text));
+	        return this.node.appendChild(document.createTextNode(text));
+	    }
+
+	    /**
+	     * 设置HTMLElement属性
+	     * @param {string} key
+	     * @param {string} value
+	     */
+	    setAttr(key, value)
+	    {
+	        this.node.setAttribute(key, value);
 	    }
 
 	    /**
@@ -1023,7 +1269,7 @@
 	     */
 	    setAttrs(obj)
 	    {
-	        forEach(Object.keys(obj), (key) => { this.element.setAttribute(key, obj[key]); });
+	        forEach(Object.keys(obj), (key) => { this.setAttr(key, obj[key]); });
 	    }
 
 	    /**
@@ -1039,23 +1285,23 @@
 	     * 添加事件监听器
 	     * @template {keyof HTMLElementEventMap} K
 	     * @param {K} eventName
-	     * @param {function(HTMLElementEventMap[K]): any} callBack
+	     * @param {function(HTMLElementEventMap[K]): any} callback
 	     * @param {boolean | AddEventListenerOptions} [options]
 	     */
-	    addEventListener(eventName, callBack, options)
+	    addEventListener(eventName, callback, options)
 	    {
-	        this.element.addEventListener(eventName, callBack, options);
+	        this.node.addEventListener(eventName, callback, options);
 	    }
 
 	    /**
 	     * 移除事件监听器
 	     * @param {string} eventName
-	     * @param {function(Event) : void} callBack
+	     * @param {function(Event) : void} callback
 	     * @param {boolean | EventListenerOptions} [options]
 	     */
-	    removeEventListener(eventName, callBack, options)
+	    removeEventListener(eventName, callback, options)
 	    {
-	        this.element.removeEventListener(eventName, callBack, options);
+	        this.node.removeEventListener(eventName, callback, options);
 	    }
 
 	    /**
@@ -1066,7 +1312,7 @@
 	     */
 	    animate(keyframes, options)
 	    {
-	        return this.element.animate(keyframes, options);
+	        return this.node.animate(keyframes, options);
 	    }
 
 	    /**
@@ -1087,7 +1333,7 @@
 	            options = Object.assign({ fill: "forwards" }, options);
 	        if (options.fill != "forwards" && options.fill != "both")
 	            throw "(NElelemt) animateCommit can only be used when fill forwards or both";
-	        let animate = this.element.animate(keyframes, options);
+	        let animate = this.node.animate(keyframes, options);
 	        await animate.finished;
 
 	        let errorObject = null;
@@ -1124,7 +1370,7 @@
 	     */
 	    getTagName()
 	    {
-	        return (/** @type {keyof HTMLElementTagNameMap} */(this.element.tagName.toLowerCase()));
+	        return (/** @type {keyof HTMLElementTagNameMap} */(this.node.tagName.toLowerCase()));
 	    }
 
 	    /**
@@ -1251,7 +1497,7 @@
 	    if (obj.attr)
 	        now.setAttrs(obj.attr);
 	    if (obj.classList)
-	        now.element.classList.add(...obj.classList);
+	        now.node.classList.add(...obj.classList);
 	    if (obj.event) // 如果有绑定事件
 	    {
 	        Object.keys(obj.event).forEach(key =>
@@ -1437,11 +1683,11 @@
 	/**
 	 * 鼠标(拖拽)事件处理
 	 * @param {NElement} element 绑定到元素
-	 * @param {function(PointerData):void} callBack 回调
+	 * @param {function(PointerData):void} callback 回调
 	 * @param {number} [button] 绑定的按键
 	 * @param {HTMLElement | Window} [extensionRegion] 延伸区域 (实际捕获鼠标移动和按钮抬起的区域)
 	 */
-	function mouseBind(element, callBack, button = 0, extensionRegion = window)
+	function mouseBind(element, callback, button = 0, extensionRegion = window)
 	{
 	    element.addEventListener("mousedown", (/** @type {MouseEvent} */ e) => mouseDown(e), false);
 
@@ -1466,7 +1712,7 @@
 	        if (e.button == button)
 	        {
 	            leftDown = true;
-	            callBack(new PointerData(
+	            callback(new PointerData(
 	                x, y,
 	                0, 0,
 	                x, y,
@@ -1487,7 +1733,7 @@
 	            let vy = e.clientY - y;
 	            x = e.clientX;
 	            y = e.clientY;
-	            callBack(new PointerData(
+	            callback(new PointerData(
 	                x, y,
 	                vx, vy,
 	                sx, sy,
@@ -1510,7 +1756,7 @@
 	        if (leftDown && e.button == button)
 	        {
 	            leftDown = false;
-	            callBack(new PointerData(
+	            callback(new PointerData(
 	                x, y,
 	                vx, vy,
 	                sx, sy,
@@ -1523,10 +1769,10 @@
 	/**
 	 * 触摸(拖拽) 事件处理
 	 * @param {NElement} element 
-	 * @param {function(PointerData):void} callBack
+	 * @param {function(PointerData):void} callback
 	 * @param {boolean} [preventDefault]
 	 */
-	function touchBind(element, callBack, preventDefault = true)
+	function touchBind(element, callback, preventDefault = true)
 	{
 	    element.addEventListener("touchstart", e => touchStart(/** @type {TouchEvent} */(e)), {
 	        capture: false,
@@ -1575,7 +1821,7 @@
 	                y: o.clientY
 	            };
 	            touchesSet.set(o.identifier, t);
-	            callBack(new PointerData(
+	            callback(new PointerData(
 	                t.x, t.y,
 	                0, 0,
 	                t.sx, t.sy,
@@ -1599,7 +1845,7 @@
 	                let vy = o.clientY - touchInfo.y;
 	                touchInfo.x = o.clientX;
 	                touchInfo.y = o.clientY;
-	                callBack(new PointerData(
+	                callback(new PointerData(
 	                    touchInfo.x, touchInfo.y,
 	                    vx, vy,
 	                    touchInfo.sx, touchInfo.sy,
@@ -1625,7 +1871,7 @@
 	                let vy = o.clientY - touchInfo.y;
 	                touchInfo.x = o.clientX;
 	                touchInfo.y = o.clientY;
-	                callBack(new PointerData(
+	                callback(new PointerData(
 	                    touchInfo.x, touchInfo.y,
 	                    vx, vy,
 	                    touchInfo.sx, touchInfo.sy,
@@ -1647,7 +1893,7 @@
 	            if (touchInfo)
 	            {
 	                touchesSet.delete(o.identifier);
-	                callBack(new PointerData(
+	                callback(new PointerData(
 	                    touchInfo.x, touchInfo.y,
 	                    0, 0,
 	                    touchInfo.sx, touchInfo.sy,
@@ -1754,14 +2000,14 @@
 	/**
 	 * 键盘 事件处理
 	 * @param {HTMLElement} element
-	 * @param {function(KeyboardData) : void} callBack
+	 * @param {function(KeyboardData) : void} callback
 	 */
-	function keyboardBind(element, callBack)
+	function keyboardBind(element, callback)
 	{
 	    element.addEventListener("keydown", e =>
 	    {
 	        let keyName = (keyNameTable[e.key] ? keyNameTable[e.key] : e.key);
-	        callBack(new KeyboardData(
+	        callback(new KeyboardData(
 	            keyName,
 	            true,
 	            keyPress(keyName)
@@ -1771,13 +2017,23 @@
 	    {
 	        let keyName = (keyNameTable[e.key] ? keyNameTable[e.key] : e.key);
 	        keyUp(keyName);
-	        callBack(new KeyboardData(
+	        callback(new KeyboardData(
 	            keyName,
 	            false,
 	            false
 	        ));
 	    });
 	}
+
+	/**
+	 * 代理对象 到 钩子映射和源对象 映射
+	 * 
+	 * @type {WeakMap<object, {
+	 *  hookMap: Map<string | symbol, Set<import("./HookBindValue").HookBindValue | import("./HookBindCallback").HookBindCallback>>,
+	 *  srcObj: object
+	 * }>}
+	 */
+	const proxyMap = new WeakMap();
 
 	/**
 	 * 创建对象的代理
@@ -1817,6 +2073,7 @@
 	            return ret;
 	        },
 
+	        // TODO 应当当作设置为undefined 并创建专用方法解除绑定钩子
 	        deleteProperty: (target, key) => // 删除值
 	        {
 	            let ret = Reflect.deleteProperty(target, key);
@@ -1856,17 +2113,6 @@
 	}
 
 	/**
-	 * 记录器
-
-	 * 在目标对象销毁时销毁钩子
-	 * @type {FinalizationRegistry<import("./ArrayHookBind").ArrayHookBind>}
-	 */
-	new FinalizationRegistry(heldValue =>
-	{
-	    heldValue.destroy();
-	});
-
-	/**
 	 * 异步延迟
 	 * 将创建一个Promise并在指定延迟时间后解决
 	 * @param {number} time 单位:毫秒
@@ -1874,7 +2120,7 @@
 	 */
 	function delayPromise(time)
 	{
-	    return (new Promise((resolve, reject) =>
+	    return (new Promise((resolve) =>
 	    {
 	        setTimeout(() =>
 	        {
@@ -2058,7 +2304,7 @@
 	/**
 	 * 状态
 	 */
-	class State
+	let State$1 = class State
 	{
 	    /**
 	     * 类映射
@@ -2091,23 +2337,23 @@
 	     * @type {Map<function, string>}
 	     */
 	    safetyFunctionToName = new Map();
-	}
+	};
 
 	/**
 	 * 自定义序列化函数
 	 */
-	const serializationFunctionSymbol = Symbol("serialization function");
+	const serializationFunctionSymbol$1 = Symbol("serialization function");
 	/**
 	 * 自定义反序列化函数
 	 */
-	const deserializationFunctionSymbol = Symbol("deserialization function");
+	const deserializationFunctionSymbol$1 = Symbol("deserialization function");
 
-	const textEncoder$1 = new TextEncoder();
+	const textEncoder$2 = new TextEncoder();
 
 	/**
 	 * JSOBin编码器
 	 */
-	class Encoder
+	let Encoder$1 = class Encoder
 	{
 	    /**
 	     * @type {State}
@@ -2213,7 +2459,7 @@
 	     */
 	    pushStr(str)
 	    {
-	        let strBin = textEncoder$1.encode(str);
+	        let strBin = textEncoder$2.encode(str);
 	        this.pushVint(strBin.byteLength);
 	        this.pushArr(strBin);
 	    }
@@ -2283,7 +2529,7 @@
 	                { // TODO 类的自定义处理需要大改版 目前无法在自定义序列化下使用循环引用
 	                    this.push(6);
 	                    this.pushStr(this.#state.classToName.get(Object.getPrototypeOf(now)?.constructor));
-	                    let obj = now[serializationFunctionSymbol] ? now[serializationFunctionSymbol].call(now) : now; // 处理自定义序列化函数
+	                    let obj = now[serializationFunctionSymbol$1] ? now[serializationFunctionSymbol$1].call(now) : now; // 处理自定义序列化函数
 	                    let keys = Object.getOwnPropertyNames(obj);
 	                    this.pushVint(keys.length);
 	                    keys.forEach(key =>
@@ -2409,7 +2655,7 @@
 	                return new Uint8Array(buf);
 	        }
 	    }
-	}
+	};
 
 	/**
 	 * js内置类映射
@@ -2571,12 +2817,12 @@
 	    });
 	});
 
-	const textDecoder$1 = new TextDecoder("utf-8");
+	const textDecoder$2 = new TextDecoder("utf-8");
 
 	/**
 	 * JSOBin解码器
 	 */
-	class Decoder
+	let Decoder$1 = class Decoder
 	{
 	    /**
 	     * @type {State}
@@ -2661,7 +2907,7 @@
 	    getStr()
 	    {
 	        let len = this.getVInt();
-	        let str = textDecoder$1.decode(this.buffer.subarray(this.index, this.index + len));
+	        let str = textDecoder$2.decode(this.buffer.subarray(this.index, this.index + len));
 	        this.index += len;
 	        return str;
 	    }
@@ -2722,7 +2968,7 @@
 	                let classConstructor = this.#state.nameToClass.get(className);
 	                if (classConstructor == undefined)
 	                    throw `JSOBin Decode: (class) "${className}" is unregistered class in the current context in the parsing jsobin`;
-	                if (classConstructor?.[deserializationFunctionSymbol]) // 存在自定义反序列化函数
+	                if (classConstructor?.[deserializationFunctionSymbol$1]) // 存在自定义反序列化函数
 	                { // TODO 类的自定义处理需要大改版 目前无法在自定义序列化下使用循环引用
 	                    let dataObj = {};
 	                    let childCount = this.getVInt();
@@ -2733,7 +2979,7 @@
 	                        let key = this.getStr();
 	                        dataObj[key] = this.traversal();
 	                    }
-	                    let ret = classConstructor[deserializationFunctionSymbol](dataObj);
+	                    let ret = classConstructor[deserializationFunctionSymbol$1](dataObj);
 	                    this.referenceIndList[refInd] = ret;
 	                    return ret;
 	                }
@@ -2847,17 +3093,17 @@
 	        this.index += len;
 	        return ret;
 	    }
-	}
+	};
 
 	/**
 	 * JSOBin操作上下文
 	 */
-	class JSOBin
+	let JSOBin$1 = class JSOBin
 	{
 	    /**
 	     * @type {State}
 	     */
-	    #state = new State();
+	    #state = new State$1();
 
 	    /**
 	     * 添加类到上下文
@@ -2896,7 +3142,7 @@
 	        config = Object.assign({
 	            referenceString: false
 	        }, config);
-	        return (new Encoder(this.#state, config.referenceString)).encode(obj);
+	        return (new Encoder$1(this.#state, config.referenceString)).encode(obj);
 	    }
 
 	    /**
@@ -2906,9 +3152,9 @@
 	     */
 	    decode(bin)
 	    {
-	        return (new Decoder(this.#state, bin)).decode();
+	        return (new Decoder$1(this.#state, bin)).decode();
 	    }
-	}
+	};
 
 	/**
 	 * 生成唯一字符串
@@ -2917,7 +3163,7 @@
 	 * @param {number} [randomSection] 随机节数量
 	 * @returns {string}
 	 */
-	function uniqueIdentifierString$2(randomSection = 2)
+	function uniqueIdentifierString$3(randomSection = 2)
 	{
 	    var ret = Math.floor(Date.now()).toString(36);
 	    for (let i = 0; i < randomSection; i++)
@@ -2925,7 +3171,7 @@
 	    return ret;
 	}
 
-	const jsob = new JSOBin();
+	const jsob = new JSOBin$1();
 
 	/**
 	 * forge分片数据包
@@ -2987,7 +3233,7 @@
 	                    return undefined;
 	                return jsob.decode(base64ToUint8(dataBase64));
 	            }
-	            else if (metaArr[1] == "slice") // 分片数据
+	            else if (metaArr[1] == "slice" && creatorId) // 分片数据
 	            {
 	                if (metaArr.length < 5)
 	                    return undefined;
@@ -3040,6 +3286,8 @@
 	                    return jsob.decode(base64ToUint8(sliceInfo.slices.join("")));
 	                }
 	            }
+	            else
+	                return undefined;
 	        }
 	        catch (err)
 	        {
@@ -3058,25 +3306,26 @@
 	 */
 	function writeForgePacket(obj)
 	{
-	    const maxBodyLength = 8192;
+	    const maxSingleBodyLength = 8192;
+	    const maxMultiLength = 8192 * 50;
 	    try
 	    {
 	        let dataBase64 = uint8ToBase64(jsob.encode(obj, { referenceString: true }));
-	        if (dataBase64.length <= maxBodyLength)
+	        if (dataBase64.length <= maxSingleBodyLength)
 	        {
 	            let metaArr = ["", "single"];
 	            return `iiroseForge:${dataBase64.length.toString(36)},${dataBase64}${metaArr.join(",")}:end`;
 	        }
-	        else
+	        else if (dataBase64.length <= maxMultiLength)
 	        {
 	            let packetTime = Date.now();
 	            let packetTimeStr = packetTime.toString(36);
-	            let packetId = uniqueIdentifierString$2();
-	            let sliceCount = Math.ceil(dataBase64.length / maxBodyLength);
+	            let packetId = uniqueIdentifierString$3();
+	            let sliceCount = Math.ceil(dataBase64.length / maxSingleBodyLength);
 	            let sliceCountStr = sliceCount.toString(36);
 	            return Array(sliceCount).fill(0).map((_, i) =>
 	            {
-	                let dataSlice = dataBase64.slice(i * maxBodyLength, (i + 1) * maxBodyLength);
+	                let dataSlice = dataBase64.slice(i * maxSingleBodyLength, (i + 1) * maxSingleBodyLength);
 	                let metaArr = [
 	                    packetId,
 	                    "slice",
@@ -3087,6 +3336,8 @@
 	                return `iiroseForge:${dataSlice.length.toString(36)},${dataSlice}${metaArr.join(",")}:end`;
 	            });
 	        }
+	        else
+	            throw "packet is too big";
 	    }
 	    catch (err)
 	    {
@@ -4752,7 +5003,7 @@
 	 * @param {number} [randomSection] 随机节数量
 	 * @returns {string}
 	 */
-	function uniqueIdentifierString$1(randomSection = 2)
+	function uniqueIdentifierString$2(randomSection = 2)
 	{
 	    var ret = Math.floor(Date.now()).toString(36);
 	    if (globalThis?.crypto?.getRandomValues)
@@ -4931,7 +5182,7 @@
 
 	            return new Promise((resolve, reject) =>
 	            {
-	                let queryId = uniqueIdentifierString$1();
+	                let queryId = uniqueIdentifierString$2();
 	                let metaObj = Object.assign({}, queryMetaObj);
 	                metaObj[metaObjQueryIdKey$1] = queryId;
 
@@ -5737,6 +5988,8 @@
 	        enablePinSession: true,
 	        // 启用聊天记录查看器
 	        enableRecordViewer: true,
+	        // 启用一起玩
+	        enablePlayTogether: true,
 	        // 启动forge本地服务
 	        enableLocalService: false,
 	        // forge本地服务地址
@@ -5941,8 +6194,8 @@
 	    broadcast: () => { },
 	});
 
-	let textDecoder = new TextDecoder("utf-8");
-	let jsobinContext = new JSOBin();
+	let textDecoder$1 = new TextDecoder("utf-8");
+	let jsobinContext = new JSOBin$1();
 
 	/**
 	 * 本地服务客户端
@@ -6064,12 +6317,12 @@
 	                    {
 	                        if (separatorIndex != -1)
 	                            this.client.receiveData(
-	                                textDecoder.decode(data.subarray(0, separatorIndex)),
+	                                textDecoder$1.decode(data.subarray(0, separatorIndex)),
 	                                jsobinContext.decode(data.subarray(separatorIndex + 1))
 	                            );
 	                        else
 	                            this.client.receiveData(
-	                                textDecoder.decode(data),
+	                                textDecoder$1.decode(data),
 	                                undefined
 	                            );
 	                    }
@@ -6381,6 +6634,42 @@
 	                return;
 	            iframeContext.socketApi.send(JSON.stringify({
 	                "m": content,
+	                "mc": forgeApi.operation.getUserInputColor(),
+	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+	            }));
+	        },
+
+	        /**
+	         * 在用户所在房间发送消息
+	         * @param {0 | 1} typeId
+	         * @param {{
+	         *  mediaUrl?: string,
+	         *  durationInSeconds?: number,
+	         *  title?: string,
+	         *  singerName?: string,
+	         *  coverUrl?: string,
+	         *  color?: string,
+	         *  lyricsUrl?: string
+	         *  resolutionRatio?: string
+	         * }} info
+	         */
+	        sendRoomMediaCard: (typeId, info) =>
+	        {
+	            info = Object.assign({
+	                mediaUrl: "",
+	                title: "( empty title )",
+	                singerName: "( empty singer name )",
+	                coverUrl: "",
+	                color: "#000000",
+	                duration: 0,
+	                resolutionRatio: "720"
+	            }, info);
+
+
+	            const mediaCardContent = `m__4=${typeId}>${info.title}>${info.singerName}>${info.coverUrl}>${info.color}>${info.resolutionRatio}`;
+
+	            iframeContext.socketApi.send(JSON.stringify({ // 发送媒体卡片
+	                "m": mediaCardContent,
 	                "mc": forgeApi.operation.getUserInputColor(),
 	                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
 	            }));
@@ -7479,7 +7768,7 @@
 	/**
 	 * @type {WeakSet<HTMLElement>}
 	 */
-	let alreadyProcessedSet = new WeakSet();
+	let alreadyProcessedSet$1 = new WeakSet();
 
 	/**
 	 * 处理消息元素
@@ -7489,14 +7778,14 @@
 	{
 	    if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "msg")
 	    {
-	        if (alreadyProcessedSet.has(messageElement))
+	        if (alreadyProcessedSet$1.has(messageElement))
 	            return;
-	        alreadyProcessedSet.add(messageElement);
+	        alreadyProcessedSet$1.add(messageElement);
 
 	        let uid = (
 	            messageElement.dataset.id ?
 	                messageElement.dataset.id.split("_")[0] :
-	                (/** @type {HTMLElement} */(domPath(messageElement, [0, -1, 0])))?.dataset?.uid
+	                (/** @type {HTMLElement} */(domPath(messageElement, [0, -1])))?.dataset?.uid || (/** @type {HTMLElement} */(domPath(messageElement, [0, -1, 0])))?.dataset?.uid
 	        );
 	        let pubUserInfoElement = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, -1, -1])));
 	        if (pubUserInfoElement)
@@ -7531,9 +7820,9 @@
 	        privateChatTabElement.classList.contains("whoisTouch2")
 	    )
 	    {
-	        if (alreadyProcessedSet.has(privateChatTabElement))
+	        if (alreadyProcessedSet$1.has(privateChatTabElement))
 	            return;
-	        alreadyProcessedSet.add(privateChatTabElement);
+	        alreadyProcessedSet$1.add(privateChatTabElement);
 
 	        let uid = privateChatTabElement.getAttribute("ip");
 	        let userNameElement = (/** @type {HTMLElement} */(domPath(privateChatTabElement, [1, 0, -1])));
@@ -8209,11 +8498,382 @@
 	    return toClientTrie.matchPrefix(data[0]);
 	}
 
-	/*
-	    JSOBin version 1.1.1
-	*/
+	/**
+	 * 状态
+	 */
+	class State
+	{
+	    /**
+	     * 类映射
+	     * 类名字符串标识 到 类(构造函数)
+	     * @package
+	     * @type {Map<string, object>}
+	     */
+	    nameToClass = new Map();
 
-	new TextEncoder();
+	    /**
+	     * 类映射
+	     * 类(构造函数) 到 类名字符串标识
+	     * @package
+	     * @type {Map<object, string>}
+	     */
+	    classToName = new Map();
+
+	    /**
+	     * 安全函数映射
+	     * 安全函数字符串标识 到 函数
+	     * @package
+	     * @type {Map<string, function>}
+	     */
+	    nameToSafetyFunction = new Map();
+
+	    /**
+	     * 安全函数映射
+	     * 函数 到 安全函数字符串标识
+	     * @package
+	     * @type {Map<function, string>}
+	     */
+	    safetyFunctionToName = new Map();
+
+	    /**
+	     * 命名的symbol映射
+	     * 命名的symbol字符串标识 到 函数
+	     * @package
+	     * @type {Map<string, symbol>}
+	     */
+	    nameToNamedSymbol = new Map();
+
+	    /**
+	     * 命名的symbol映射
+	     * 函数 到 命名的symbol字符串标识
+	     * @package
+	     * @type {Map<symbol, string>}
+	     */
+	    namedSymbolToName = new Map();
+	}
+
+	/**
+	 * 自定义序列化函数
+	 */
+	const serializationFunctionSymbol = Symbol("serialization function");
+	/**
+	 * 自定义反序列化函数
+	 */
+	const deserializationFunctionSymbol = Symbol("deserialization function");
+
+	const textEncoder$1 = new TextEncoder();
+
+	/**
+	 * JSOBin编码器
+	 */
+	class Encoder
+	{
+	    /**
+	     * @type {State}
+	     */
+	    #state = null;
+
+	    /**
+	     * 缓冲区
+	     * @type {Uint8Array}
+	     */
+	    #buffer = new Uint8Array(128);
+	    /**
+	     * 缓冲区结束索引
+	     * 不包括该值
+	     * @type {number}
+	     */
+	    #endInd = 0;
+
+	    /**
+	     * 引用索引计数
+	     * @type {number}
+	     */
+	    #referenceIndCount = -1;
+	    /**
+	     * 引用的值 到 引用索引 映射
+	     * @type {Map<any, number>}
+	     */
+	    #referenceIndMap = new Map();
+	    /**
+	     * 允许引用字符串
+	     * 开启时对于有相同字符串的内容将降低大小
+	     * @type {boolean}
+	     */
+	    #enableReferenceString = false;
+
+
+	    /**
+	     * @param {State} state
+	     * @param {boolean} enableReferenceString
+	     */
+	    constructor(state, enableReferenceString)
+	    {
+	        this.#state = state;
+	        this.#enableReferenceString = enableReferenceString;
+	    }
+
+	    /**
+	     * 向缓冲区加入单个值
+	     * @param {number} c
+	     */
+	    push(c)
+	    {
+	        if (this.#endInd >= this.#buffer.length)
+	        {
+	            let old = this.#buffer;
+	            this.#buffer = new Uint8Array(this.#buffer.length * 2);
+	            this.#buffer.set(old);
+	        }
+	        this.#buffer[this.#endInd++] = c;
+	    }
+
+	    /**
+	     * 向缓冲区加入数组
+	     * @param {Uint8Array} a 
+	     */
+	    pushArr(a)
+	    {
+	        if (this.#endInd + a.length > this.#buffer.length)
+	        {
+	            let old = this.#buffer;
+	            let newLen = old.length * 2;
+	            while (this.#endInd + a.length > newLen)
+	                newLen *= 2;
+	            this.#buffer = new Uint8Array(newLen);
+	            this.#buffer.set(old);
+	        }
+	        this.#buffer.set(a, this.#endInd);
+	        this.#endInd += a.length;
+	    }
+
+	    /**
+	     * 序列化一个vint
+	     * @param {number} num
+	     */
+	    pushVint(num)
+	    {
+	        while (true)
+	        {
+	            let c = (num & ((1 << 7) - 1));
+	            num >>>= 7;
+	            if (!num)
+	            {
+	                this.push(c | (1 << 7));
+	                return;
+	            }
+	            this.push(c);
+	        }
+	    }
+
+	    /**
+	     * 写入字符串
+	     * @param {string} str
+	     */
+	    pushStr(str)
+	    {
+	        let strBin = textEncoder$1.encode(str);
+	        this.pushVint(strBin.byteLength);
+	        this.pushArr(strBin);
+	    }
+
+	    /**
+	     * 遍历编码
+	     * @param {object | number | string} now
+	     */
+	    traversal(now)
+	    {
+	        ++this.#referenceIndCount;
+	        if (!this.#referenceIndMap.has(now))
+	            this.#referenceIndMap.set(now, this.#referenceIndCount);
+	        switch (typeof (now))
+	        {
+	            case "number": { // 数值型(整数或小数)
+	                if (Number.isInteger(now) && now >= -2147483648 && now <= 2147483647 && !Object.is(now, -0)) // 32位整数
+	                {
+	                    this.push(1);
+	                    this.pushVint(now);
+	                }
+	                else // 浮点数
+	                {
+	                    this.push(2);
+	                    this.pushArr(new Uint8Array(new Float64Array([now]).buffer));
+	                }
+	                break;
+	            }
+
+	            case "string": { // 字符串
+	                let refInd = 0;
+	                if (
+	                    this.#enableReferenceString &&
+	                    now.length >= 2 &&
+	                    this.#referenceIndCount > (refInd = this.#referenceIndMap.get(now))
+	                ) // 引用字符串
+	                {
+	                    this.push(14);
+	                    this.pushVint(refInd);
+	                }
+	                else
+	                {
+	                    this.push(3);
+	                    this.pushStr(now);
+	                }
+	                break;
+	            }
+
+	            case "object": { // 对象 数组 类 null
+	                if (now == null) // null
+	                    this.push(11);
+	                else if (this.#referenceIndMap.get(now) < this.#referenceIndCount) // 需要引用的对象
+	                {
+	                    this.push(14);
+	                    this.pushVint(this.#referenceIndMap.get(now));
+	                }
+	                else if (Array.isArray(now)) // 数组
+	                {
+	                    this.push(5);
+	                    now.forEach(o =>
+	                    {
+	                        this.traversal(o);
+	                    });
+	                    this.push(0);
+	                }
+	                else if (this.#state.classToName.has(Object.getPrototypeOf(now)?.constructor)) // 类(自定义类)
+	                {
+	                    this.push(6);
+	                    this.pushStr(this.#state.classToName.get(Object.getPrototypeOf(now)?.constructor));
+	                    let obj = now[serializationFunctionSymbol] ? now[serializationFunctionSymbol].call(now) : now; // 处理自定义序列化函数
+	                    let keys = Object.getOwnPropertyNames(obj);
+	                    this.pushVint(keys.length);
+	                    keys.forEach(key =>
+	                    {
+	                        this.pushStr(key);
+	                        this.traversal(obj[key]);
+	                    });
+	                }
+	                else if (builtInClassConstructorMap.has(Object.getPrototypeOf(now)?.constructor)) // js内置类
+	                {
+	                    this.push(15);
+	                    let classInfo = builtInClassConstructorMap.get(Object.getPrototypeOf(now)?.constructor);
+	                    this.pushVint(classInfo.typeId);
+	                    classInfo.encode(this, now);
+	                }
+	                else // 对象
+	                {
+	                    this.push(4);
+	                    let keys = Object.keys(now);
+	                    this.pushVint(keys.length);
+	                    keys.forEach(key =>
+	                    {
+	                        this.pushStr(key);
+	                        this.traversal(now[key]);
+	                    });
+	                }
+	                break;
+	            }
+
+	            case "undefined": { // 未定义(undefined)
+	                this.push(7);
+	                break;
+	            }
+
+	            case "boolean": { // 布尔值
+	                this.push(now ? 9 : 8);
+	                break;
+	            }
+
+	            case "bigint": { // bigint类型
+	                /** @type {Uint8Array} */
+	                let bigintBuf = null;
+	                if (now >= 0n) // bigint正数和0
+	                {
+	                    this.push(12);
+	                    if (now == 0n) // bigint 0
+	                        bigintBuf = new Uint8Array(0);
+	                    else // bigint 正数
+	                        bigintBuf = Encoder.writeBigint(now);
+	                }
+	                else // bigint负数
+	                {
+	                    this.push(13);
+	                    bigintBuf = Encoder.writeBigint(-(/** @type {bigint} */(now)));
+	                }
+	                this.pushVint(bigintBuf.byteLength);
+	                this.pushArr(bigintBuf);
+	                break;
+	            }
+
+	            case "symbol": { // symbol类型
+	                if (this.#referenceIndMap.get(now) < this.#referenceIndCount) // 需要引用的symbol
+	                {
+	                    this.push(14);
+	                    this.pushVint(this.#referenceIndMap.get(now));
+	                }
+	                else if (this.#state.namedSymbolToName.has(now)) // 命名的symbol
+	                {
+	                    this.push(18);
+	                    this.pushStr(this.#state.namedSymbolToName.get(now));
+	                }
+	                else // 新的symbol
+	                {
+	                    this.push(10);
+	                    this.pushStr(now.description ? now.description : "");
+	                }
+	                break;
+	            }
+
+	            case "function": { // 函数
+	                if (this.#state.safetyFunctionToName.has(now)) // 安全函数
+	                {
+	                    this.push(17);
+	                    this.pushStr(this.#state.safetyFunctionToName.get(now));
+	                }
+	                else
+	                    this.push(7); // 目前不处理其他函数
+	                break;
+	            }
+
+	            default:
+	                throw "JSObin(encode): The type of value that cannot be processed.";
+	        }
+	    }
+
+	    /**
+	     * 获取最终缓冲区
+	     * @returns {Uint8Array}
+	     */
+	    getFinalBuffer()
+	    {
+	        return this.#buffer.slice(0, this.#endInd);
+	    }
+
+	    /**
+	     * 编码
+	     * @param {object | number | string} obj
+	     */
+	    encode(obj)
+	    {
+	        this.traversal(obj);
+	        return this.getFinalBuffer();
+	    }
+
+	    /**
+	     * 序列化一个bigint
+	     * @param {bigint} num 一个正数
+	     * @returns {Uint8Array}
+	     */
+	    static writeBigint(num)
+	    {
+	        let buf = [];
+	        while (true)
+	        {
+	            buf.push(Number(num & 255n));
+	            num >>= 8n;
+	            if (num == 0n)
+	                return new Uint8Array(buf);
+	        }
+	    }
+	}
 
 	/**
 	 * js内置类映射
@@ -8249,6 +8909,8 @@
 	        {
 	            let ret = new Map();
 	            let childCount = decoder.getVInt();
+	            if (childCount < 0)
+	                throw "JSOBin Decode: Wrong format";
 	            decoder.referenceIndList.push(ret);
 	            for (let i = 0; i < childCount; i++)
 	            {
@@ -8290,9 +8952,8 @@
 	        decode: (/** @type {Decoder} */decoder) =>
 	        {
 	            let length = decoder.getVInt();
-	            let ret = decoder.buffer.buffer.slice(decoder.index, decoder.index + length);
+	            let ret = decoder.getArr(length).buffer;
 	            decoder.referenceIndList.push(ret);
-	            decoder.index += length;
 	            return ret;
 	        }
 	    },
@@ -8308,43 +8969,53 @@
 	([
 	    {
 	        constructor: Int8Array,
-	        typeId: 10
+	        typeId: 10,
+	        byteFactor: 1
 	    },
 	    {
 	        constructor: Uint8Array,
-	        typeId: 11
+	        typeId: 11,
+	        byteFactor: 1
 	    },
 	    {
 	        constructor: Int16Array,
-	        typeId: 12
+	        typeId: 12,
+	        byteFactor: 2
 	    },
 	    {
 	        constructor: Uint16Array,
-	        typeId: 13
+	        typeId: 13,
+	        byteFactor: 2
 	    },
 	    {
 	        constructor: Int32Array,
-	        typeId: 14
+	        typeId: 14,
+	        byteFactor: 4
 	    },
 	    {
 	        constructor: Uint32Array,
-	        typeId: 15
+	        typeId: 15,
+	        byteFactor: 4
 	    },
 	    {
 	        constructor: BigInt64Array,
-	        typeId: 16
+	        typeId: 16,
+	        byteFactor: 8
 	    },
 	    {
 	        constructor: BigUint64Array,
-	        typeId: 17
+	        typeId: 17,
+	        byteFactor: 8
 	    },
 	    {
 	        constructor: Float32Array,
-	        typeId: 18
+	        typeId: 18,
+	        byteFactor: 4
 	    },
 	    {
 	        constructor: Float64Array,
-	        typeId: 19
+	        typeId: 19,
+	        byteFactor: 8
 	    }
 	]).forEach(o =>
 	{
@@ -8367,7 +9038,11 @@
 
 	        let byteOffset = decode.getVInt();
 	        let length = decode.getVInt();
+	        if (length < 0 || byteOffset < 0)
+	            throw "JSOBin Decode: Wrong format";
 	        let buffer = decode.traversal();
+	        if (!(buffer instanceof ArrayBuffer) || byteOffset + o.byteFactor * length > buffer.byteLength)
+	            throw "JSOBin Decode: Wrong format";
 
 	        let ret = new o.constructor(buffer, byteOffset, length);
 	        decode.referenceIndList[refInd] = ret;
@@ -8375,7 +9050,942 @@
 	    });
 	});
 
-	new TextDecoder("utf-8");
+	const textDecoder = new TextDecoder("utf-8");
+
+	/**
+	 * JSOBin解码器
+	 */
+	class Decoder
+	{
+	    /**
+	     * @type {State}
+	     */
+	    #state = null;
+
+	    /**
+	     * 缓冲区
+	     * @type {Uint8Array}
+	     */
+	    buffer = null;
+	    /**
+	     * 缓冲区对应的DataView
+	     * @type {DataView}
+	     */
+	    dataView = null;
+	    /**
+	     * 当前读取到的位置
+	     */
+	    index = 0;
+
+	    /**
+	     * 引用列表
+	     * 用于记录引用索引对应的内容
+	     * @type {Array}
+	     */
+	    referenceIndList = [];
+
+	    /**
+	     * @param {State} state
+	     * @param {Uint8Array} buffer
+	     */
+	    constructor(state, buffer)
+	    {
+	        this.#state = state;
+	        this.buffer = buffer;
+	        this.dataView = new DataView(buffer.buffer);
+	    }
+
+	    /**
+	     * 获取当前位置的byte
+	     * @returns {number}
+	     */
+	    peekByte()
+	    {
+	        if (this.index >= this.buffer.length)
+	            throw "JSOBin Decode: Wrong format";
+	        return this.buffer[this.index];
+	    }
+
+	    /**
+	     * 弹出当前位置的byte
+	     * 将移动索引位置
+	     * @returns {number}
+	     */
+	    popByte()
+	    {
+	        if (this.index >= this.buffer.length)
+	            throw "JSOBin Decode: Wrong format";
+	        return this.buffer[this.index++];
+	    }
+
+	    /**
+	     * 获取缓冲区中的一段
+	     * @param {number} len 
+	     * @returns {Uint8Array}
+	     */
+	    getArr(len)
+	    {
+	        if (len < 0 || this.index + len > this.buffer.length)
+	            throw "JSOBin Decode: Wrong format";
+	        let slice = this.buffer.slice(this.index, this.index + len);
+	        this.index += len;
+	        return slice;
+	    }
+
+	    /**
+	     * 读一个vint
+	     * @returns {number}
+	     */
+	    getVInt()
+	    {
+	        let ret = 0;
+	        let bitPointer = 0;
+	        while (!(this.peekByte() & (1 << 7)))
+	        {
+	            ret |= this.popByte() << bitPointer;
+	            bitPointer += 7;
+	            if (bitPointer > 32) // (bitPointer > 28)
+	                throw "JSOBin Decode: Unexpected vint length";
+	        }
+	        ret |= (this.popByte() & ((1 << 7) - 1)) << bitPointer;
+	        return ret;
+	    }
+
+	    /**
+	    * 获取一个字符串(带有表示长度的vint)
+	    * @returns {string}
+	    */
+	    getStr()
+	    {
+	        let len = this.getVInt();
+	        if (len < 0 || this.index + len > this.buffer.length)
+	            throw "JSOBin Decode: Wrong format";
+	        let str = textDecoder.decode(this.buffer.subarray(this.index, this.index + len));
+	        this.index += len;
+	        return str;
+	    }
+
+	    /**
+	     * 遍历解码
+	     * @returns {any}
+	     */
+	    traversal()
+	    {
+	        if (this.index >= this.buffer.length)
+	            throw "JSOBin Decode: Wrong format";
+	        let typeId = this.popByte();
+	        switch (typeId)
+	        {
+	            case 1: { // 变长型整数
+	                let num = this.getVInt();
+	                this.referenceIndList.push(num);
+	                return num;
+	            }
+
+	            case 2: { // 浮点数
+	                let num = this.dataView.getFloat64(this.index, true);
+	                this.referenceIndList.push(num);
+	                this.index += 8;
+	                return num;
+	            }
+
+	            case 3: { // 字符串
+	                let str = this.getStr();
+	                this.referenceIndList.push(str);
+	                return str;
+	            }
+
+	            case 4: { // 对象
+	                let ret = {};
+	                let childCount = this.getVInt();
+	                if (childCount < 0)
+	                    throw "JSOBin Decode: Wrong format";
+	                this.referenceIndList.push(ret);
+	                for (let i = 0; i < childCount; i++)
+	                {
+	                    let key = this.getStr();
+	                    let value = this.traversal();
+	                    Object.defineProperty(
+	                        ret,
+	                        key,
+	                        {
+	                            value: value,
+	                            writable: true,
+	                            configurable: true,
+	                            enumerable: true
+	                        }
+	                    );
+	                }
+	                return ret;
+	            }
+
+	            case 5: { // 数组
+	                let ret = [];
+	                this.referenceIndList.push(ret);
+	                while (this.peekByte())
+	                    ret.push(this.traversal());
+	                this.index++;
+	                return ret;
+	            }
+
+	            case 6: { // 类
+	                let className = this.getStr();
+	                let classConstructor = this.#state.nameToClass.get(className);
+	                if (classConstructor == undefined)
+	                    throw `JSOBin Decode: (class) "${className}" is unregistered class in the current context in the parsing jsobin`;
+	                if (classConstructor?.[deserializationFunctionSymbol]) // 存在自定义反序列化函数
+	                {
+	                    let dataObj = {};
+	                    let childCount = this.getVInt();
+	                    if (childCount < 0)
+	                        throw "JSOBin Decode: Wrong format";
+	                    let refInd = this.referenceIndList.length;
+	                    this.referenceIndList.push(dataObj);
+	                    for (let i = 0; i < childCount; i++)
+	                    {
+	                        let key = this.getStr();
+	                        let value = this.traversal();
+	                        Object.defineProperty(
+	                            dataObj,
+	                            key,
+	                            {
+	                                value: value,
+	                                writable: true,
+	                                configurable: true,
+	                                enumerable: true
+	                            }
+	                        );
+	                    }
+	                    let ret = classConstructor[deserializationFunctionSymbol](dataObj);
+	                    this.referenceIndList[refInd] = ret;
+	                    return ret;
+	                }
+	                else // 自定义类默认序列化方案
+	                {
+	                    let ret = Object.create(classConstructor.prototype);
+	                    let childCount = this.getVInt();
+	                    if (childCount < 0)
+	                        throw "JSOBin Decode: Wrong format";
+	                    this.referenceIndList.push(ret);
+	                    for (let i = 0; i < childCount; i++)
+	                    {
+	                        let key = this.getStr();
+	                        let value = this.traversal();
+	                        Object.defineProperty(
+	                            ret,
+	                            key,
+	                            {
+	                                value: value,
+	                                writable: true,
+	                                configurable: true,
+	                                enumerable: true
+	                            }
+	                        );
+	                    }
+	                    return ret;
+	                }
+	            }
+
+	            case 7: { // 未定义(undefined)
+	                this.referenceIndList.push(undefined);
+	                return undefined;
+	            }
+
+	            case 8: { // 布尔值假
+	                this.referenceIndList.push(false);
+	                return false;
+	            }
+
+	            case 9: { // 布尔值真
+	                this.referenceIndList.push(true);
+	                return true;
+	            }
+
+	            case 10: { // symbol类型
+	                let symbol = Symbol(this.getStr());
+	                this.referenceIndList.push(symbol);
+	                return symbol;
+	            }
+
+	            case 11: { // 无效对象(null)
+	                this.referenceIndList.push(null);
+	                return null;
+	            }
+
+	            case 12: { // bigint类型(正数)
+	                let len = this.getVInt();
+	                let num = this.readBigInt(len);
+	                this.referenceIndList.push(num);
+	                return num;
+	            }
+
+	            case 13: { // bigint类型(负数)
+	                let len = this.getVInt();
+	                let num = this.readBigInt(len);
+	                this.referenceIndList.push(num);
+	                return -num;
+	            }
+
+	            case 14: { // 引用
+	                let referenceInd = this.getVInt();
+	                if (referenceInd < 0 || referenceInd >= this.referenceIndList.length)
+	                    throw "JSOBin Decode: Wrong format";
+	                let ret = this.referenceIndList[referenceInd];
+	                this.referenceIndList.push(ret);
+	                return ret;
+	            }
+
+	            case 15: { // js内置类
+	                let builtInClassId = this.getVInt();
+	                let decodeFunction = builtInClassTypeIdMap.get(builtInClassId);
+	                if (decodeFunction)
+	                    return decodeFunction(this);
+	                else
+	                    throw "JSOBin Decode: Unsupported js built-in class type.";
+	            }
+
+	            case 16: { // 函数 目前不支持
+	                throw "JSOBin Decode: Function is not supported in the current version";
+	            }
+
+	            case 17: { // 安全函数
+	                let func = this.#state.nameToSafetyFunction.get(this.getStr());
+	                if (!func)
+	                    throw "JSOBin Decode: A non-existent security function was used";
+	                this.referenceIndList.push(func);
+	                return func;
+	            }
+
+	            case 18: { // 命名的symbol
+	                let symbol = this.#state.nameToNamedSymbol.get(this.getStr());
+	                if (!symbol)
+	                    throw "JSOBin Decode: A non-existent named symbol was used";
+	                this.referenceIndList.push(symbol);
+	                return symbol;
+	            }
+
+	            default:
+	                throw "JSOBin Decode: Wrong format";
+	        }
+	    }
+
+	    /**
+	     * 解码
+	     * @returns {object | number | string}
+	     */
+	    decode()
+	    {
+	        return this.traversal();
+	    }
+
+	    /**
+	     * 反序列化一个Bigint
+	     * @param {number} len
+	     * @returns {bigint} 正数bigint 或 负数bigint的相反数
+	     */
+	    readBigInt(len)
+	    {
+	        if (len < 0)
+	            throw "JSOBin Decode: Wrong format";
+	        let ret = 0n;
+	        let endPtr = this.index + len - 1;
+	        if (this.index >= this.buffer.length)
+	            throw "JSOBin Decode: Wrong format";
+	        for (let ptr = endPtr; ptr >= this.index; ptr--)
+	        {
+	            ret <<= 8n;
+	            ret += BigInt(this.buffer[ptr]);
+	        }
+	        this.index += len;
+	        return ret;
+	    }
+	}
+
+	/**
+	 * JSOBin操作上下文
+	 */
+	class JSOBin
+	{
+	    /**
+	     * @type {State}
+	     */
+	    #state = new State();
+
+	    /**
+	     * 添加类到上下文
+	     * 注册标识符和类(构造器)的相互映射
+	     * @param {string} identifier 类标识符
+	     * @param {function} classConstructor 类的构造器
+	     */
+	    addClass(identifier, classConstructor)
+	    {
+	        this.#state.nameToClass.set(identifier, classConstructor);
+	        this.#state.classToName.set(classConstructor, identifier);
+	    }
+
+	    /**
+	     * 添加安全函数到上下文
+	     * 允许确保安全的函数注册标识符和函数的相互映射
+	     * @param {string} identifier 安全函数标识符
+	     * @param {function} safetyFunction 函数
+	     */
+	    addSafetyFunction(identifier, safetyFunction)
+	    {
+	        this.#state.nameToSafetyFunction.set(identifier, safetyFunction);
+	        this.#state.safetyFunctionToName.set(safetyFunction, identifier);
+	    }
+
+	    /**
+	     * 添加命名的symbol
+	     * 允许确保通过此symbol的标识符和symbol的相互映射
+	     * @param {string} identifier symbol的名称(标识符)
+	     * @param {symbol} namedSymbol
+	     */
+	    addNamedSymbol(identifier, namedSymbol)
+	    {
+	        this.#state.nameToNamedSymbol.set(identifier, namedSymbol);
+	        this.#state.namedSymbolToName.set(namedSymbol, identifier);
+	    }
+
+	    /**
+	     * 编码
+	     * @param {object | number | string} obj
+	     * @param {{
+	     *  referenceString?: boolean
+	     * }} [config]
+	     * @returns {Uint8Array}
+	     */
+	    encode(obj, config = {})
+	    {
+	        config = Object.assign({
+	            referenceString: false
+	        }, config);
+	        return (new Encoder(this.#state, config.referenceString)).encode(obj);
+	    }
+
+	    /**
+	     * 解码
+	     * @param {Uint8Array} bin
+	     * @returns {object | number | string}
+	     */
+	    decode(bin)
+	    {
+	        return (new Decoder(this.#state, bin)).decode();
+	    }
+	}
+
+	/**
+	 * 传入上下文的函数 被目标暂时holding时 用于储存信息的类
+	 * 这些对象随时准备被目标调用
+	 * 
+	 * 传入上下文的函数 包括 调用目标的函数时传入的函数 被目标调用函数时返回的函数
+	 * 随目标对函数的释放 同时释放此对象
+	 */
+	class TmpFunctionInfo
+	{
+	    /**
+	     * 单次调用
+	     * 表示此函数被调用后就会释放
+	     * 通常用于resolve和reject
+	     */
+	    once = false;
+
+	    /**
+	     * 调用后释放目标对象
+	     * 通常用于一对resolve与reject相互释放
+	     * 调用本函数后释放此id的函数 但本函数释放时不会自动释放此函数
+	     */
+	    releaseTarget = "";
+
+	    /**
+	     * 转入的函数本身
+	     * @type {function}
+	     */
+	    func = null;
+
+	    /**
+	     * @param {Function} func
+	     * @param {boolean} once
+	     * @param {string} releaseTarget
+	     */
+	    constructor(func, once, releaseTarget)
+	    {
+	        this.func = func;
+	        this.once = once;
+	        this.releaseTarget = releaseTarget;
+	    }
+	}
+
+	/**
+	 * base64字符串转Uint8Array
+	 * @param {string} base64String
+	 * @returns {Uint8Array}
+	 */
+	function base64ToUint8Array(base64String)
+	{
+	    let binStr = atob(base64String);
+	    let length = binStr.length;
+	    let ret = new Uint8Array(length);
+	    for (let i = 0; i < length; i++)
+	        ret[i] = binStr.charCodeAt(i);
+	    return ret;
+	}
+
+	/**
+	 * Uint8Array转base64字符串
+	 * @param {Uint8Array} uint8Array
+	 * @returns {string}
+	 */
+	function uint8ArrayToBase64(uint8Array)
+	{
+	    let length = uint8Array.length;
+	    let binStr = "";
+	    for (let i = 0; i < length; i++)
+	        binStr = binStr + String.fromCharCode(uint8Array[i]);
+	    let ret = btoa(binStr);
+	    return ret;
+	}
+
+	/**
+	 * 生成唯一字符串
+	 * 基于毫秒级时间和随机数
+	 * 不保证安全性
+	 * @param {number} [randomSection] 随机节数量
+	 * @returns {string}
+	 */
+	function uniqueIdentifierString$1(randomSection = 2)
+	{
+	    var ret = Math.floor(Date.now()).toString(36);
+	    for (let i = 0; i < randomSection; i++)
+	        ret += "-" + Math.floor(Math.random() * 1e12).toString(36);
+	    return ret;
+	}
+
+	let jsobContext = new JSOBin();
+
+	/**
+	 * rco操作上下文
+	 */
+	class RcoContext
+	{
+	    /**
+	     * 全局命名函数
+	     * @type {Map<string, function>}
+	     */
+	    #globalNamedFunctionMap = new Map();
+
+	    /**
+	     * 运行中传递的函数
+	     * (对方持有的本地的函数)
+	     * @type {Map<string, TmpFunctionInfo>}
+	     */
+	    #idFunctionMap = new Map();
+
+	    /**
+	     * 持有的对方的函数
+	     * @type {Map<string, WeakRef<function>>}
+	     */
+	    #holdingFunctionMap = new Map();
+
+	    /**
+	     * 输出流
+	     * @param {string | Uint8Array | object} data
+	     * @returns {void}
+	     */
+	    #outStream = (data) => { throw "RcoCcontext: not bound to an output stream"; };
+
+	    /**
+	     * 输出流类型
+	     * 0 raw Object
+	     * 1 jsobin Uint8array
+	     * 2 base64(jsobin) string
+	     * @type {0 | 1 | 2}
+	     */
+	    #outStreamType = 1;
+
+	    /**
+	     * 回收持有的目标的函数
+	     * 当不再持有时通知目标进行释放
+	     * @type {FinalizationRegistry<string>}
+	     */
+	    #holdingFunctionRegistry = null;
+
+	    constructor()
+	    {
+	        this.#holdingFunctionRegistry = new FinalizationRegistry((id) =>
+	        {
+	            this.#holdingFunctionMap.delete(id);
+	            this.#outputPacket([ // 通知目标释放函数
+	                2,
+	                id
+	            ]);
+	        });
+	    }
+
+	    /**
+	     * 输出数据包
+	     * @param {Object} data
+	     */
+	    #outputPacket(data)
+	    {
+	        switch (this.#outStreamType)
+	        {
+	            case 0:
+	                this.#outStream(data);
+	                break;
+	            case 1:
+	                this.#outStream(jsobContext.encode(data));
+	                break;
+	            case 2:
+	                this.#outStream(uint8ArrayToBase64(jsobContext.encode(data)));
+	                break;
+	        }
+	    }
+
+	    /**
+	     * 绑定输出流
+	     * 会覆盖之前绑定的输出流
+	     * @param {(data: string | Uint8Array | object) => void} onDataCallback 
+	     * @param { "jsob" | "jsobin" | "base64" | "raw" } [type]
+	     */
+	    bindOutStream(onDataCallback, type = "jsob")
+	    {
+	        this.#outStream = onDataCallback;
+
+	        if (type == "raw")
+	            this.#outStreamType = 0;
+	        else if (type == "jsob" || type == "jsobin")
+	            this.#outStreamType = 1;
+	        else if (type == "base64")
+	            this.#outStreamType = 2;
+	        else
+	            throw "RcoCcontext(bindOutStream): Unsupported output stream types";
+	    }
+
+	    /**
+	     * 添加全局命名函数
+	     * @param {Object<string, function>} functionMapObj 
+	     */
+	    addGlobalNamedFunctions(functionMapObj)
+	    {
+	        Object.keys(functionMapObj).forEach(functionName =>
+	        {
+	            this.#globalNamedFunctionMap.set(functionName, functionMapObj[functionName]);
+	        });
+	    }
+
+	    /**
+	     * 收到数据包
+	     * @param {object} data
+	     */
+	    async #onPacket(data)
+	    {
+	        if (Array.isArray(data))
+	        {
+	            let type = data[0];
+	            switch (type)
+	            {
+	                case 0: { // 调用命名函数
+	                    let func = this.#globalNamedFunctionMap.get(data[1]); // arr[1] 函数名
+	                    if (func)
+	                    {
+	                        let param = (
+	                            data[3] ? // arr[3] 函数参数中包含的函数对应的id表
+	                                this.#injectFunction(data[2], data[3]).result :
+	                                data[2] // arr[2] 函数的参数
+	                        );
+
+	                        try
+	                        {
+	                            let retValue = await func(...param);
+	                            if (data[4]) // arr[4] 返回时调用的函数 
+	                            {
+	                                let result = this.#extractFunction(retValue);
+	                                this.#outputPacket([
+	                                    1, // 执行id函数 (resolve函数)
+	                                    data[4],
+	                                    [result.result],
+	                                    (result.fnMap.size > 0 ? result.fnMap : undefined)
+	                                ]);
+	                            }
+	                        }
+	                        catch (err)
+	                        {
+	                            if (data[5]) // arr[5] 出错时调用的函数
+	                                this.#outputPacket([
+	                                    1, // 执行id函数 (reject函数)
+	                                    data[5],
+	                                    [err]
+	                                ]);
+	                        }
+	                    }
+	                    else
+	                    {
+	                        if (data[5]) // arr[5] 出错时调用的函数
+	                            this.#outputPacket([
+	                                1,
+	                                data[5],
+	                                ["function does not exist"]
+	                            ]);
+	                    }
+	                    break;
+	                }
+	                case 1: { // 调用id函数
+	                    let id = data[1];
+	                    let funcInfo = this.#idFunctionMap.get(id); // arr[1] 函数id
+	                    if (funcInfo)
+	                    {
+	                        let param = (
+	                            data[3] ? // arr[3] 函数参数中包含的函数对应的id表
+	                                this.#injectFunction(data[2], data[3]).result :
+	                                data[2] // arr[2] 函数的参数
+	                        );
+
+	                        let func = funcInfo.func;
+	                        if (funcInfo.once)
+	                            this.#idFunctionMap.delete(id);
+	                        if (funcInfo.releaseTarget)
+	                            this.#idFunctionMap.delete(funcInfo.releaseTarget);
+
+	                        try
+	                        {
+	                            let retValue = await func(...param);
+	                            if (data[4]) // arr[4] 返回时调用的函数 
+	                            {
+	                                let result = this.#extractFunction(retValue);
+	                                this.#outputPacket([
+	                                    1,
+	                                    data[4],
+	                                    [result.result],
+	                                    (result.fnMap.size > 0 ? result.fnMap : undefined)
+	                                ]);
+	                            }
+	                        }
+	                        catch (err)
+	                        {
+	                            if (data[5]) // arr[5] 出错时调用的函数
+	                                this.#outputPacket([
+	                                    1,
+	                                    data[5],
+	                                    [err]
+	                                ]);
+	                        }
+	                    }
+	                    else
+	                    {
+	                        if (data[5]) // arr[5] 出错时调用的函数
+	                            this.#outputPacket([
+	                                1,
+	                                data[5],
+	                                ["function does not exist"]
+	                            ]);
+	                    }
+	                    break;
+	                }
+	                case 2: { // 释放id函数
+	                    data.slice(1).forEach(id =>
+	                    {
+	                        this.#idFunctionMap.delete(id);
+	                    });
+	                    break;
+	                }
+	            }
+	        }
+	    }
+
+	    /**
+	     * 输入流收到数据应调用
+	     * @param {string | Uint8Array | object} data 
+	     */
+	    onData(data)
+	    {
+	        if (typeof (data) == "string")
+	            this.#onPacket(jsobContext.decode(base64ToUint8Array(data)));
+	        else if (data instanceof Uint8Array)
+	            this.#onPacket(jsobContext.decode(data));
+	        else if (typeof (data) == "object")
+	            this.#onPacket(data);
+	        else
+	            throw "RcoCcontext(onData): Unable to process this data type";
+	    }
+
+	    /**
+	     * 调用命名函数
+	     * 
+	     * @async
+	     * 
+	     * @param {string} name
+	     * @param {Array<any>} param
+	     */
+	    callNamedFunction(name, ...param)
+	    {
+	        return new Promise((resolve, reject) =>
+	        {
+	            let result = this.#extractFunction(param);
+	            let resolveId = uniqueIdentifierString$1();
+	            let rejectId = uniqueIdentifierString$1();
+	            this.#idFunctionMap.set(resolveId, new TmpFunctionInfo(resolve, true, rejectId));
+	            this.#idFunctionMap.set(rejectId, new TmpFunctionInfo(reject, true, resolveId));
+	            this.#outputPacket([
+	                0, // 执行命名函数
+	                name,
+	                result.result,
+	                (result.fnMap.size > 0 ? result.fnMap : undefined),
+	                resolveId,
+	                rejectId
+	            ]);
+	        });
+	    }
+
+	    /**
+	     * 获取一个代理对象
+	     * 以函数名为key 返回的函数用于调用命名函数
+	     * @returns {Object<string, function>}
+	     */
+	    getGlobalNamedFunctionProxy()
+	    {
+	        return new Proxy({}, {
+	            set: () => false,
+	            get: (_target, /** @type {string} */ key) =>
+	            {
+	                return (/** @type {Array<any>} */ ...param) =>
+	                {
+	                    return this.callNamedFunction(key, ...param);
+	                };
+	            }
+	        });
+	    }
+
+	    /**
+	     * 将函数注入回对象
+	     * @param {Object} obj 
+	     * @param {Map<Object, string>} fnMap 
+	     */
+	    #injectFunction(obj, fnMap)
+	    {
+	        /**
+	         * 函数id 到 生成出的函数 映射
+	         * @type {Map<string, Function>}
+	         */
+	        let generatedFunctionMap = new Map();
+	        fnMap.forEach((id, _functionObj) =>
+	        {
+	            if (!generatedFunctionMap.has(id))
+	            {
+	                let generatedFunction = (/** @type {Array<any>} */ ...param) =>
+	                {
+	                    return new Promise((resolve, reject) =>
+	                    {
+	                        let result = this.#extractFunction(param);
+	                        let resolveId = uniqueIdentifierString$1();
+	                        let rejectId = uniqueIdentifierString$1();
+	                        this.#idFunctionMap.set(resolveId, new TmpFunctionInfo(resolve, true, rejectId));
+	                        this.#idFunctionMap.set(rejectId, new TmpFunctionInfo(reject, true, resolveId));
+	                        this.#outputPacket([
+	                            1, // 执行id函数
+	                            id,
+	                            result.result,
+	                            (result.fnMap.size > 0 ? result.fnMap : undefined),
+	                            resolveId,
+	                            rejectId
+	                        ]);
+	                    });
+	                };
+	                generatedFunctionMap.set(id, generatedFunction);
+
+	                this.#holdingFunctionMap.set(id, new WeakRef(generatedFunction));
+	                this.#holdingFunctionRegistry.register(generatedFunction, id);
+	            }
+	        });
+
+	        /**
+	         * 遍历对象嵌入函数
+	         * @param {any} now 
+	         * @returns {any}
+	         */
+	        const traversal = (now) =>
+	        {
+	            if (typeof (now) == "object")
+	            {
+	                if (fnMap.has(now))
+	                {
+	                    return generatedFunctionMap.get(fnMap.get(now));
+	                }
+	                else if (Array.isArray(now))
+	                {
+	                    return now.map(traversal);
+	                }
+	                else
+	                {
+	                    let ret = {};
+	                    Object.keys(now).forEach(key =>
+	                    {
+	                        ret[key] = traversal(now[key]);
+	                    });
+	                    return ret;
+	                }
+	            }
+	            else
+	                return now;
+	        };
+	        let result = traversal(obj);
+
+	        return ({
+	            result: result
+	        });
+	    }
+
+	    /**
+	     * 提取对象中的函数
+	     * (并生成函数对应表)
+	     * @param {Object} obj
+	     */
+	    #extractFunction(obj)
+	    {
+	        let functionMap = new Map();
+
+	        /**
+	         * 遍历对象过滤函数
+	         * @param {any} now 
+	         * @returns {any}
+	         */
+	        const traversal = (now) =>
+	        {
+	            if (typeof (now) == "function")
+	            {
+	                let ret = {};
+	                let functionId = uniqueIdentifierString$1();
+	                this.#idFunctionMap.set(functionId, new TmpFunctionInfo(now, false, ""));
+	                functionMap.set(ret, functionId);
+	                return ret;
+	            }
+	            else if (typeof (now) == "object")
+	            {
+	                if (Array.isArray(now))
+	                {
+	                    return now.map(traversal);
+	                }
+	                else
+	                {
+	                    let ret = {};
+	                    Object.keys(now).forEach(key =>
+	                    {
+	                        ret[key] = traversal(now[key]);
+	                    });
+	                    return ret;
+	                }
+	            }
+	            else
+	                return now;
+	        };
+	        let result = traversal(obj);
+
+	        return ({
+	            result: result,
+	            fnMap: functionMap
+	        });
+	    }
+	}
 
 	/**
 	 * 启用美化功能
@@ -9779,7 +11389,7 @@
 	                new NEvent("click", () =>
 	                {
 	                    showNotice("多账户", "正在尝试获取配置");
-	                    let requestId = uniqueIdentifierString$2();
+	                    let requestId = uniqueIdentifierString$3();
 	                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
 	                        plug: "forge",
 	                        type: "multiAccount",
@@ -9806,7 +11416,7 @@
 	                    }
 
 	                    showNotice("多账户", `正在连接 ${targetUid}`);
-	                    monitorId = uniqueIdentifierString$2();
+	                    monitorId = uniqueIdentifierString$3();
 	                    monitorUserId = targetUid;
 	                    forgeApi.operation.sendPrivateForgePacket(targetUid, {
 	                        plug: "forge",
@@ -10433,6 +12043,676 @@
 	    ]);
 	}
 
+	let hostnameWhiteList = new Set([
+	    "qwq0.github.io",
+	    "localhost",
+	]);
+
+	/**
+	 * @type {NElement}
+	 */
+	let oldPage = null;
+
+	/**
+	 * @type {RcoContext}
+	 */
+	let rcoContext = null;
+	let partyId = "";
+	/**
+	 * @type {Set<string>}
+	 */
+	let partyMemberSet = new Set();
+	/**
+	 * @type {Map<string, number>}
+	 */
+	let partyMemberJoinTimeMap = new Map();
+	let partyHostUserId = "";
+
+	/**
+	 * 一起玩
+	 * @param {string} urlStr
+	 * @param {string} [inviteSenderId]
+	 * @param {string} [inviteId]
+	 */
+	async function playTogether(urlStr, inviteSenderId = "", inviteId = "")
+	{
+	    if (oldPage != null)
+	    {
+	        let confirm = await showInfoBox("forge一起玩", "当前有正在运行的一起玩\n是否关闭并运行新的一起玩?", true);
+	        if (confirm)
+	        {
+	            oldPage.remove();
+	            oldPage = null;
+	        }
+	        else
+	            return;
+	    }
+
+	    if (!enabled)
+	    {
+	        showInfoBox("forge一起玩", "请先在附加功能中启用forge一起玩功能");
+	        return;
+	    }
+
+	    partyId = "";
+	    partyMemberSet.clear();
+	    partyMemberJoinTimeMap.clear();
+
+	    if (inviteId)
+	    {
+	        partyId = inviteId;
+	        partyHostUserId = inviteSenderId;
+	        partyMemberSet.add(inviteSenderId);
+	    }
+
+	    let url = new URL(urlStr);
+
+	    let loaded = false;
+	    let inited = false;
+
+	    if (hostnameWhiteList.has(url.hostname))
+	    {
+	        let page = NList.getElement([
+	            createNStyleList({
+	                position: "absolute",
+	                left: "0",
+	                top: "0",
+	                width: "100%",
+	                height: "100%",
+	                backgroundColor: "rgb(160, 160, 160)"
+	            }),
+
+	            [
+	                new NTagName("iframe"),
+
+	                new NAttr("src", urlStr),
+
+	                createNStyleList({
+	                    position: "absolute",
+	                    left: "0",
+	                    top: "0",
+	                    width: "100%",
+	                    height: "100%",
+	                    border: "none"
+	                }),
+
+	                ele => { },
+
+	                eventName.load((e, ele) =>
+	                {
+	                    if (loaded)
+	                        return;
+	                    loaded = true;
+
+	                    /**
+	                     * @type {HTMLIFrameElement}
+	                     */
+	                    let iframe = ele.element;
+
+
+	                    let channel = new MessageChannel();
+	                    let port = channel.port1;
+
+	                    rcoContext = new RcoContext();
+	                    rcoContext.addGlobalNamedFunctions({
+	                        init: () =>
+	                        {
+	                            if (inited)
+	                                return;
+	                            inited = true;
+	                            if (inviteId)
+	                            {
+	                                rcoContext.callNamedFunction("joinInvite", inviteId, "iirose:" + inviteSenderId);
+	                                forgeApi.operation.sendPrivateForgePacket(inviteSenderId, {
+	                                    plug: "forge",
+	                                    label: "playTogether",
+	                                    type: "join",
+	                                    id: inviteId
+	                                });
+	                                showNotice("forge一起玩", "正在等待加入派对");
+	                            }
+	                            else
+	                                showNotice("forge一起玩", "初始化完成");
+	                        },
+	                        sendInvite: async (name, inviteGameId, url) =>
+	                        {
+	                            partyId = inviteGameId;
+	                            let confirm = await showInfoBox("forge一起玩", `要在当前房间中发送邀请吗?\n邀请好友一起玩 ${name}`);
+	                            if (confirm)
+	                            {
+	                                let forgepacket = writeForgePacket({
+	                                    label: "playTogether",
+	                                    type: "invite",
+	                                    url: url,
+	                                    id: inviteGameId,
+	                                    expirationTime: Date.now() + 30 * 60 * 1000
+	                                });
+	                                if (typeof (forgepacket) == "string")
+	                                    forgeApi.operation.sendRoomMediaCard(1, {
+	                                        title: `邀请您一起玩 ${name}`,
+	                                        singerName: `需使用 iiroseForge v1.22 以上版本加入 - playTogether`,
+	                                        resolutionRatio: forgepacket
+	                                    });
+	                                else
+	                                    showNotice("forge一起玩", "发送邀请失败");
+	                            }
+	                        },
+	                        sendSlowPacket: (targetId, data) =>
+	                        {
+	                            if (targetId.startsWith("iirose:"))
+	                                targetId = targetId.slice(7);
+	                            if (partyId && partyMemberSet.has(targetId))
+	                            {
+	                                forgeApi.operation.sendPrivateForgePacket(targetId, {
+	                                    plug: "forge",
+	                                    label: "playTogether",
+	                                    id: partyId,
+	                                    type: "slow",
+	                                    data: data
+	                                });
+	                            }
+	                        },
+	                        getVersionNumber: () =>
+	                        {
+	                            return 1;
+	                        }
+	                    });
+	                    port.addEventListener("message", e => { rcoContext.onData(e.data); });
+	                    rcoContext.bindOutStream(data => { port.postMessage(data); }, "raw");
+
+	                    port.start();
+	                    iframe.contentWindow.postMessage(
+	                        {
+	                            type: "setMessagePort",
+	                            label: "qwq-playTogether",
+	                            port: channel.port2
+	                        },
+	                        "*",
+	                        [channel.port2]
+	                    ); // 初始化通信管道
+	                })
+	            ],
+
+	            [
+	                createNStyleList({
+	                    position: "absolute",
+	                    right: "59px",
+	                    top: "30px",
+	                    width: "30px",
+	                    height: "30px",
+
+	                    color: "rgb(255, 255, 255)",
+	                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+	                    border: "1px solid rgb(255, 255, 255)",
+	                    borderTopLeftRadius: "5px",
+	                    borderBottomLeftRadius: "5px",
+	                    boxSizing: "border-box",
+
+	                    display: "flex",
+	                    justifyContent: "center",
+	                    alignItems: "center"
+	                }),
+
+	                "_",
+
+	                new NEvent("click", () =>
+	                {
+	                    page.setStyle("display", "none");
+	                    showFloatingButton();
+	                })
+	            ],
+	            [
+	                createNStyleList({
+	                    position: "absolute",
+	                    right: "30px",
+	                    top: "30px",
+	                    width: "30px",
+	                    height: "30px",
+
+	                    color: "rgb(255, 255, 255)",
+	                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+	                    border: "1px solid rgb(255, 255, 255)",
+	                    borderTopRightRadius: "5px",
+	                    borderBottomRightRadius: "5px",
+	                    boxSizing: "border-box",
+
+	                    display: "flex",
+	                    justifyContent: "center",
+	                    alignItems: "center"
+	                }),
+
+	                "x",
+
+	                new NEvent("click", () =>
+	                {
+	                    page.remove();
+	                    oldPage = null;
+	                    rcoContext = null;
+	                    partyMemberSet.forEach(targetId =>
+	                    {
+	                        forgeApi.operation.sendPrivateForgePacket(targetId, {
+	                            plug: "forge",
+	                            label: "playTogether",
+	                            id: partyId,
+	                            type: "leave"
+	                        });
+	                    });
+	                })
+	            ]
+	        ]);
+	        body.addChild(page);
+	        oldPage = page;
+	    }
+	    else
+	    {
+	        showNotice("Forge Play Together", "正在打开的的一起玩链接不在白名单中");
+	    }
+	}
+
+	let enabled = false;
+
+	/**
+	 * 启用一起玩
+	 */
+	function enablePlayTogether()
+	{
+	    if (!enabled)
+	    {
+	        protocolEvent.forge.privateForgePacket.add((e) => // 注册协议
+	        {
+	            if (rcoContext && partyId)
+	            {
+	                if (e.content.label == "playTogether" && e.content.id == partyId)
+	                {
+	                    switch (e.content.type)
+	                    {
+	                        case "join": {
+	                            if (!partyMemberSet.has(e.senderId))
+	                            {
+	                                if ((!partyMemberJoinTimeMap.has(e.senderId)) || partyMemberJoinTimeMap.get(e.senderId) < Date.now() - 10 * 1000)
+	                                {
+	                                    partyMemberJoinTimeMap.set(e.senderId, Date.now());
+	                                    showNotice("forge一起玩", `${e.senderName} 想要加入派对\n点击接受`, undefined, () =>
+	                                    {
+	                                        partyMemberSet.add(e.senderId);
+	                                        rcoContext.callNamedFunction("onInviteAccept", "iirose:" + e.senderId, e.senderName);
+	                                        forgeApi.operation.sendPrivateForgePacket(e.senderId, {
+	                                            plug: "forge",
+	                                            label: "playTogether",
+	                                            type: "allowJoin",
+	                                            id: partyId
+	                                        });
+	                                    });
+	                                }
+	                            }
+	                            break;
+	                        }
+	                        case "allowJoin": {
+	                            if (e.senderId == partyHostUserId)
+	                            {
+	                                showNotice("forge一起玩", "已成功加入派对");
+	                                rcoContext.callNamedFunction("onJoinComplete", partyId, "iirose:" + partyHostUserId, e.senderName);
+	                            }
+	                            break;
+	                        }
+	                        case "leave": {
+	                            if (partyMemberSet.has(e.senderId))
+	                            {
+	                                partyMemberSet.delete(e.senderId);
+	                                showNotice("forge一起玩", `${e.senderName} 已离开派对`);
+	                                rcoContext.callNamedFunction("onMemberLeave", "iirose:" + e.senderId);
+	                            }
+	                            break;
+	                        }
+	                        case "slow": {
+	                            if (partyMemberSet.has(e.senderId))
+	                            {
+	                                rcoContext.callNamedFunction("onSlowPacket", "iirose:" + e.senderId, e.content.data);
+	                            }
+	                            break;
+	                        }
+	                    }
+	                }
+	            }
+	        });
+
+	        enabled = true;
+	    }
+
+	    // 聊天消息列表节点(房间消息)
+	    let msgBox = iframeContext.iframeDocument.getElementsByClassName("msgholderBox")[0];
+	    Array.from(msgBox.children).forEach(o =>
+	    { // 处理已有的消息
+	        processingMessageCardElement(/** @type {HTMLElement} */(o));
+	    });
+	    (new MutationObserver(mutationsList =>
+	    {
+	        for (let mutation of mutationsList)
+	        {
+	            if (mutation.type == "childList")
+	            {
+	                Array.from(mutation.addedNodes).forEach((/** @type {HTMLElement} */element) =>
+	                { // 处理新增的消息
+	                    if (element.classList != undefined && element.classList.contains("msg")) // 是消息
+	                    {
+	                        processingMessageCardElement(element);
+	                    }
+	                });
+	            }
+	        }
+	    })).observe(msgBox, { attributes: false, childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+	}
+
+	/**
+	 * @type {WeakSet<HTMLElement>}
+	 */
+	let alreadyProcessedSet = new WeakSet();
+
+	/**
+	 * @param {HTMLElement} messageElement
+	 */
+	function processingMessageCardElement(messageElement)
+	{
+	    if (messageElement.classList.length == 1 && messageElement.classList.item(0) == "msg")
+	    {
+	        if (alreadyProcessedSet.has(messageElement))
+	            return;
+	        alreadyProcessedSet.add(messageElement);
+
+	        try
+	        {
+	            let pubChatUserSettingsElement = (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, -1, 0])));
+
+	            let rawMessageData = pubChatUserSettingsElement?.dataset?.raw;
+
+	            if (rawMessageData && rawMessageData.startsWith("\'4=1>") && rawMessageData.endsWith(":end"))
+	            {
+	                let part = rawMessageData.split(">");
+	                let forgePacket = readForgePacket(part[5], "");
+	                if (forgePacket && typeof (forgePacket) == "object")
+	                {
+	                    if (forgePacket.label == "playTogether" && forgePacket.type == "invite")
+	                    {
+	                        let uid = (/** @type {HTMLElement} */(domPath(messageElement, [0, -1])))?.dataset?.uid ||
+	                            (/** @type {HTMLElement} */(domPath(messageElement, [0, -1, 0])))?.dataset?.uid ||
+	                            pubChatUserSettingsElement.dataset?.uid;
+
+	                        (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, 0, -1, 0, 0, 1]))).innerText = "forge一起玩 邀请";
+	                        (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, 0, -1, 0, 0, 2]))).innerText = "forge一起玩";
+
+
+	                        if (uid != forgeApi.operation.getUserUid())
+	                        {
+	                            let expired = (forgePacket.expirationTime && forgePacket.expirationTime < Date.now() - 15 * 1000);
+	                            (/** @type {HTMLElement} */(domPath(messageElement, [0, 0, 0, -1, 0]))).appendChild(NList.getElement([
+	                                createNStyleList({
+	                                    position: "absolute",
+	                                    right: "14px",
+	                                    bottom: "8px",
+	                                    padding: "8px",
+	                                    paddingLeft: "15px",
+	                                    paddingRight: "15px",
+	                                    backgroundColor: (!expired ? "rgb(42, 195, 69)" : "rgb(190, 190, 190)"),
+	                                    color: "rgb(255, 255, 255)",
+	                                    borderRadius: "5px",
+	                                    boxShadow: "2px 2px 2px rgb(0, 0, 0)"
+	                                }),
+
+	                                ...(!expired ? [
+	                                    buttonAsse,
+	                                    "加入",
+	                                    eventName.click(() =>
+	                                    {
+	                                        if (forgePacket.expirationTime && forgePacket.expirationTime < Date.now() - 15 * 1000)
+	                                            showNotice("forge一起玩", "无法加入已过期的邀请");
+	                                        else
+	                                            playTogether(String(forgePacket.url), uid, String(forgePacket.id));
+	                                    })
+	                                ] : [
+	                                    "已过期"
+	                                ])
+	                            ]).element);
+	                        }
+	                    }
+	                }
+	            }
+	        }
+	        catch (err)
+	        {
+	            console.error(err);
+	        }
+	    }
+	}
+
+	let recommendedList = [
+	    {
+	        name: "osu mania online - 在线下落式定轨音游",
+	        url: "https://qwq0.github.io/osuManiaOnline/?type=playTogether"
+	    },
+	    // {
+	    //     name: "[debug] osu mania online - 在线下落式定轨音游",
+	    //     url: "http://localhost:5510/test/test.html?type=playTogether"
+	    // },
+	];
+
+	/**
+	 * 一起玩菜单
+	 */
+	async function showPlayTogetherMenu()
+	{
+	    if (!enabled)
+	    {
+	        showInfoBox("forge一起玩", "请先在附加功能中启用forge一起玩功能");
+	        return;
+	    }
+
+	    showMenu([
+	        ...(oldPage ? [
+	            NList.getElement([
+	                "[ 正在运行的一起玩 ]",
+	                new NEvent("click", async () =>
+	                {
+	                    oldPage.setStyle("display", "block");
+	                    hideFloatingButton();
+	                }),
+	            ])
+	        ] : []),
+	        ...recommendedList.map(o =>
+	        {
+	            return NList.getElement([
+	                o.name,
+	                new NEvent("click", async () =>
+	                {
+	                    playTogether(o.url);
+	                }),
+	            ]);
+	        }),
+	        NList.getElement([
+	            "[ 自定义地址 ]",
+	            new NEvent("click", async () =>
+	            {
+	                let urlStr = await showInputBox("forge一起玩", "请输入支持forge一起玩的网页地址", true);
+	                if (urlStr != undefined)
+	                {
+	                    try
+	                    {
+	                        let url = new URL(urlStr);
+	                        if (hostnameWhiteList.has(url.hostname))
+	                        {
+	                            playTogether(urlStr);
+	                        }
+	                        else
+	                        {
+	                            showNotice("forge一起玩", "当前仅支持白名单内的一起玩页面地址");
+	                        }
+	                    }
+	                    catch (err)
+	                    {
+	                        showNotice("forge一起玩", "解析地址时发生错误");
+	                        console.error(err);
+	                    }
+	                }
+	            }),
+	        ]),
+	    ]);
+	}
+
+	/**
+	 * @type {NElement}
+	 */
+	let buttonElement = null;
+	let buttonAddedSymbol = Symbol();
+
+	/**
+	 * 显示悬浮窗
+	 */
+	function showFloatingButton()
+	{
+	    if (buttonElement && iframeContext.iframeWindow[buttonAddedSymbol])
+	    {
+	        buttonElement.setDisplay("block");
+	        return;
+	    }
+
+	    let x = iframeContext.iframeDocument.body.clientWidth - 180, y = 30;
+	    let allowClick = false;
+
+	    buttonElement = NList.getElement([
+	        createNStyleList({
+	            position: "fixed",
+	            overflow: "hidden",
+	            border: "1px white solid",
+	            backgroundColor: "rgba(30, 30, 30, 0.55)",
+	            backdropFilter: "blur(2px)",
+	            color: "rgba(255, 255, 255)",
+	            alignItems: "center",
+	            justifyContent: "center",
+	            flexFlow: "column",
+	            lineHeight: "1.1em",
+	            boxSizing: "border-box",
+	            padding: "1px",
+	            borderRadius: "2.5px",
+	            zIndex: "90000001",
+	            height: "50px",
+	            minWidth: "50px",
+
+	            left: `${x}px`,
+	            top: `${y}px`
+	        }),
+
+	        [
+	            createNStyleList({
+	                height: "100%",
+	                paddingLeft: "1em",
+	                paddingRight: "1em",
+
+	                display: "flex",
+	                justifyContent: "center",
+	                alignItems: "center",
+	            }),
+
+	            "回到一起玩",
+
+	            new NEvent("mousedown", e => e.preventDefault()),
+	            new NEvent("mouseup", e => e.preventDefault()),
+	            new NEvent("click", () =>
+	            {
+	                if (!allowClick)
+	                    return;
+
+	                hideFloatingButton();
+	                if (oldPage)
+	                {
+	                    oldPage.setStyle("display", "block");
+	                }
+	            })
+	        ],
+
+	        e =>
+	        {
+	            let ox = 0, oy = 0;
+
+	            /**
+	             * 按下的时间
+	             */
+	            let startPressTime = 0;
+	            /**
+	             * 位置未移动
+	             */
+	            let notMove = false;
+	            let proc = (/** @type {{ sx: number, sy: number, x: number, y: number, pressing: boolean,hold: boolean }} */ e) =>
+	            {
+	                let now = Date.now();
+	                if (e.pressing)
+	                {
+	                    startPressTime = now;
+	                    notMove = true;
+	                    allowClick = false;
+	                }
+	                if (Math.abs(e.x - e.sx) > 10 || Math.abs(e.y - e.sy) > 10)
+	                    notMove = false;
+	                if (!e.hold)
+	                {
+	                    if (notMove && now - startPressTime < 150)
+	                    {
+	                        let startTargetElement = iframeContext.iframeDocument.elementFromPoint(e.sx, e.sy);
+	                        let endTargetElement = iframeContext.iframeDocument.elementFromPoint(e.x, e.y);
+	                        if (startTargetElement == endTargetElement)
+	                        {
+	                            allowClick = true;
+	                            startTargetElement.dispatchEvent(new MouseEvent("click"));
+	                        }
+	                    }
+	                }
+
+	                if (e.pressing)
+	                {
+	                    ox = x;
+	                    oy = y;
+	                    // pageManager.moveToTop(this);
+	                }
+	                x = ox + e.x - e.sx;
+	                y = oy + e.y - e.sy;
+	                if (x < 0)
+	                    x = 0;
+	                else if (x >= body.element.clientWidth - buttonElement.element.offsetWidth)
+	                    x = body.element.clientWidth - buttonElement.element.offsetWidth;
+	                if (y < 0)
+	                    y = 0;
+	                else if (y >= body.element.clientHeight - buttonElement.element.offsetHeight)
+	                    y = body.element.clientHeight - buttonElement.element.offsetHeight;
+	                buttonElement.setStyle("left", `${x}px`);
+	                buttonElement.setStyle("top", `${y}px`);
+	            };
+
+	            e.addEventListener("mousedown", e => e.preventDefault(), true);
+	            e.addEventListener("mouseup", e => e.preventDefault(), true);
+	            mouseBind(e, proc, 0, iframeContext.iframeWindow);
+	            touchBind(e, proc);
+
+	            e.addEventListener("mousedown", e => e.stopPropagation());
+	            e.addEventListener("mouseup", e => e.stopPropagation());
+	            e.addEventListener("touchstart", e => e.stopPropagation());
+	            e.addEventListener("touchend", e => e.stopPropagation());
+	            e.addEventListener("touchcancel", e => e.stopPropagation());
+	        },
+	    ]);
+
+	    iframeContext.iframeBody.addChild(buttonElement);
+	    iframeContext.iframeWindow[buttonAddedSymbol] = true;
+	}
+
+	/**
+	 * 隐藏悬浮窗
+	 */
+	function hideFloatingButton()
+	{
+	    if (buttonElement)
+	    {
+	        buttonElement.setDisplay("none");
+	    }
+	}
+
 	let waitForId$1 = "";
 	let waitStartTime = 0;
 
@@ -10442,7 +12722,7 @@
 	function trySyncChatRecord()
 	{
 	    showNotice("聊天记录同步", "正在尝试获取聊天记录");
-	    let requestId = uniqueIdentifierString$2();
+	    let requestId = uniqueIdentifierString$3();
 	    forgeApi.operation.sendSelfPrivateForgePacket({
 	        plug: "forge",
 	        type: "syncPrivateChatRecordRQ",
@@ -12828,7 +15108,7 @@
 	function trySyncConfig()
 	{
 	    showNotice("配置同步", "正在尝试获取配置");
-	    let requestId = uniqueIdentifierString$2();
+	    let requestId = uniqueIdentifierString$3();
 	    forgeApi.operation.sendSelfPrivateForgePacket({
 	        plug: "forge",
 	        type: "syncConfigRQ",
@@ -12889,7 +15169,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.21.4"
+	    version: "alpha v1.22.0"
 	};
 
 	/**
@@ -13188,7 +15468,7 @@
 	            [
 	                createNStyleList({
 	                    display: "grid",
-	                    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))"
+	                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))"
 	                }),
 	                ...([ // 菜单列表项
 	                    ...(
@@ -13328,6 +15608,15 @@
 	                        }
 	                    },
 	                    {
+	                        title: "一起玩",
+	                        text: "与蔷薇好友一起游戏",
+	                        icon: "gamepad-circle-right",
+	                        onClick: async () =>
+	                        {
+	                            showPlayTogetherMenu();
+	                        }
+	                    },
+	                    {
 	                        title: "勿扰模式",
 	                        text: "设置自动回复",
 	                        icon: "bell-minus-outline",
@@ -13402,6 +15691,10 @@
 	                                    {
 	                                        name: "聊天记录查看器",
 	                                        storageKey: "enableRecordViewer"
+	                                    },
+	                                    {
+	                                        name: "forge一起玩",
+	                                        storageKey: "enablePlayTogether"
 	                                    },
 	                                    {
 	                                        name: "使用本地服务(仅测试)",
@@ -13582,17 +15875,18 @@
 	                ]).map(o => [ // 菜单列表项元素
 	                    className("commonBox"),
 	                    createNStyle("maxWidth", "calc(100% - 24px)"),
-	                    createNStyle("minWidth", "355.2px"),
-	                    createNStyle("minHeight", "200px"),
+	                    createNStyle("minWidth", "280px"),
+	                    createNStyle("minHeight", "136px"),
 	                    createNStyle("float", "none"),
 	                    createNStyle("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
 	                    createNStyle("margin", "24px 12px 0px 12px"),
+	                    createNStyle("fontSize", "0.6em"),
 	                    createNStyle("position", "relative"),
 	                    [ // 元素标题行
 	                        className("commonBoxHead"),
 	                        createNStyle("backgroundColor", "rgba(255,255,255,0.2)"),
 	                        createNStyle("color", "rgba(0,0,0,0.4)"),
-	                        createNStyle("height", "100px"),
+	                        createNStyle("height", "68px"),
 	                        createNStyle("width", "100%"),
 	                        createNStyle("display", "flex"),
 	                        createNStyle("justifyContent", "center"),
@@ -13600,8 +15894,8 @@
 	                        createNStyle("boxSizing", "border-box"),
 	                        [ // 图标
 	                            className("mdi-" + o.icon),
-	                            createNStyle("lineHeight", "100px"),
-	                            createNStyle("fontSize", "30px"),
+	                            createNStyle("lineHeight", "68px"),
+	                            createNStyle("fontSize", "24px"),
 	                            createNStyle("fontFamily", "md"),
 	                            createNStyle("display", "inline-block"),
 	                            createNStyle("verticalAlign", "top"),
@@ -13609,13 +15903,12 @@
 	                            createNStyle("opacity", "0.7"),
 	                        ],
 	                        [ // 标题文本
-	                            createNStyle("lineHeight", "100px"),
-	                            createNStyle("fontSize", "20px"),
+	                            createNStyle("lineHeight", "68px"),
+	                            createNStyle("fontSize", "16px"),
 	                            createNStyle("display", "inline-block"),
 	                            createNStyle("verticalAlign", "top"),
 	                            createNStyle("height", "100%"),
 	                            createNStyle("fontWeight", "bold"),
-	                            createNStyle("marginLeft", "22px"),
 	                            createNStyle("overflow", "hidden"),
 	                            createNStyle("whiteSpace", "pre"),
 	                            createNStyle("textOverflow", "ellipsis"),
@@ -13626,19 +15919,18 @@
 	                    [ // 元素正文
 	                        className("textColor"),
 	                        createNStyle("width", "100%"),
-	                        createNStyle("minHeight", "100px"),
+	                        createNStyle("minHeight", "68px"),
 	                        createNStyle("backgroundColor", "rgba(255,255,255,0.5)"),
 	                        createNStyle("color", "rgba(0,0,0,0.75)"),
 	                        [
 	                            createNStyle("fontWeight", "bold"),
 	                            createNStyle("width", "100%"),
 	                            createNStyle("height", "100%"),
-	                            createNStyle("lineHeight", "1.8em"),
+	                            createNStyle("lineHeight", "68px"),
 	                            createNStyle("textAlign", "center"),
-	                            createNStyle("padding", "2.2em"),
 	                            createNStyle("boxSizing", "border-box"),
 	                            createNStyle("whiteSpace", "pre-wrap"),
-	                            createNStyle("fontSize", "16px"),
+	                            createNStyle("fontSize", "13px"),
 	                            createNStyle("color", "rgba(0,0,0,0.7)"),
 
 	                            o.text
@@ -15261,17 +17553,17 @@
 
 	    // 私聊选项卡列表
 	    let sessionHolderPmTaskBox = iframeContext.iframeDocument.getElementsByClassName("sessionHolderPmTaskBox")[0];
-	    let recentSessionLable = sessionHolderPmTaskBox.children[1];
-	    let pinnedSessionLable = NList.getElement([
+	    let recentSessionLabel = sessionHolderPmTaskBox.children[1];
+	    let pinnedSessionLabel = NList.getElement([
 	        className("sessionHolderSpliter"),
 	        "置顶会话"
 	    ]).element;
-	    sessionHolderPmTaskBox.children[0].after(pinnedSessionLable);
+	    sessionHolderPmTaskBox.children[0].after(pinnedSessionLabel);
 	    refreshList = () =>
 	    {
-	        if (!recentSessionLable.parentElement)
+	        if (!recentSessionLabel.parentElement)
 	        {
-	            pinnedSessionLable.after(recentSessionLable);
+	            pinnedSessionLabel.after(recentSessionLabel);
 	        }
 
 	        Array.from(sessionHolderPmTaskBox.children).reverse().forEach(o =>
@@ -15285,14 +17577,14 @@
 	            {
 	                let uid = o.getAttribute("ip");
 	                let pinned = storageContext.processed.pinSessionSet.has(uid);
-	                let positionBitmap = recentSessionLable.compareDocumentPosition(o);
+	                let positionBitmap = recentSessionLabel.compareDocumentPosition(o);
 	                if ((positionBitmap & 2) && !pinned)
 	                {
-	                    recentSessionLable.after(o);
+	                    recentSessionLabel.after(o);
 	                }
 	                else if ((positionBitmap & 4) && pinned)
 	                {
-	                    pinnedSessionLable.after(o);
+	                    pinnedSessionLabel.after(o);
 	                }
 	            }
 	        });
@@ -15301,7 +17593,7 @@
 	    {
 	        let paddingElement = document.createElement("div");
 	        paddingElement.style.display = "none";
-	        recentSessionLable.after(paddingElement);
+	        recentSessionLabel.after(paddingElement);
 	    }
 	    (new MutationObserver(mutationsList =>
 	    {
@@ -15322,31 +17614,31 @@
 	                            let uid = o.getAttribute("ip");
 	                            // console.log("on list item change", uid);
 	                            let pinned = storageContext.processed.pinSessionSet.has(uid);
-	                            if ((recentSessionLable.compareDocumentPosition(o) & 2) && !pinned)
+	                            if ((recentSessionLabel.compareDocumentPosition(o) & 2) && !pinned)
 	                            {
-	                                recentSessionLable.after(o);
+	                                recentSessionLabel.after(o);
 	                            }
-	                            else if ((recentSessionLable.compareDocumentPosition(o) & 4) && pinned)
+	                            else if ((recentSessionLabel.compareDocumentPosition(o) & 4) && pinned)
 	                            {
-	                                pinnedSessionLable.after(o);
+	                                pinnedSessionLabel.after(o);
 	                            }
 
 	                        }
 	                    }
 	                });
 
-	                if (!recentSessionLable.parentElement || !recentSessionLable.nextElementSibling)
+	                if (!recentSessionLabel.parentElement || !recentSessionLabel.nextElementSibling)
 	                {
-	                    if (!recentSessionLable.parentElement)
+	                    if (!recentSessionLabel.parentElement)
 	                    {
-	                        pinnedSessionLable.after(recentSessionLable);
+	                        pinnedSessionLabel.after(recentSessionLabel);
 	                        refreshList();
 	                    }
-	                    if (!recentSessionLable.nextSibling)
+	                    if (!recentSessionLabel.nextSibling)
 	                    {
 	                        let paddingElement = document.createElement("div");
 	                        paddingElement.style.display = "none";
-	                        recentSessionLable.after(paddingElement);
+	                        recentSessionLabel.after(paddingElement);
 	                    }
 	                }
 	            }
@@ -15975,6 +18267,10 @@
 	            {
 	                func: enableRecordViewer,
 	                condition: "enableRecordViewer"
+	            },
+	            {
+	                func: enablePlayTogether,
+	                condition: "enablePlayTogether"
 	            }
 	        ]).forEach(o =>
 	        {

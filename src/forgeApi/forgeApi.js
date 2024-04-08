@@ -237,6 +237,42 @@ export const forgeApi = {
         },
 
         /**
+         * 在用户所在房间发送消息
+         * @param {0 | 1} typeId
+         * @param {{
+         *  mediaUrl?: string,
+         *  durationInSeconds?: number,
+         *  title?: string,
+         *  singerName?: string,
+         *  coverUrl?: string,
+         *  color?: string,
+         *  lyricsUrl?: string
+         *  resolutionRatio?: string
+         * }} info
+         */
+        sendRoomMediaCard: (typeId, info) =>
+        {
+            info = Object.assign({
+                mediaUrl: "",
+                title: "( empty title )",
+                singerName: "( empty singer name )",
+                coverUrl: "",
+                color: "#000000",
+                duration: 0,
+                resolutionRatio: "720"
+            }, info);
+
+
+            const mediaCardContent = `m__4=${typeId}>${info.title}>${info.singerName}>${info.coverUrl}>${info.color}>${info.resolutionRatio}`;
+
+            iframeContext.socketApi.send(JSON.stringify({ // 发送媒体卡片
+                "m": mediaCardContent,
+                "mc": forgeApi.operation.getUserInputColor(),
+                "i": String(Date.now()).slice(-5) + String(Math.random()).slice(-7)
+            }));
+        },
+
+        /**
          * 在用户所在房间发送forge包消息
          * @param {Object} obj
          */

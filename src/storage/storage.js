@@ -95,6 +95,8 @@ export const storageContext = {
         enablePinSession: true,
         // 启用聊天记录查看器
         enableRecordViewer: true,
+        // 启用一起玩
+        enablePlayTogether: true,
         // 启动forge本地服务
         enableLocalService: false,
         // forge本地服务地址

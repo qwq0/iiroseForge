@@ -1,4 +1,4 @@
-import { RcoCcontext } from "../../lib/jsRco.js";
+import { RcoContext } from "../../lib/jsRco.js";
 import { mouseBind } from "../../lib/qwqframe.js";
 import { touchBind } from "../../lib/qwqframe.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
@@ -7,6 +7,7 @@ import { showBlacklistMenu } from "../feature/blacklist.js";
 import { showMultiAccountMenu } from "../feature/multiAccount.js";
 import { showNotDisturbModeMenu } from "../feature/notDisturbMode.js";
 import { showPatchMenu } from "../feature/patch.js";
+import { showPlayTogetherMenu } from "../feature/playTogether.js";
 import { reportGeneration } from "../feature/reportGeneration.js";
 import { showSuperMenuOptionMenu } from "../feature/superMenu/superMenuTools.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
@@ -102,7 +103,7 @@ export function getForgeMenu()
             [
                 styles({
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))"
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))"
                 }),
                 ...([ // 菜单列表项
                     ...(
@@ -255,7 +256,7 @@ export function getForgeMenu()
                             let channel = new MessageChannel();
                             let port = channel.port1;
 
-                            let rcoContext = new RcoCcontext();
+                            let rcoContext = new RcoContext();
                             rcoContext.addGlobalNamedFunctions(/** @satisfies {import("../../doc/plugStoreApi").iiroseForgePlugStoreApi} */({
                                 getForgeVersion: async () => versionInfo.version,
                                 getPlugList: async () => Array.from(plugList.map.entries()).map(o => ({
@@ -291,6 +292,15 @@ export function getForgeMenu()
 
                             plugStone.windowElement.setDisplay("block");
                             plugStone.windowElement.setStyle("pointerEvents", "auto");
+                        }
+                    },
+                    {
+                        title: "一起玩",
+                        text: "与蔷薇好友一起游戏",
+                        icon: "gamepad-circle-right",
+                        onClick: async () =>
+                        {
+                            showPlayTogetherMenu();
                         }
                     },
                     {
@@ -368,6 +378,10 @@ export function getForgeMenu()
                                     {
                                         name: "聊天记录查看器",
                                         storageKey: "enableRecordViewer"
+                                    },
+                                    {
+                                        name: "forge一起玩",
+                                        storageKey: "enablePlayTogether"
                                     },
                                     {
                                         name: "使用本地服务(仅测试)",
@@ -548,17 +562,18 @@ export function getForgeMenu()
                 ]).map(o => [ // 菜单列表项元素
                     className("commonBox"),
                     style("maxWidth", "calc(100% - 24px)"),
-                    style("minWidth", "355.2px"),
-                    style("minHeight", "200px"),
+                    style("minWidth", "280px"),
+                    style("minHeight", "136px"),
                     style("float", "none"),
                     style("boxShadow", "0 0 1px rgb(0,0,0,0.12),0 1px 1px rgb(0,0,0,0.24)"),
                     style("margin", "24px 12px 0px 12px"),
+                    style("fontSize", "0.6em"),
                     style("position", "relative"),
                     [ // 元素标题行
                         className("commonBoxHead"),
                         style("backgroundColor", "rgba(255,255,255,0.2)"),
                         style("color", "rgba(0,0,0,0.4)"),
-                        style("height", "100px"),
+                        style("height", "68px"),
                         style("width", "100%"),
                         style("display", "flex"),
                         style("justifyContent", "center"),
@@ -566,8 +581,8 @@ export function getForgeMenu()
                         style("boxSizing", "border-box"),
                         [ // 图标
                             className("mdi-" + o.icon),
-                            style("lineHeight", "100px"),
-                            style("fontSize", "30px"),
+                            style("lineHeight", "68px"),
+                            style("fontSize", "24px"),
                             style("fontFamily", "md"),
                             style("display", "inline-block"),
                             style("verticalAlign", "top"),
@@ -575,13 +590,12 @@ export function getForgeMenu()
                             style("opacity", "0.7"),
                         ],
                         [ // 标题文本
-                            style("lineHeight", "100px"),
-                            style("fontSize", "20px"),
+                            style("lineHeight", "68px"),
+                            style("fontSize", "16px"),
                             style("display", "inline-block"),
                             style("verticalAlign", "top"),
                             style("height", "100%"),
                             style("fontWeight", "bold"),
-                            style("marginLeft", "22px"),
                             style("overflow", "hidden"),
                             style("whiteSpace", "pre"),
                             style("textOverflow", "ellipsis"),
@@ -592,19 +606,18 @@ export function getForgeMenu()
                     [ // 元素正文
                         className("textColor"),
                         style("width", "100%"),
-                        style("minHeight", "100px"),
+                        style("minHeight", "68px"),
                         style("backgroundColor", "rgba(255,255,255,0.5)"),
                         style("color", "rgba(0,0,0,0.75)"),
                         [
                             style("fontWeight", "bold"),
                             style("width", "100%"),
                             style("height", "100%"),
-                            style("lineHeight", "1.8em"),
+                            style("lineHeight", "68px"),
                             style("textAlign", "center"),
-                            style("padding", "2.2em"),
                             style("boxSizing", "border-box"),
                             style("whiteSpace", "pre-wrap"),
-                            style("fontSize", "16px"),
+                            style("fontSize", "13px"),
                             style("color", "rgba(0,0,0,0.7)"),
 
                             o.text
