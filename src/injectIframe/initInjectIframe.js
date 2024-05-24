@@ -25,6 +25,7 @@ import { enablePinSession } from "../feature/pinSession.js";
 import { enableRecordViewer } from "../feature/recordViewer.js";
 import { enableInsideLocalService } from "../feature/localService.js";
 import { enablePlayTogether } from "../feature/playTogether.js";
+import { enableCustomProfile } from "../feature/customProfile.js";
 
 
 
@@ -185,6 +186,10 @@ export function initInjectIframe()
             {
                 func: enableRecordViewer,
                 condition: "enableRecordViewer"
+            },
+            {
+                func: enableCustomProfile,
+                condition: "enableCustomProfile"
             },
             {
                 func: enablePlayTogether,

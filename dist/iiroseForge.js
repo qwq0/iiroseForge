@@ -5990,6 +5990,8 @@
 	        enableRecordViewer: true,
 	        // 启用一起玩
 	        enablePlayTogether: true,
+	        // 启用自定义资料卡
+	        enableCustomProfile: true,
 	        // 启动forge本地服务
 	        enableLocalService: false,
 	        // forge本地服务地址
@@ -10359,6 +10361,241 @@
 	            }),
 	        ])))
 	    ]);
+	}
+
+	/**
+	 * @typedef {{
+	 *  bgmList?: Array<{title?: string, url: string}>
+	 * }} ProfilePackageType
+	 */
+
+	const albumForgePackagePrefix = "https://not-exist.fake-domain/";
+	const albumForgePackageSuffix = "?.png";
+
+	/**
+	 * 启用自定义资料卡
+	 */
+	function enableCustomProfile()
+	{
+	    iframeContext.iframeWindow["whois"] = proxyFunction(iframeContext.iframeWindow["whois"], (param) =>
+	    {
+	        if (param[0])
+	        {
+	            try
+	            {
+	                /** @type {Array<string>} */
+	                let part = param[0].split(">");
+	                let photoAlbum = part[10].split(" ");
+
+	                // console.log(param[1], photoAlbum, part);
+
+	                /**
+	                 * @type {ProfilePackageType}
+	                 */
+	                let forgePackage = null;
+
+	                photoAlbum = photoAlbum.filter(o =>
+	                {
+	                    if (o.startsWith(albumForgePackagePrefix + "iiroseForge:"))
+	                    {
+	                        o = o.slice(albumForgePackagePrefix.length);
+	                        if (o.endsWith(albumForgePackageSuffix))
+	                            o = o.slice(0, -albumForgePackageSuffix.length);
+	                        forgePackage = readForgePacket(o, "");
+	                        return false;
+	                    }
+	                    return true;
+	                });
+
+	                if (forgePackage)
+	                {
+	                    showNotice("自定义资料卡", "您正在查看 自定义资料卡\n如果存在问题请在 附加功能 中关闭");
+
+	                    if (forgePackage.bgmList)
+	                    {
+	                        let randomItem = forgePackage.bgmList[Math.floor(Math.random() * forgePackage.bgmList.length)];
+	                        part[11] = `${htmlSpecialCharsEscape(randomItem.url)} @|${randomItem.title ? htmlSpecialCharsEscape(randomItem.title) : "自定义歌单"}@|forge已接管@|*@|`;
+	                    }
+
+	                    part[10] = photoAlbum.join(" ");
+	                    param[0] = part.join(">");
+	                }
+	            }
+	            catch (err)
+	            {
+	                console.error("customProfile", err);
+	            }
+	        }
+	        return false;
+	    });
+	    takeoverProtocol();
+	}
+
+	/**
+	 * @type {(originalOption: ProfilePackageType, photoAlbum: string) => void}
+	 */
+	let readCallback = null;
+	/**
+	 * @type {() => void}
+	 */
+	let submitCallback = null;
+
+	/**
+	 * 显示自定义资料卡菜单
+	 */
+	function showCustomProfileMenu()
+	{
+	    showNotice("加载中", "正在读取您的原设置");
+	    readCallback = (originalOption, photoAlbum) =>
+	    {
+	        if (originalOption)
+	        {
+	            showNotice("自定义资料", "已加载原设置");
+	        }
+	        else
+	        {
+	            showNotice("自定义资料", "找不到原设置\n将新建设置");
+	            originalOption = {};
+	        }
+
+	        showMenu([
+	            NList.getElement([
+	                "背景随机歌单",
+	                eventName.click(e =>
+	                {
+	                    e.stopImmediatePropagation();
+	                    showMenu([
+	                        ...(
+	                            originalOption.bgmList ?
+	                                originalOption.bgmList.map((o, index) => NList.getElement([
+	                                    o.title ? o.title : o.url.slice(0, 20) + "...",
+	                                    eventName.click(async () =>
+	                                    {
+	                                        if (await showInfoBox("删除条目", `确认删除此条目吗\ntitle: ${o.title}\nurl: ${o.url}`, true))
+	                                            originalOption.bgmList.splice(index, 1);
+	                                    })
+	                                ])) :
+	                                []
+	                        ),
+	                        NList.getElement([
+	                            "[添加]",
+	                            eventName.click(async () =>
+	                            {
+	                                let url = await showInputBox("添加条目", "请输入条目的url", true);
+	                                if (url == undefined)
+	                                    return;
+	                                let title = await showInputBox("设置标题", "设置条目的标题\n可留空", true);
+	                                if (title == undefined)
+	                                    return;
+	                                if (!originalOption.bgmList)
+	                                    originalOption.bgmList = [];
+	                                if (title)
+	                                    originalOption.bgmList.push({
+	                                        title: title,
+	                                        url: url
+	                                    });
+	                                else
+	                                    originalOption.bgmList.push({
+	                                        url: url
+	                                    });
+	                            })
+	                        ])
+	                    ]);
+	                })
+	            ]),
+	            NList.getElement([
+	                "提交更改",
+	                eventName.click(e =>
+	                {
+	                    try
+	                    {
+	                        let forgePackageForAlbum = albumForgePackagePrefix + writeForgePacket(originalOption) + albumForgePackageSuffix;
+	                        submitCallback = () =>
+	                        {
+	                            showNotice("自定义资料卡", "提交成功");
+	                        };
+	                        iframeContext.socketApi.send("$2" + JSON.stringify({ "album": photoAlbum ? forgePackageForAlbum + " " + photoAlbum : forgePackageForAlbum }));
+	                        showNotice("自定义资料卡", "正在提交");
+	                    }
+	                    catch (err)
+	                    {
+	                        showNotice("自定义资料卡", "提交失败");
+	                    }
+	                })
+	            ])
+	        ]);
+	    };
+	    iframeContext.socketApi.send("+-" + forgeApi.operation.getUserName().toLowerCase());
+	}
+
+	let hadTakeoverProtocol = false;
+	function takeoverProtocol()
+	{
+	    if (hadTakeoverProtocol)
+	        return;
+	    hadTakeoverProtocol = true;
+	    toClientTrie.addPath("+", (data) =>
+	    {
+	        try
+	        {
+	            if (readCallback)
+	            {
+	                /** @type {Array<string>} */
+	                let part = data.split(">");
+	                // console.log(part);
+	                let photoAlbum = part[10].split(" ");
+
+	                /**
+	                 * @type {Object}
+	                 */
+	                let forgePackage = null;
+
+	                photoAlbum = photoAlbum.filter(o =>
+	                {
+	                    if (o.startsWith(albumForgePackagePrefix + "iiroseForge:"))
+	                    {
+	                        o = o.slice(albumForgePackagePrefix.length);
+	                        if (o.endsWith(albumForgePackageSuffix))
+	                            o = o.slice(0, -albumForgePackageSuffix.length);
+	                        forgePackage = readForgePacket(o, "");
+	                        return false;
+	                    }
+	                    return true;
+	                });
+
+	                let callback = readCallback;
+	                readCallback = null;
+	                callback(forgePackage, photoAlbum.join(" "));
+
+	                return true;
+	            }
+	        }
+	        catch (err)
+	        {
+	            console.error("customProfileProtocol", err);
+	        }
+	        return false;
+	    });
+	    toClientTrie.addPath("$#", (data) =>
+	    {
+	        try
+	        {
+	            if (data == "" && submitCallback)
+	            {
+
+	                let callback = submitCallback;
+	                submitCallback = null;
+	                callback();
+
+	                return true;
+	            }
+	        }
+	        catch (err)
+	        {
+	            console.error("customProfileProtocol", err);
+	        }
+	        return false;
+	    });
 	}
 
 	let sandboxScript = "!function(){\"use strict\";function e(e=2){var t=Math.floor(Date.now()).toString(36);for(let a=0;a<e;a++)t+=\"-\"+Math.floor(1e12*Math.random()).toString(36);return t}function t(t,a){let r=new Map;let n=function t(n){if(\"function\"==typeof n){let t={},s=e();return a.set(s,n),r.set(t,s),t}if(\"object\"==typeof n){if(Array.isArray(n))return n.map(t);{let e={};return Object.keys(n).forEach((a=>{e[a]=t(n[a])})),e}}return n}(t);return{result:n,fnMap:r}}const a=new FinalizationRegistry((({id:e,port:t})=>{t.postMessage({type:\"rF\",id:e})}));function r(r,n,s,i,o){let p=new Map;n.forEach(((r,n)=>{if(!p.has(r)){let n=(...a)=>new Promise(((n,p)=>{let l=t(a,i),d=e();i.set(d,n),o.set(d,p),s.postMessage({type:\"fn\",id:r,param:l.result,fnMap:l.fnMap.size>0?l.fnMap:void 0,cb:d})}));p.set(r,n),a.register(n,{id:r,port:s})}}));const l=e=>{if(\"object\"==typeof e){if(n.has(e))return p.get(n.get(e));if(Array.isArray(e))return e.map(l);{let t={};return Object.keys(e).forEach((a=>{t[a]=l(e[a])})),t}}return e};return{result:l(r)}}(()=>{let e=null,a=new Map,n=new Map;window.addEventListener(\"message\",(s=>{\"setMessagePort\"==s.data&&null==e&&(e=s.ports[0],Object.defineProperty(window,\"iframeSandbox\",{configurable:!1,writable:!1,value:{}}),e.addEventListener(\"message\",(async s=>{let i=s.data;switch(i.type){case\"execJs\":new Function(...i.paramList,i.js)(i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param);break;case\"fn\":if(a.has(i.id)){let s=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;try{let r=await a.get(i.id)(...s);if(i.cb){let n=t(r,a);e.postMessage({type:\"sol\",id:i.cb,param:[n.result],fnMap:n.fnMap.size>0?n.fnMap:void 0})}}catch(t){i.cb&&e.postMessage({type:\"rej\",id:i.cb,param:[t]})}}break;case\"rF\":a.delete(i.id);break;case\"sol\":{let t=i.fnMap?r(i.param,i.fnMap,e,a,n).result:i.param;a.has(i.id)&&a.get(i.id)(...t),a.delete(i.id),n.delete(i.id);break}case\"rej\":n.has(i.id)&&n.get(i.id)(...i.param),a.delete(i.id),n.delete(i.id)}})),e.start(),e.postMessage({type:\"ready\"}))})),window.addEventListener(\"load\",(e=>{console.log(\"sandbox onload\")}))})()}();";
@@ -15169,7 +15406,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.22.0"
+	    version: "alpha v1.22.1"
 	};
 
 	/**
@@ -15696,6 +15933,23 @@
 	                                        name: "forge一起玩",
 	                                        storageKey: "enablePlayTogether"
 	                                    },
+	                                    {
+	                                        name: "自定义资料卡",
+	                                        storageKey: "enableCustomProfile"
+	                                    },
+	                                    ...(
+	                                        storageContext.local.enableCustomProfile ?
+	                                            [
+	                                                {
+	                                                    name: "编辑自定义资料卡",
+	                                                    func: async () =>
+	                                                    {
+	                                                        showCustomProfileMenu();
+	                                                    }
+	                                                },
+	                                            ] :
+	                                            []
+	                                    ),
 	                                    {
 	                                        name: "使用本地服务(仅测试)",
 	                                        storageKey: "enableLocalService"
@@ -17092,8 +17346,6 @@
 	    );
 	}
 
-	let showedNotice = false;
-
 	/**
 	 * 启用音频接管
 	 */
@@ -17337,11 +17589,13 @@
 	            return;
 	        }
 
+	        /*
 	        if (!showedNotice)
 	        {
 	            showNotice("接管音频", "您正在使用forge测试功能(接管音频)\n如果存在问题请在 附加功能 中关闭");
 	            showedNotice = true;
 	        }
+	        */
 
 	        let x = 0, y = 0;
 	        let allowClick = false;
@@ -18267,6 +18521,10 @@
 	            {
 	                func: enableRecordViewer,
 	                condition: "enableRecordViewer"
+	            },
+	            {
+	                func: enableCustomProfile,
+	                condition: "enableCustomProfile"
 	            },
 	            {
 	                func: enablePlayTogether,

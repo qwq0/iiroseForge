@@ -4,6 +4,7 @@ import { touchBind } from "../../lib/qwqframe.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
 import { showBeautifyMenu } from "../feature/beautify.js";
 import { showBlacklistMenu } from "../feature/blacklist.js";
+import { showCustomProfileMenu } from "../feature/customProfile.js";
 import { showMultiAccountMenu } from "../feature/multiAccount.js";
 import { showNotDisturbModeMenu } from "../feature/notDisturbMode.js";
 import { showPatchMenu } from "../feature/patch.js";
@@ -383,6 +384,23 @@ export function getForgeMenu()
                                         name: "forge一起玩",
                                         storageKey: "enablePlayTogether"
                                     },
+                                    {
+                                        name: "自定义资料卡",
+                                        storageKey: "enableCustomProfile"
+                                    },
+                                    ...(
+                                        storageContext.local.enableCustomProfile ?
+                                            [
+                                                {
+                                                    name: "编辑自定义资料卡",
+                                                    func: async () =>
+                                                    {
+                                                        showCustomProfileMenu();
+                                                    }
+                                                },
+                                            ] :
+                                            []
+                                    ),
                                     {
                                         name: "使用本地服务(仅测试)",
                                         storageKey: "enableLocalService"

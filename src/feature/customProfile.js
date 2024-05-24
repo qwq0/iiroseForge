@@ -1,0 +1,245 @@
+import { proxyFunction } from "../../lib/plugToolsLib.js";
+import { eventName, NList } from "../../lib/qwqframe.js";
+import { forgeApi } from "../forgeApi/forgeApi.js";
+import { iframeContext } from "../injectIframe/iframeContext.js";
+import { readForgePacket, writeForgePacket } from "../protocol/forgePacket.js";
+import { setPackageData, toClientTrie } from "../protocol/protocol.js";
+import { showInfoBox, showInputBox } from "../ui/infobox.js";
+import { showMenu } from "../ui/menu.js";
+import { showNotice } from "../ui/notice.js";
+import { htmlSpecialCharsEscape } from "../util/htmlSpecialChars.js";
+
+/**
+ * @typedef {{
+ *  bgmList?: Array<{title?: string, url: string}>
+ * }} ProfilePackageType
+ */
+
+const albumForgePackagePrefix = "https://not-exist.fake-domain/";
+const albumForgePackageSuffix = "?.png";
+
+/**
+ * 启用自定义资料卡
+ */
+export function enableCustomProfile()
+{
+    iframeContext.iframeWindow["whois"] = proxyFunction(iframeContext.iframeWindow["whois"], (param) =>
+    {
+        if (param[0])
+        {
+            try
+            {
+                /** @type {Array<string>} */
+                let part = param[0].split(">");
+                let photoAlbum = part[10].split(" ");
+
+                // console.log(param[1], photoAlbum, part);
+
+                /**
+                 * @type {ProfilePackageType}
+                 */
+                let forgePackage = null;
+
+                photoAlbum = photoAlbum.filter(o =>
+                {
+                    if (o.startsWith(albumForgePackagePrefix + "iiroseForge:"))
+                    {
+                        o = o.slice(albumForgePackagePrefix.length);
+                        if (o.endsWith(albumForgePackageSuffix))
+                            o = o.slice(0, -albumForgePackageSuffix.length);
+                        forgePackage = readForgePacket(o, "");
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (forgePackage)
+                {
+                    showNotice("自定义资料卡", "您正在查看 自定义资料卡\n如果存在问题请在 附加功能 中关闭");
+
+                    if (forgePackage.bgmList)
+                    {
+                        let randomItem = forgePackage.bgmList[Math.floor(Math.random() * forgePackage.bgmList.length)];
+                        part[11] = `${htmlSpecialCharsEscape(randomItem.url)} @|${randomItem.title ? htmlSpecialCharsEscape(randomItem.title) : "自定义歌单"}@|forge已接管@|*@|`;
+                    }
+
+                    part[10] = photoAlbum.join(" ");
+                    param[0] = part.join(">");
+                }
+            }
+            catch (err)
+            {
+                console.error("customProfile", err);
+            }
+        }
+        return false;
+    });
+    takeoverProtocol();
+}
+
+/**
+ * @type {(originalOption: ProfilePackageType, photoAlbum: string) => void}
+ */
+let readCallback = null;
+/**
+ * @type {() => void}
+ */
+let submitCallback = null;
+
+/**
+ * 显示自定义资料卡菜单
+ */
+export function showCustomProfileMenu()
+{
+    showNotice("加载中", "正在读取您的原设置");
+    readCallback = (originalOption, photoAlbum) =>
+    {
+        if (originalOption)
+        {
+            showNotice("自定义资料", "已加载原设置");
+        }
+        else
+        {
+            showNotice("自定义资料", "找不到原设置\n将新建设置");
+            originalOption = {};
+        }
+
+        showMenu([
+            NList.getElement([
+                "背景随机歌单",
+                eventName.click(e =>
+                {
+                    e.stopImmediatePropagation();
+                    showMenu([
+                        ...(
+                            originalOption.bgmList ?
+                                originalOption.bgmList.map((o, index) => NList.getElement([
+                                    o.title ? o.title : o.url.slice(0, 20) + "...",
+                                    eventName.click(async () =>
+                                    {
+                                        if (await showInfoBox("删除条目", `确认删除此条目吗\ntitle: ${o.title}\nurl: ${o.url}`, true))
+                                            originalOption.bgmList.splice(index, 1);
+                                    })
+                                ])) :
+                                []
+                        ),
+                        NList.getElement([
+                            "[添加]",
+                            eventName.click(async () =>
+                            {
+                                let url = await showInputBox("添加条目", "请输入条目的url", true);
+                                if (url == undefined)
+                                    return;
+                                let title = await showInputBox("设置标题", "设置条目的标题\n可留空", true);
+                                if (title == undefined)
+                                    return;
+                                if (!originalOption.bgmList)
+                                    originalOption.bgmList = [];
+                                if (title)
+                                    originalOption.bgmList.push({
+                                        title: title,
+                                        url: url
+                                    });
+                                else
+                                    originalOption.bgmList.push({
+                                        url: url
+                                    });
+                            })
+                        ])
+                    ]);
+                })
+            ]),
+            NList.getElement([
+                "提交更改",
+                eventName.click(e =>
+                {
+                    try
+                    {
+                        let forgePackageForAlbum = albumForgePackagePrefix + writeForgePacket(originalOption) + albumForgePackageSuffix;
+                        submitCallback = () =>
+                        {
+                            showNotice("自定义资料卡", "提交成功");
+                        };
+                        iframeContext.socketApi.send("$2" + JSON.stringify({ "album": photoAlbum ? forgePackageForAlbum + " " + photoAlbum : forgePackageForAlbum }));
+                        showNotice("自定义资料卡", "正在提交");
+                    }
+                    catch (err)
+                    {
+                        showNotice("自定义资料卡", "提交失败");
+                    }
+                })
+            ])
+        ]);
+    };
+    iframeContext.socketApi.send("+-" + forgeApi.operation.getUserName().toLowerCase());
+}
+
+let hadTakeoverProtocol = false;
+function takeoverProtocol()
+{
+    if (hadTakeoverProtocol)
+        return;
+    hadTakeoverProtocol = true;
+    toClientTrie.addPath("+", (data) =>
+    {
+        try
+        {
+            if (readCallback)
+            {
+                /** @type {Array<string>} */
+                let part = data.split(">");
+                // console.log(part);
+                let photoAlbum = part[10].split(" ");
+
+                /**
+                 * @type {Object}
+                 */
+                let forgePackage = null;
+
+                photoAlbum = photoAlbum.filter(o =>
+                {
+                    if (o.startsWith(albumForgePackagePrefix + "iiroseForge:"))
+                    {
+                        o = o.slice(albumForgePackagePrefix.length);
+                        if (o.endsWith(albumForgePackageSuffix))
+                            o = o.slice(0, -albumForgePackageSuffix.length);
+                        forgePackage = readForgePacket(o, "");
+                        return false;
+                    }
+                    return true;
+                });
+
+                let callback = readCallback;
+                readCallback = null;
+                callback(forgePackage, photoAlbum.join(" "));
+
+                return true;
+            }
+        }
+        catch (err)
+        {
+            console.error("customProfileProtocol", err);
+        }
+        return false;
+    });
+    toClientTrie.addPath("$#", (data) =>
+    {
+        try
+        {
+            if (data == "" && submitCallback)
+            {
+
+                let callback = submitCallback;
+                submitCallback = null;
+                callback();
+
+                return true;
+            }
+        }
+        catch (err)
+        {
+            console.error("customProfileProtocol", err);
+        }
+        return false;
+    });
+}

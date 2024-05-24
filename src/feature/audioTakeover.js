@@ -256,11 +256,13 @@ export function enableAudioTakeover()
             return;
         }
 
+        /*
         if (!showedNotice)
         {
             showNotice("接管音频", "您正在使用forge测试功能(接管音频)\n如果存在问题请在 附加功能 中关闭");
             showedNotice = true;
         }
+        */
 
         let x = 0, y = 0;
         let width = 50, height = 50;

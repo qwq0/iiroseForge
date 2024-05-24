@@ -97,6 +97,8 @@ export const storageContext = {
         enableRecordViewer: true,
         // 启用一起玩
         enablePlayTogether: true,
+        // 启用自定义资料卡
+        enableCustomProfile: true,
         // 启动forge本地服务
         enableLocalService: false,
         // forge本地服务地址
