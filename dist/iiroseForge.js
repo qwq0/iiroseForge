@@ -15,12 +15,12 @@
 	*/
 	function proxyFunction(targetFunction, callback)
 	{
-		return (function (...param)
-		{
-			let targetFunctionBindThis = targetFunction.bind(this);
-			if (callback(param, targetFunctionBindThis, targetFunction, this) != true)
-				return targetFunctionBindThis(...param);
-		});
+	   return (function (...param)
+	   {
+		   let targetFunctionBindThis = targetFunction.bind(this);
+		   if (callback(param, targetFunctionBindThis, targetFunction, this) != true)
+			   return targetFunctionBindThis(...param);
+	   });
 	}
 
 	/**
@@ -32,25 +32,25 @@
 	*/
 	function intervalTry(callback, interval, immediate = false)
 	{
-		let countOfCall = 0;
-		let startTime = Date.now();
-		let intervalId = null;
-		let func = (() =>
-		{
-			countOfCall++;
-			try
-			{
-				callback(countOfCall, Date.now() - startTime);
-				if (intervalId != null)
-					clearInterval(intervalId);
-				return;
-			}
-			catch (err)
-			{ }
-		});
-		intervalId = setInterval(func, interval);
-		if (immediate)
-			func();
+	   let countOfCall = 0;
+	   let startTime = Date.now();
+	   let intervalId = null;
+	   let func = (() =>
+	   {
+		   countOfCall++;
+		   try
+		   {
+			   callback(countOfCall, Date.now() - startTime);
+			   if (intervalId != null)
+				   clearInterval(intervalId);
+			   return;
+		   }
+		   catch (err)
+		   { }
+	   });
+	   intervalId = setInterval(func, interval);
+	   if (immediate)
+		   func();
 	}
 
 	/**
@@ -61,23 +61,25 @@
 	*/
 	function domPath(start, path)
 	{
-		let now = start;
-		path.every(o =>
-		{
-			if (o < 0)
-				o += now.childNodes.length;
+	   let now = start;
+	   if (!now)
+		   return null;
+	   path.every(o =>
+	   {
+		   if (o < 0)
+			   o += now.childNodes.length;
 
-			if (now.childNodes[o])
-				now = now.childNodes[o];
-			else
-			{
-				now = null;
-				return false;
-			}
+		   if (now.childNodes[o])
+			   now = now.childNodes[o];
+		   else
+		   {
+			   now = null;
+			   return false;
+		   }
 
-			return true;
-		});
-		return now;
+		   return true;
+	   });
+	   return now;
 	}
 
 	/**
@@ -6703,11 +6705,12 @@
 	        },
 
 	        /**
-	         * 私聊发送forge包消息
-	         * @param {string} targetUid
+	         * 发送forge包消息给用户
+	         * @param {string | Array<string>} targetUid
 	         * @param {Object} obj
+	         * @param {"dm" | "api" | "rv"} [type]
 	         */
-	        sendPrivateForgePacket: (targetUid, obj) =>
+	        sendPrivateForgePacket: (targetUid, obj, type = "dm") =>
 	        {
 	            if (
 	                typeof (obj) != "object" ||
@@ -6715,26 +6718,43 @@
 	            )
 	                return;
 	            let forgePacket = writeForgePacket(obj);
+	            /**
+	             * 发送单个数据包分片
+	             * @param {string} packet 
+	             */
+	            function sendPackage(packet)
+	            {
+	                (typeof (targetUid) == "string" ? ([targetUid]) : targetUid).forEach(uid =>
+	                {
+	                    if (type == "dm")
+	                        forgeApi.operation.sendPrivateMessageSilence(uid, packet);
+	                    else if(type == "api")
+	                        iframeContext.socket.send(`/<iiroseForge>${typeof (targetUid) == "string" ? targetUid : targetUid.join(",")}:${packet}`);
+	                    else if(type == "rv")
+	                        iframeContext.socket.send(`v0*${uid}#${packet}`);
+	                });
+	            }
 	            if (typeof (forgePacket) == "string")
-	                forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket);
+	                sendPackage(forgePacket);
 	            else
 	                (async () =>
 	                {
 	                    for (let i = 0; i < forgePacket.length; i++)
 	                    {
-	                        forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket[i]);
+	                        sendPackage(forgePacket[i]);
 	                        await delayPromise(60);
 	                    }
 	                })();
 	        },
 
 	        /**
-	         * 给自己私聊发送forge包消息
+	         * 给自己发送forge包消息
 	         * @param {Object} obj
+	         * @param {"dm" | "api" | "rv"} [type]
 	         */
-	        sendSelfPrivateForgePacket: (obj) =>
+	        sendSelfPrivateForgePacket: (obj, type) =>
 	        {
-	            forgeApi.operation.sendPrivateForgePacket(forgeApi.operation.getUserUid(), obj);
+	            forgeApi.operation.sendPrivateForgePacket(forgeApi.operation.getUserUid(), obj, type);
 	        },
 
 	        /**
@@ -8192,6 +8212,12 @@
 	    #callback = null;
 
 	    /**
+	     * 回调函数列表
+	     * @type {Array<(restStr: string, srcStr:string) => any>}
+	     */
+	    #callbackList = null;
+
+	    /**
 	     * 添加路径
 	     * @param {string} pathStr
 	     * @param {number} pathInd
@@ -8201,7 +8227,20 @@
 	    {
 	        if (pathInd >= pathStr.length)
 	        {
-	            this.#callback = callback;
+	            if (!this.#callback)
+	                this.#callback = callback;
+	            else
+	            {
+	                if (!this.#callbackList)
+	                {
+	                    this.#callbackList = [this.#callback];
+	                    this.#callback = (restStr, stcStr) =>
+	                    {
+	                        return this.#callbackList.some(o => o(restStr, stcStr));
+	                    };
+	                }
+	                this.#callbackList.push(callback);
+	            }
 	        }
 	        else
 	        {
@@ -10365,7 +10404,8 @@
 
 	/**
 	 * @typedef {{
-	 *  bgmList?: Array<{title?: string, url: string}>
+	 *  bgmList?: Array<{title?: string, url: string}>,
+	 *  draw?: Array<{weight?: number, text: string}>
 	 * }} ProfilePackageType
 	 */
 
@@ -10411,10 +10451,35 @@
 	                {
 	                    showNotice("自定义资料卡", "您正在查看 自定义资料卡\n如果存在问题请在 附加功能 中关闭");
 
-	                    if (forgePackage.bgmList)
+	                    if (forgePackage.bgmList && forgePackage.bgmList.length > 0)
 	                    {
 	                        let randomItem = forgePackage.bgmList[Math.floor(Math.random() * forgePackage.bgmList.length)];
 	                        part[11] = `${htmlSpecialCharsEscape(randomItem.url)} @|${randomItem.title ? htmlSpecialCharsEscape(randomItem.title) : "自定义歌单"}@|forge已接管@|*@|`;
+	                    }
+
+	                    if (forgePackage.draw && forgePackage.draw.length > 0)
+	                    {
+	                        let totalWeight = 0;
+	                        forgePackage.draw.forEach(o =>
+	                        {
+	                            totalWeight += (o.weight != undefined ? o.weight : 1);
+	                        });
+	                        let randomWeight = Math.random() * totalWeight;
+	                        let weightSum = 0;
+	                        for (let o of forgePackage.draw)
+	                        {
+	                            weightSum += (o.weight != undefined ? o.weight : 1);
+	                            if (weightSum > randomWeight)
+	                            {
+	                                let text = o.text;
+	                                if (text.indexOf("{@observer}") != -1)
+	                                {
+	                                    text = text.replaceAll("{@observer}", ` [*${forgeApi.operation.getUserName()}*] `);
+	                                }
+	                                part[8] += (part[8].endsWith("\n") ? "" : "\n") + htmlSpecialCharsEscape(text);
+	                                break;
+	                            }
+	                        }
 	                    }
 
 	                    part[10] = photoAlbum.join(" ");
@@ -10472,7 +10537,11 @@
 	                                    eventName.click(async () =>
 	                                    {
 	                                        if (await showInfoBox("删除条目", `确认删除此条目吗\ntitle: ${o.title}\nurl: ${o.url}`, true))
+	                                        {
 	                                            originalOption.bgmList.splice(index, 1);
+	                                            if (originalOption.bgmList.length == 0)
+	                                                delete originalOption.bgmList;
+	                                        }
 	                                    })
 	                                ])) :
 	                                []
@@ -10498,6 +10567,71 @@
 	                                    originalOption.bgmList.push({
 	                                        url: url
 	                                    });
+	                            })
+	                        ])
+	                    ]);
+	                })
+	            ]),
+	            NList.getElement([
+	                "抽签文本",
+	                eventName.click(e =>
+	                {
+	                    e.stopImmediatePropagation();
+
+	                    let totalWeight = 0;
+	                    originalOption.draw.forEach(o =>
+	                    {
+	                        totalWeight += (o.weight != undefined ? o.weight : 1);
+	                    });
+
+	                    showMenu([
+	                        ...(
+	                            originalOption.draw ?
+	                                originalOption.draw.map((o, index) =>
+	                                {
+	                                    let weight = o.weight != undefined ? o.weight : 1;
+	                                    return NList.getElement([
+	                                        `(权重${weight} 概率${((weight) / totalWeight * 100).toFixed(2)}%) ${o.text.length > 20 ? o.text.slice(0, 20) + "..." : o.text}`,
+	                                        eventName.click(async () =>
+	                                        {
+	                                            if (await showInfoBox("删除条目", `确认删除此条目吗\ntext: ${o.text}\nweight: ${weight}`, true))
+	                                            {
+	                                                originalOption.draw.splice(index, 1);
+	                                                if (originalOption.draw.length == 0)
+	                                                    delete originalOption.draw;
+	                                            }
+	                                        })
+	                                    ]);
+	                                }) :
+	                                []
+	                        ),
+	                        NList.getElement([
+	                            "[添加]",
+	                            eventName.click(async () =>
+	                            {
+	                                let text = await showInputBox("添加条目", "请输入条目的文本\n{@observer}表示观测者", true);
+	                                if (text == undefined)
+	                                    return;
+	                                let weight = await showInputBox("设置权重", "设置条目的权重", true, "1");
+	                                if (weight == undefined)
+	                                    return;
+	                                let weightNumber = Number(weight);
+	                                if (Number.isFinite(weightNumber) && weightNumber > 0)
+	                                {
+	                                    if (!originalOption.draw)
+	                                        originalOption.draw = [];
+	                                    if (weightNumber != 1)
+	                                        originalOption.draw.push({
+	                                            weight: weightNumber,
+	                                            text: text
+	                                        });
+	                                    else
+	                                        originalOption.draw.push({
+	                                            text: text
+	                                        });
+	                                }
+	                                else
+	                                    showNotice("添加失败", "权重仅能为大于0的数");
 	                            })
 	                        ])
 	                    ]);
@@ -15406,7 +15540,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.22.1"
+	    version: "alpha v1.22.2"
 	};
 
 	/**

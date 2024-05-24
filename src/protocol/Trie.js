@@ -47,6 +47,12 @@ class TrieNode
     #callback = null;
 
     /**
+     * 回调函数列表
+     * @type {Array<(restStr: string, srcStr:string) => any>}
+     */
+    #callbackList = null;
+
+    /**
      * 添加路径
      * @param {string} pathStr
      * @param {number} pathInd
@@ -56,7 +62,20 @@ class TrieNode
     {
         if (pathInd >= pathStr.length)
         {
-            this.#callback = callback;
+            if (!this.#callback)
+                this.#callback = callback;
+            else
+            {
+                if (!this.#callbackList)
+                {
+                    this.#callbackList = [this.#callback];
+                    this.#callback = (restStr, stcStr) =>
+                    {
+                        return this.#callbackList.some(o => o(restStr, stcStr));
+                    };
+                }
+                this.#callbackList.push(callback);
+            }
         }
         else
         {

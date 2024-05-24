@@ -298,11 +298,12 @@ export const forgeApi = {
         },
 
         /**
-         * 私聊发送forge包消息
-         * @param {string} targetUid
+         * 发送forge包消息给用户
+         * @param {string | Array<string>} targetUid
          * @param {Object} obj
+         * @param {"dm" | "api" | "rv"} [type]
          */
-        sendPrivateForgePacket: (targetUid, obj) =>
+        sendPrivateForgePacket: (targetUid, obj, type = "dm") =>
         {
             if (
                 typeof (obj) != "object" ||
@@ -310,26 +311,43 @@ export const forgeApi = {
             )
                 return;
             let forgePacket = writeForgePacket(obj);
+            /**
+             * 发送单个数据包分片
+             * @param {string} packet 
+             */
+            function sendPackage(packet)
+            {
+                (typeof (targetUid) == "string" ? ([targetUid]) : targetUid).forEach(uid =>
+                {
+                    if (type == "dm")
+                        forgeApi.operation.sendPrivateMessageSilence(uid, packet);
+                    else if(type == "api")
+                        iframeContext.socket.send(`/<iiroseForge>${typeof (targetUid) == "string" ? targetUid : targetUid.join(",")}:${packet}`);
+                    else if(type == "rv")
+                        iframeContext.socket.send(`v0*${uid}#${packet}`);
+                });
+            }
             if (typeof (forgePacket) == "string")
-                forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket);
+                sendPackage(forgePacket);
             else
                 (async () =>
                 {
                     for (let i = 0; i < forgePacket.length; i++)
                     {
-                        forgeApi.operation.sendPrivateMessageSilence(targetUid, forgePacket[i]);
+                        sendPackage(forgePacket[i]);
                         await delayPromise(60);
                     }
                 })();
         },
 
         /**
-         * 给自己私聊发送forge包消息
+         * 给自己发送forge包消息
          * @param {Object} obj
+         * @param {"dm" | "api" | "rv"} [type]
          */
-        sendSelfPrivateForgePacket: (obj) =>
+        sendSelfPrivateForgePacket: (obj, type) =>
         {
-            forgeApi.operation.sendPrivateForgePacket(forgeApi.operation.getUserUid(), obj);
+            forgeApi.operation.sendPrivateForgePacket(forgeApi.operation.getUserUid(), obj, type);
         },
 
         /**

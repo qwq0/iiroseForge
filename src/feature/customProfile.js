@@ -11,7 +11,8 @@ import { htmlSpecialCharsEscape } from "../util/htmlSpecialChars.js";
 
 /**
  * @typedef {{
- *  bgmList?: Array<{title?: string, url: string}>
+ *  bgmList?: Array<{title?: string, url: string}>,
+ *  draw?: Array<{weight?: number, text: string}>
  * }} ProfilePackageType
  */
 
@@ -57,10 +58,35 @@ export function enableCustomProfile()
                 {
                     showNotice("自定义资料卡", "您正在查看 自定义资料卡\n如果存在问题请在 附加功能 中关闭");
 
-                    if (forgePackage.bgmList)
+                    if (forgePackage.bgmList && forgePackage.bgmList.length > 0)
                     {
                         let randomItem = forgePackage.bgmList[Math.floor(Math.random() * forgePackage.bgmList.length)];
                         part[11] = `${htmlSpecialCharsEscape(randomItem.url)} @|${randomItem.title ? htmlSpecialCharsEscape(randomItem.title) : "自定义歌单"}@|forge已接管@|*@|`;
+                    }
+
+                    if (forgePackage.draw && forgePackage.draw.length > 0)
+                    {
+                        let totalWeight = 0;
+                        forgePackage.draw.forEach(o =>
+                        {
+                            totalWeight += (o.weight != undefined ? o.weight : 1);
+                        });
+                        let randomWeight = Math.random() * totalWeight;
+                        let weightSum = 0;
+                        for (let o of forgePackage.draw)
+                        {
+                            weightSum += (o.weight != undefined ? o.weight : 1);
+                            if (weightSum > randomWeight)
+                            {
+                                let text = o.text;
+                                if (text.indexOf("{@observer}") != -1)
+                                {
+                                    text = text.replaceAll("{@observer}", ` [*${forgeApi.operation.getUserName()}*] `);
+                                }
+                                part[8] += (part[8].endsWith("\n") ? "" : "\n") + htmlSpecialCharsEscape(text);
+                                break;
+                            }
+                        }
                     }
 
                     part[10] = photoAlbum.join(" ");
@@ -118,7 +144,11 @@ export function showCustomProfileMenu()
                                     eventName.click(async () =>
                                     {
                                         if (await showInfoBox("删除条目", `确认删除此条目吗\ntitle: ${o.title}\nurl: ${o.url}`, true))
+                                        {
                                             originalOption.bgmList.splice(index, 1);
+                                            if (originalOption.bgmList.length == 0)
+                                                delete originalOption.bgmList;
+                                        }
                                     })
                                 ])) :
                                 []
@@ -144,6 +174,71 @@ export function showCustomProfileMenu()
                                     originalOption.bgmList.push({
                                         url: url
                                     });
+                            })
+                        ])
+                    ]);
+                })
+            ]),
+            NList.getElement([
+                "抽签文本",
+                eventName.click(e =>
+                {
+                    e.stopImmediatePropagation();
+
+                    let totalWeight = 0;
+                    originalOption.draw.forEach(o =>
+                    {
+                        totalWeight += (o.weight != undefined ? o.weight : 1);
+                    });
+
+                    showMenu([
+                        ...(
+                            originalOption.draw ?
+                                originalOption.draw.map((o, index) =>
+                                {
+                                    let weight = o.weight != undefined ? o.weight : 1;
+                                    return NList.getElement([
+                                        `(权重${weight} 概率${((weight) / totalWeight * 100).toFixed(2)}%) ${o.text.length > 20 ? o.text.slice(0, 20) + "..." : o.text}`,
+                                        eventName.click(async () =>
+                                        {
+                                            if (await showInfoBox("删除条目", `确认删除此条目吗\ntext: ${o.text}\nweight: ${weight}`, true))
+                                            {
+                                                originalOption.draw.splice(index, 1);
+                                                if (originalOption.draw.length == 0)
+                                                    delete originalOption.draw;
+                                            }
+                                        })
+                                    ]);
+                                }) :
+                                []
+                        ),
+                        NList.getElement([
+                            "[添加]",
+                            eventName.click(async () =>
+                            {
+                                let text = await showInputBox("添加条目", "请输入条目的文本\n{@observer}表示观测者", true);
+                                if (text == undefined)
+                                    return;
+                                let weight = await showInputBox("设置权重", "设置条目的权重", true, "1");
+                                if (weight == undefined)
+                                    return;
+                                let weightNumber = Number(weight);
+                                if (Number.isFinite(weightNumber) && weightNumber > 0)
+                                {
+                                    if (!originalOption.draw)
+                                        originalOption.draw = [];
+                                    if (weightNumber != 1)
+                                        originalOption.draw.push({
+                                            weight: weightNumber,
+                                            text: text
+                                        });
+                                    else
+                                        originalOption.draw.push({
+                                            text: text
+                                        });
+                                }
+                                else
+                                    showNotice("添加失败", "权重仅能为大于0的数");
                             })
                         ])
                     ]);
