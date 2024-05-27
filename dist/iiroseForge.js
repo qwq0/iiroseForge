@@ -3220,7 +3220,7 @@
 	        {
 	            let commaIndex = data.indexOf(",");
 	            let len = Number.parseInt(data.slice(0, commaIndex), 36);
-	            if (Number.isNaN(len) || len < 0 || len > 8192)
+	            if (Number.isNaN(len) || len < 0)
 	                return undefined;
 	            data = data.slice(commaIndex + 1);
 	            let dataBase64 = data.slice(0, len);
@@ -3251,8 +3251,8 @@
 	                    sliceCount > 64 ||
 	                    sliceIndex < 0 ||
 	                    sliceIndex >= sliceCount ||
-	                    packetTime > nowTime + 15 * 1000 ||
-	                    packetTime < nowTime - 60 * 1000 ||
+	                    // packetTime > nowTime + 15 * 1000 ||
+	                    // packetTime < nowTime - 60 * 1000 ||
 	                    packetId == ""
 	                )
 	                    return unfinishedSliceSymbol;
@@ -3304,16 +3304,17 @@
 	/**
 	 * 写入forge数据包
 	 * @param {Object} obj
+	 * @param {boolean} [disableSlice]
 	 * @returns {string | Array<string>}
 	 */
-	function writeForgePacket(obj)
+	function writeForgePacket(obj, disableSlice = false)
 	{
 	    const maxSingleBodyLength = 8192;
 	    const maxMultiLength = 8192 * 50;
 	    try
 	    {
 	        let dataBase64 = uint8ToBase64(jsob.encode(obj, { referenceString: true }));
-	        if (dataBase64.length <= maxSingleBodyLength)
+	        if (dataBase64.length <= maxSingleBodyLength || disableSlice)
 	        {
 	            let metaArr = ["", "single"];
 	            return `iiroseForge:${dataBase64.length.toString(36)},${dataBase64}${metaArr.join(",")}:end`;
@@ -7037,6 +7038,15 @@
 	    {
 	        iframeContext.socket._onmessage(packet);
 	    },
+
+	    /**
+	     * 读取forge包
+	     * @param {string} data
+	     */
+	    readForgePacket(data)
+	    {
+	        return readForgePacket(data, "dbg");
+	    }
 	};
 
 	/**
@@ -10417,7 +10427,7 @@
 	 */
 	function enableCustomProfile()
 	{
-	    iframeContext.iframeWindow["whois"] = proxyFunction(iframeContext.iframeWindow["whois"], (param) =>
+	    iframeContext.iframeWindow["whois"] = proxyFunction(iframeContext.iframeWindow["whois"], (param, targetFn) =>
 	    {
 	        if (param[0])
 	        {
@@ -10484,7 +10494,16 @@
 
 	                    part[10] = photoAlbum.join(" ");
 	                    param[0] = part.join(">");
+
+
+	                    targetFn(...param);
+
+	                    let userInfoElement = iframeContext.iframeWindow?.["Variable"]?.currentUserInfoObj;
+	                    // console.log(userInfoElement);
+
+	                    return true;
 	                }
+	                return false;
 	            }
 	            catch (err)
 	            {
@@ -10568,6 +10587,48 @@
 	                                        url: url
 	                                    });
 	                            })
+	                        ]),
+	                        NList.getElement([
+	                            "[导入歌单]",
+	                            eventName.click(async () =>
+	                            {
+	                                let playListId = await showInputBox("导入歌单", "输入网易云歌单id", true);
+	                                if (playListId == undefined)
+	                                    return;
+	                                try
+	                                {
+	                                    let info = await (await fetch(`https://a.iirose.com/lib/php/api/search_163Music_list.php?i=${playListId}&t=0`)).json();
+	                                    if (!info?.playlist?.tracks)
+	                                        throw "playlist error";
+	                                    let confirm = showInfoBox("导入歌单", `确认要导入这些内容吗?\n重复的内容将被替换\n共 ${info.playlist.tracks.length} 首\n---\n${info.playlist.tracks.map(o => o.name).join("\n")}`, true);
+	                                    if (!confirm)
+	                                        return;
+	                                    if (!originalOption.bgmList)
+	                                        originalOption.bgmList = [];
+	                                    /**
+	                                     * @type {Map<string, string>}
+	                                     */
+	                                    // @ts-ignore
+	                                    let urlToNameMap = new Map([
+	                                        ...(originalOption.bgmList.map(o => ([o.url, o.title]))),
+	                                        ...info.playlist.tracks.map(o => [`https://music.163.com/song/media/outer/url?id=${o.id}.mp3`, o.name]),
+	                                    ]);
+	                                    originalOption.bgmList = Array.from(urlToNameMap.entries()).map(o => (
+	                                        o[1] ?
+	                                            {
+	                                                title: o[1],
+	                                                url: o[0]
+	                                            } :
+	                                            {
+	                                                url: o[0]
+	                                            }
+	                                    ));
+	                                }
+	                                catch (err)
+	                                {
+	                                    showInfoBox("导入歌单", "导入失败");
+	                                }
+	                            })
 	                        ])
 	                    ]);
 	                })
@@ -10643,7 +10704,7 @@
 	                {
 	                    try
 	                    {
-	                        let forgePackageForAlbum = albumForgePackagePrefix + writeForgePacket(originalOption) + albumForgePackageSuffix;
+	                        let forgePackageForAlbum = albumForgePackagePrefix + writeForgePacket(originalOption, true) + albumForgePackageSuffix;
 	                        submitCallback = () =>
 	                        {
 	                            showNotice("自定义资料卡", "提交成功");
@@ -15540,7 +15601,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.22.2"
+	    version: "alpha v1.22.3"
 	};
 
 	/**

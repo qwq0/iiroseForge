@@ -4,7 +4,7 @@ import { forgeApi } from "../forgeApi/forgeApi.js";
 import { iframeContext } from "../injectIframe/iframeContext.js";
 import { readForgePacket, writeForgePacket } from "../protocol/forgePacket.js";
 import { setPackageData, toClientTrie } from "../protocol/protocol.js";
-import { showInfoBox, showInputBox } from "../ui/infobox.js";
+import { showCopyBox, showInfoBox, showInputBox } from "../ui/infobox.js";
 import { showMenu } from "../ui/menu.js";
 import { showNotice } from "../ui/notice.js";
 import { htmlSpecialCharsEscape } from "../util/htmlSpecialChars.js";
@@ -24,7 +24,7 @@ const albumForgePackageSuffix = "?.png";
  */
 export function enableCustomProfile()
 {
-    iframeContext.iframeWindow["whois"] = proxyFunction(iframeContext.iframeWindow["whois"], (param) =>
+    iframeContext.iframeWindow["whois"] = proxyFunction(iframeContext.iframeWindow["whois"], (param, targetFn) =>
     {
         if (param[0])
         {
@@ -91,7 +91,16 @@ export function enableCustomProfile()
 
                     part[10] = photoAlbum.join(" ");
                     param[0] = part.join(">");
+
+
+                    targetFn(...param);
+
+                    let userInfoElement = iframeContext.iframeWindow?.["Variable"]?.currentUserInfoObj;
+                    // console.log(userInfoElement);
+
+                    return true;
                 }
+                return false;
             }
             catch (err)
             {
@@ -175,6 +184,48 @@ export function showCustomProfileMenu()
                                         url: url
                                     });
                             })
+                        ]),
+                        NList.getElement([
+                            "[导入歌单]",
+                            eventName.click(async () =>
+                            {
+                                let playListId = await showInputBox("导入歌单", "输入网易云歌单id", true);
+                                if (playListId == undefined)
+                                    return;
+                                try
+                                {
+                                    let info = await (await fetch(`https://a.iirose.com/lib/php/api/search_163Music_list.php?i=${playListId}&t=0`)).json();
+                                    if (!info?.playlist?.tracks)
+                                        throw "playlist error";
+                                    let confirm = showInfoBox("导入歌单", `确认要导入这些内容吗?\n重复的内容将被替换\n共 ${info.playlist.tracks.length} 首\n---\n${info.playlist.tracks.map(o => o.name).join("\n")}`, true);
+                                    if (!confirm)
+                                        return;
+                                    if (!originalOption.bgmList)
+                                        originalOption.bgmList = [];
+                                    /**
+                                     * @type {Map<string, string>}
+                                     */
+                                    // @ts-ignore
+                                    let urlToNameMap = new Map([
+                                        ...(originalOption.bgmList.map(o => ([o.url, o.title]))),
+                                        ...info.playlist.tracks.map(o => [`https://music.163.com/song/media/outer/url?id=${o.id}.mp3`, o.name]),
+                                    ]);
+                                    originalOption.bgmList = Array.from(urlToNameMap.entries()).map(o => (
+                                        o[1] ?
+                                            {
+                                                title: o[1],
+                                                url: o[0]
+                                            } :
+                                            {
+                                                url: o[0]
+                                            }
+                                    ));
+                                }
+                                catch (err)
+                                {
+                                    showInfoBox("导入歌单", "导入失败");
+                                }
+                            })
                         ])
                     ]);
                 })
@@ -250,7 +301,7 @@ export function showCustomProfileMenu()
                 {
                     try
                     {
-                        let forgePackageForAlbum = albumForgePackagePrefix + writeForgePacket(originalOption) + albumForgePackageSuffix;
+                        let forgePackageForAlbum = albumForgePackagePrefix + writeForgePacket(originalOption, true) + albumForgePackageSuffix;
                         submitCallback = () =>
                         {
                             showNotice("自定义资料卡", "提交成功");

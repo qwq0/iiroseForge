@@ -48,7 +48,7 @@ export function readForgePacket(dataStr, creatorId)
         {
             let commaIndex = data.indexOf(",");
             let len = Number.parseInt(data.slice(0, commaIndex), 36);
-            if (Number.isNaN(len) || len < 0 || len > 8192)
+            if (Number.isNaN(len) || len < 0)
                 return undefined;
             data = data.slice(commaIndex + 1);
             let dataBase64 = data.slice(0, len);
@@ -79,8 +79,8 @@ export function readForgePacket(dataStr, creatorId)
                     sliceCount > 64 ||
                     sliceIndex < 0 ||
                     sliceIndex >= sliceCount ||
-                    packetTime > nowTime + 15 * 1000 ||
-                    packetTime < nowTime - 60 * 1000 ||
+                    // packetTime > nowTime + 15 * 1000 ||
+                    // packetTime < nowTime - 60 * 1000 ||
                     packetId == ""
                 )
                     return unfinishedSliceSymbol;
@@ -132,16 +132,17 @@ export function readForgePacket(dataStr, creatorId)
 /**
  * 写入forge数据包
  * @param {Object} obj
+ * @param {boolean} [disableSlice]
  * @returns {string | Array<string>}
  */
-export function writeForgePacket(obj)
+export function writeForgePacket(obj, disableSlice = false)
 {
     const maxSingleBodyLength = 8192;
     const maxMultiLength = 8192 * 50;
     try
     {
         let dataBase64 = uint8ToBase64(jsob.encode(obj, { referenceString: true }));
-        if (dataBase64.length <= maxSingleBodyLength)
+        if (dataBase64.length <= maxSingleBodyLength || disableSlice)
         {
             let metaArr = ["", "single"];
             return `iiroseForge:${dataBase64.length.toString(36)},${dataBase64}${metaArr.join(",")}:end`;

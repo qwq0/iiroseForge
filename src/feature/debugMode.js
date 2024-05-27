@@ -1,5 +1,6 @@
-import { globalState } from "../globalState";
-import { iframeContext } from "../injectIframe/iframeContext";
+import { globalState } from "../globalState.js";
+import { iframeContext } from "../injectIframe/iframeContext.js";
+import { readForgePacket } from "../protocol/forgePacket.js";
 
 export let debugModeContext = {
     /**
@@ -28,6 +29,15 @@ export let debugModeContext = {
     {
         iframeContext.socket._onmessage(packet);
     },
+
+    /**
+     * 读取forge包
+     * @param {string} data
+     */
+    readForgePacket(data)
+    {
+        return readForgePacket(data, "dbg");
+    }
 };
 
 /**
