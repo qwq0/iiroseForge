@@ -15601,7 +15601,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.22.3"
+	    version: "alpha v1.22.4"
 	};
 
 	/**
@@ -17596,6 +17596,13 @@
 
 	    old_infosound.removeAttribute("loop");
 	    old_infosound.removeAttribute("autoplay");
+	    old_infosound.addEventListener("ended", () =>
+	    {
+	        setTimeout(() =>
+	        {
+	            switchToTargetState();
+	        }, 1);
+	    });
 	    iframeContext.iframeWindow["infosound"] = new Proxy(old_infosound, {
 	        get: (_target, key) =>
 	        {
@@ -17719,28 +17726,25 @@
 	            refreshButton();
 	        }, 10);
 
-	        if (
-	            param[0] == undefined &&
-	            (
-	                isAudioHearable(old_shareMediaObjAudio)
-	            )
-	        )
+	        if (param[0] == undefined)
 	        {
-	            tryMuteRoomMedia = true;
-	            return true;
+	            if (isAudioHearable(old_shareMediaObjAudio))
+	            {
+	                tryMuteRoomMedia = true;
+	                return true;
+	            }
+	            else
+	                tryMuteRoomMedia = false;
 	        }
 	        else if (param[0] == 1)
 	        {
 	            targetMediaState = { type: "roomMedia" };
 
-	            if (
-	                isAudioHearable(old_infosound)
-	            )
+	            if (isAudioHearable(old_infosound))
 	            {
 	                return true;
 	            }
 	        }
-	        tryMuteRoomMedia = false;
 	        return false;
 	    });
 
@@ -17771,6 +17775,40 @@
 	        }
 	        else
 	            hideFloatingButton();
+	    }
+
+	    function switchToTargetState()
+	    {
+	        if (targetMediaState?.type == "roomMedia")
+	        {
+	            old_infosound.setAttribute("src", "");
+	            // if (tryUnmuteRoomMedia)
+	            {
+	                old_playerSoundOff(1);
+	            }
+	            if (tryMuteInfoMedia)
+	            {
+	                tryMuteInfoMedia = false;
+	            }
+	            hideFloatingButton();
+	        }
+	        else if (targetMediaState?.type == "infoMedia")
+	        {
+	            showFloatingButton();
+	            old_infosound.src = targetMediaState?.src;
+	            old_infosound.play();
+	            if (tryMuteRoomMedia)
+	            {
+	                old_playerSoundOff();
+	                tryMuteRoomMedia = false;
+	            }
+	            if (tryMuteInfoMedia)
+	            {
+	                old_infosound.play();
+	                tryMuteInfoMedia = false;
+	            }
+	            hideFloatingButton();
+	        }
 	    }
 
 	    /**
@@ -17837,36 +17875,7 @@
 	                        return;
 	                    }
 
-	                    if (targetMediaState?.type == "roomMedia")
-	                    {
-	                        old_infosound.setAttribute("src", "");
-	                        // if (tryUnmuteRoomMedia)
-	                        {
-	                            old_playerSoundOff(1);
-	                        }
-	                        if (tryMuteInfoMedia)
-	                        {
-	                            tryMuteInfoMedia = false;
-	                        }
-	                        hideFloatingButton();
-	                    }
-	                    else if (targetMediaState?.type == "infoMedia")
-	                    {
-	                        showFloatingButton();
-	                        old_infosound.src = targetMediaState?.src;
-	                        old_infosound.play();
-	                        if (tryMuteRoomMedia)
-	                        {
-	                            old_playerSoundOff();
-	                            tryMuteRoomMedia = false;
-	                        }
-	                        if (tryMuteInfoMedia)
-	                        {
-	                            old_infosound.play();
-	                            tryMuteInfoMedia = false;
-	                        }
-	                        hideFloatingButton();
-	                    }
+	                    switchToTargetState();
 	                })
 	            ],
 
