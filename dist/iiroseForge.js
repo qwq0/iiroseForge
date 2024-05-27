@@ -10549,6 +10549,16 @@
 	                {
 	                    e.stopImmediatePropagation();
 	                    showMenu([
+	                        NList.getElement([
+	                            "[清空列表]",
+	                            eventName.click(async () =>
+	                            {
+	                                let confirm = await showInfoBox("清空列表", `确认要清空随机歌单吗`, true);
+	                                if (!confirm)
+	                                    return;
+	                                delete originalOption.bgmList;
+	                            })
+	                        ]),
 	                        ...(
 	                            originalOption.bgmList ?
 	                                originalOption.bgmList.map((o, index) => NList.getElement([
@@ -10600,7 +10610,7 @@
 	                                    let info = await (await fetch(`https://a.iirose.com/lib/php/api/search_163Music_list.php?i=${playListId}&t=0`)).json();
 	                                    if (!info?.playlist?.tracks)
 	                                        throw "playlist error";
-	                                    let confirm = showInfoBox("导入歌单", `确认要导入这些内容吗?\n重复的内容将被替换\n共 ${info.playlist.tracks.length} 首\n---\n${info.playlist.tracks.map(o => o.name).join("\n")}`, true);
+	                                    let confirm = await showInfoBox("导入歌单", `确认要导入这些内容吗?\n重复的内容将被替换\n共 ${info.playlist.tracks.length} 首\n---\n${info.playlist.tracks.map(o => o.name).join("\n")}`, true);
 	                                    if (!confirm)
 	                                        return;
 	                                    if (!originalOption.bgmList)
@@ -10640,12 +10650,22 @@
 	                    e.stopImmediatePropagation();
 
 	                    let totalWeight = 0;
-	                    originalOption.draw.forEach(o =>
+	                    originalOption.draw?.forEach(o =>
 	                    {
 	                        totalWeight += (o.weight != undefined ? o.weight : 1);
 	                    });
 
 	                    showMenu([
+	                        NList.getElement([
+	                            "[清空列表]",
+	                            eventName.click(async () =>
+	                            {
+	                                let confirm = await showInfoBox("清空列表", `确认要清空抽签文本吗`, true);
+	                                if (!confirm)
+	                                    return;
+	                                delete originalOption.draw;
+	                            })
+	                        ]),
 	                        ...(
 	                            originalOption.draw ?
 	                                originalOption.draw.map((o, index) =>
@@ -15601,7 +15621,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.22.4"
+	    version: "alpha v1.22.5"
 	};
 
 	/**
