@@ -78,6 +78,90 @@ export async function enablePatch()
                         audio.play();
                     };
             }
+        },
+        {
+            key: "proxyTitle",
+            cb: () =>
+            {
+                if (!Object.getOwnPropertyDescriptor(document, "title"))
+                {
+                    let nowTitle = document.title;
+                    let setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Object.getPrototypeOf(document)), "title").set;
+                    if (!setter)
+                        return;
+                    /**
+                     * @param {string} str
+                     */
+                    function getNumberFromStringEnd(str)
+                    {
+                        let index = -1;
+                        for (let i = str.length - 1; i >= 0; i--)
+                        {
+                            let charCode = str.charCodeAt(i);
+                            if (
+                                (48 <= charCode && charCode <= 57) ||
+                                charCode == 32
+                            )
+                                index = i;
+                            else
+                                break;
+                        }
+                        if (index != -1)
+                            return Number(str.slice(index));
+                        else
+                            return NaN;
+                    }
+                    Object.defineProperty(document, "title", {
+                        get: () =>
+                        {
+                            return nowTitle;
+                        },
+                        set: (value) =>
+                        {
+                            nowTitle = value;
+                            if (nowTitle.indexOf(",") != -1)
+                            {
+                                let part = nowTitle.split(",");
+                                let firstPart = part[0];
+                                while (firstPart.length > 0)
+                                {
+                                    let charCode = firstPart.at(-1).charCodeAt(0);
+                                    if (
+                                        (48 <= charCode && charCode <= 57) ||
+                                        charCode == 32
+                                    )
+                                        firstPart = firstPart.slice(0, -1);
+                                    else
+                                        break;
+                                }
+
+                                if (firstPart.length <= 2)
+                                {
+                                    if (
+                                        getNumberFromStringEnd(part[1]) == 0 &&
+                                        getNumberFromStringEnd(part[2]) == 0
+                                    )
+                                    {
+                                        setter("蔷薇花园");
+                                        return true;
+                                    }
+                                    part.shift();
+                                }
+                                else
+                                    part[0] = firstPart.slice(0, -2);
+
+                                if (part[0].startsWith(" "))
+                                    part[0] = part[0].slice(1);
+
+                                setter.call(document, part.join(","));
+                            }
+                            else
+                                setter.call(document, nowTitle);
+                            return true;
+                        }
+                    });
+                }
+            }
         }
     ]).forEach(o =>
     {
@@ -118,6 +202,10 @@ export function showPatchMenu()
             {
                 name: "修复悬停音效",
                 key: "fixHoverSound"
+            },
+            {
+                name: "去除标签页标题中的群聊消息",
+                key: "proxyTitle"
             }
         ]).map(o => NList.getElement([
             (storageContext.local.patch[o.key] ? " (已启用)" : "(已禁用)") + o.name,
