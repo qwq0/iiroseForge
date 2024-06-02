@@ -142,7 +142,7 @@ export async function enablePatch()
                                         getNumberFromStringEnd(part[2]) == 0
                                     )
                                     {
-                                        setter("蔷薇花园");
+                                        setter.call(document, "蔷薇花园");
                                         return true;
                                     }
                                     part.shift();

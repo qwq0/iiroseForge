@@ -12499,7 +12499,7 @@
 	                                        getNumberFromStringEnd(part[2]) == 0
 	                                    )
 	                                    {
-	                                        setter("蔷薇花园");
+	                                        setter.call(document, "蔷薇花园");
 	                                        return true;
 	                                    }
 	                                    part.shift();
@@ -15709,7 +15709,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.23.0"
+	    version: "alpha v1.23.1"
 	};
 
 	/**
