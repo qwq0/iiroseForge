@@ -9,6 +9,7 @@ import { showMultiAccountMenu } from "../feature/multiAccount.js";
 import { showNotDisturbModeMenu } from "../feature/notDisturbMode.js";
 import { showPatchMenu } from "../feature/patch.js";
 import { showPlayTogetherMenu } from "../feature/playTogether.js";
+import { showSearchRecordViewer } from "../feature/recordViewer.js";
 import { reportGeneration } from "../feature/reportGeneration.js";
 import { showSuperMenuOptionMenu } from "../feature/superMenu/superMenuTools.js";
 import { trySyncConfig } from "../feature/syncConfig.js";
@@ -504,6 +505,29 @@ export function getForgeMenu()
                         {
                             await showBlacklistMenu();
                         }
+                    },
+                    {
+                        title: "记录搜索",
+                        text: "在私聊记录中搜索",
+                        icon: "magnify",
+                        onClick: (() =>
+                        {
+                            let lastKeyword = "";
+                            return (async () =>
+                            {
+                                let keyword = await showInputBox("记录搜索", "输入要匹配的关键字", true, lastKeyword);
+                                if (keyword == undefined)
+                                    return;
+                                if (keyword.length == 0)
+                                {
+                                    showNotice("记录搜索", "不可搜索空关键字");
+                                    return;
+                                }
+                                lastKeyword = keyword;
+                                showNotice("记录搜索", "开始搜索聊天记录\n可能造成卡顿");
+                                showSearchRecordViewer(keyword);
+                            });
+                        })()
                     },
                     {
                         title: "安装iiroseForge",

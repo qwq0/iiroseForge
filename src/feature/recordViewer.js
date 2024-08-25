@@ -1,4 +1,4 @@
-import { NElement, getNElement } from "../../lib/qwqframe.js";
+import { NElement, eventName, getNElement } from "../../lib/qwqframe.js";
 import { createPlugWindow } from "../plug/plugWindow.js";
 import { createNStyleList as styles } from "../../lib/qwqframe.js";
 import { NList } from "../../lib/qwqframe";
@@ -13,11 +13,20 @@ import { bindValue } from "../../lib/qwqframe.js";
 import { showNotice } from "../ui/notice.js";
 import { forgeApi } from "../forgeApi/forgeApi.js";
 import { htmlSpecialCharsDecode } from "../util/htmlSpecialChars.js";
+import { showInfoBox } from "../ui/infobox.js";
 
 /**
- * @type {(ReturnType<getLocalRecordList>)[number]}
+ * @type {Array<{
+ *  uid: string,
+ *  name: string,
+ *  sendBySelf: boolean,
+ *  time: number,
+ *  content: string,
+ *  messageId: string
+ * }>}
  */
-let nowRecordInfo = null;
+let nowRecordList = null;
+let nowSessionUid = "";
 let nowPageIndex = 0;
 let pageSize = 50;
 
@@ -27,19 +36,19 @@ let pageSize = 50;
  */
 function getPageCount()
 {
-    if (!nowRecordInfo)
+    if (!nowRecordList)
         return 0;
-    return Math.ceil(nowRecordInfo.records.length / pageSize);
+    return Math.ceil(nowRecordList.length / pageSize);
 }
 
 /**
- * @param {(typeof nowRecordInfo)["records"][number]} record
+ * @param {string | [boolean, number, ...string[]]} record
  * @returns {{
  *  sendBySelf: boolean,
-*  time: number,
-*  content: string,
-*  messageId: string
-* }}
+ *  time: number,
+ *  content: string,
+ *  messageId: string
+ * }}
  */
 function getSingleRecord(record)
 {
@@ -54,13 +63,13 @@ function getSingleRecord(record)
 
 /**
  * 获取当前页的记录
- * @returns {Array<ReturnType<getSingleRecord>>}
+ * @returns {typeof nowRecordList}
  */
 function getNowPageRecords()
 {
-    if (nowRecordInfo == null)
+    if (nowRecordList == null)
         return [];
-    return nowRecordInfo.records.slice(nowPageIndex * pageSize, (nowPageIndex + 1) * pageSize).map(getSingleRecord);
+    return nowRecordList.slice(nowPageIndex * pageSize, (nowPageIndex + 1) * pageSize);
 }
 
 /**
@@ -74,25 +83,92 @@ export function enableRecordViewer()
         e => ({ icon: "history", text: "检索历史消息" }),
         async (e) =>
         {
-            let allRecord = getLocalRecordList();
-
-            let nowSessionRecord = null;
-            for (let sessionRecord of allRecord)
-            {
-                if (sessionRecord.uid == e.uid)
-                {
-                    nowSessionRecord = sessionRecord;
-                    break;
-                }
-            }
-            nowRecordInfo = nowSessionRecord;
-
-            nowPageIndex = 0;
-
-            await showRecordViewerWindow();
-            refreshDisplay();
+            showUserRecordViewer(e.uid);
         }
     );
+}
+
+/**
+ * 显示与指定用户私聊的记录查看器
+ * @param {string} uid
+ */
+async function showUserRecordViewer(uid)
+{
+    let allRecord = getLocalRecordList();
+
+    let nowSessionRecord = null;
+    for (let sessionRecord of allRecord)
+    {
+        if (sessionRecord.uid == uid)
+        {
+            nowSessionRecord = sessionRecord;
+            break;
+        }
+    }
+
+    if (nowSessionRecord == null)
+    {
+        showNotice("记录查看器", "无法查看空记录");
+        return;
+    }
+
+    let selfName = forgeApi.operation.getUserName();
+    let targetName = nowSessionRecord.name;
+
+    nowRecordList = nowSessionRecord.records.map(o =>
+    {
+        let now = getSingleRecord(o);
+        return ({
+            uid: nowSessionRecord.uid,
+            name: (now.sendBySelf ? selfName : targetName),
+            ...now
+        });
+    });
+    nowSessionUid = nowSessionRecord.uid;
+    nowPageIndex = 0;
+
+    await showRecordViewerWindow();
+    refreshDisplay();
+}
+
+/**
+ * 显示记录搜索结果的记录查看器
+ * @param {string} keyword
+ */
+export async function showSearchRecordViewer(keyword)
+{
+    let allRecord = getLocalRecordList();
+
+    /**
+     * @type {typeof nowRecordList}
+     */
+    let targetRecord = [];
+
+    let selfName = forgeApi.operation.getUserName();
+
+    for (let sessionRecord of allRecord)
+    {
+        for (let record of sessionRecord.records)
+        {
+            let now = getSingleRecord(record);
+            if (now.content.indexOf(keyword) != -1)
+            {
+                targetRecord.push({
+                    uid: sessionRecord.uid,
+                    name: (now.sendBySelf ? `${selfName} -> ${sessionRecord.name}` : sessionRecord.name),
+                    ...now
+                });
+            }
+        }
+    }
+    targetRecord.sort((a, b) => (a.time - b.time));
+
+    nowRecordList = targetRecord;
+    nowSessionUid = "";
+    nowPageIndex = 0;
+
+    await showRecordViewerWindow();
+    refreshDisplay();
 }
 
 /**
@@ -126,12 +202,9 @@ function refreshDisplay()
 
     let pageCount = getPageCount();
 
-    if (nowRecordInfo)
+    if (nowRecordList)
     {
         let nowPageRecords = getNowPageRecords();
-
-        let selfName = forgeApi.operation.getUserName();
-        let targetName = nowRecordInfo.name;
 
         recordsMessageContainer.addChild(NList.getElement([
             styles({
@@ -144,7 +217,7 @@ function refreshDisplay()
 
         nowPageRecords.forEach(o =>
         {
-            let senderName = (o.sendBySelf ? selfName : targetName);
+            let senderName = o.name;
 
             let time = (new Date(o.time)).toLocaleString();
             let text = (
@@ -170,6 +243,22 @@ function refreshDisplay()
                 ],
 
                 text,
+
+                (
+                    o.uid != nowSessionUid ?
+                        eventName.click(async () =>
+                        {
+                            if (o.uid != nowSessionUid)
+                            {
+                                if (await showInfoBox("记录查看器", "要在目标会话中查看此记录吗?", true))
+                                {
+                                    await showUserRecordViewer(o.uid);
+                                    jumpByTime(o.time);
+                                }
+                            }
+                        }) :
+                        null
+                )
             ]));
         });
 
@@ -189,6 +278,42 @@ function refreshDisplay()
         dataObj.pageInfo = `${nowPageIndex + 1} / ${pageCount} 页`;
     else
         dataObj.pageInfo = `无记录`;
+}
+
+/**
+ * 根据时间跳转
+ * @param {number} time
+ */
+function jumpByTime(time)
+{
+    if (time < nowRecordList[0].time)
+    {
+        showNotice("记录查看器", "选定时间比第一条消息更早");
+        nowPageIndex = 0;
+    }
+    else if (time > nowRecordList.at(-1).time)
+    {
+        showNotice("记录查看器", "选定时间比最后一条消息更晚");
+        nowPageIndex = getPageCount() - 1;
+    }
+    else
+    {
+        let pageCount = getPageCount();
+        nowPageIndex = 0;
+        for (let i = 0; i < pageCount; i++)
+        {
+            let lastRecordThisPage = nowRecordList[Math.min((i + 1) * pageSize - 1, nowRecordList.length - 1)];
+            if (
+                lastRecordThisPage.time >= time
+            )
+            {
+                nowPageIndex = i;
+                break;
+            }
+        }
+        showNotice("记录查看器", "已跳转到选择的时间附近");
+    }
+    refreshDisplay();
 }
 
 /**
@@ -311,7 +436,7 @@ async function showRecordViewerWindow()
                             oldDateInput.remove();
                             oldDateInput = null;
                         }
-                        if (nowRecordInfo == null || nowRecordInfo.records.length == 0)
+                        if (nowRecordList == null || nowRecordList.length == 0)
                             return;
                         /**
                          * @type {NElement<HTMLInputElement>}
@@ -332,36 +457,7 @@ async function showRecordViewerWindow()
                             {
                                 let date = new Date(dateInput.element.value);
                                 date.setHours(0);
-                                let time = date.getTime();
-
-                                if (time < getSingleRecord(nowRecordInfo.records[0]).time)
-                                {
-                                    showNotice("记录查看器", "选定时间比第一条消息更早");
-                                    nowPageIndex = 0;
-                                }
-                                else if (time > getSingleRecord(nowRecordInfo.records.at(-1)).time)
-                                {
-                                    showNotice("记录查看器", "选定时间比最后一条消息更晚");
-                                    nowPageIndex = getPageCount() - 1;
-                                }
-                                else
-                                {
-                                    let pageCount = getPageCount();
-                                    nowPageIndex = 0;
-                                    for (let i = 0; i < pageCount; i++)
-                                    {
-                                        let lastRecordThisPage = getSingleRecord(nowRecordInfo.records[Math.min((i + 1) * pageSize - 1, nowRecordInfo.records.length - 1)]);
-                                        if (
-                                            lastRecordThisPage.time >= time
-                                        )
-                                        {
-                                            nowPageIndex = i;
-                                            break;
-                                        }
-                                    }
-                                    showNotice("记录查看器", "已跳转到选择的时间附近");
-                                }
-                                refreshDisplay();
+                                jumpByTime(date.getTime());
                             }
                         });
                     })
