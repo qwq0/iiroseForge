@@ -127,6 +127,7 @@ async function showUserRecordViewer(uid)
     nowSessionUid = nowSessionRecord.uid;
     nowPageIndex = 0;
 
+    dataObj.title = `与 ${targetName}(${uid}) 的私聊记录`;
     await showRecordViewerWindow();
     refreshDisplay();
 }
@@ -167,6 +168,7 @@ export async function showSearchRecordViewer(keyword)
     nowSessionUid = "";
     nowPageIndex = 0;
 
+    dataObj.title = `在私聊记录中搜索 "${keyword}" 的所有结果`;
     await showRecordViewerWindow();
     refreshDisplay();
 }
@@ -185,7 +187,8 @@ let recordViewerContextWindow = null;
 let recordsMessageContainer = null;
 
 let dataObj = createHookObj({
-    pageInfo: ""
+    pageInfo: "",
+    title: ""
 });
 
 /**
@@ -349,11 +352,27 @@ async function showRecordViewerWindow()
                 height: "100%",
             }),
 
+            [
+                styles({
+                    position: "absolute",
+                    top: "0",
+                    left: "0",
+                    width: "100%",
+                    height: "25px",
+                    whiteSpace: "pre",
+                    color: "white",
+                    boxShadow: "border-box",
+                    borderBottom: "1px solid rgba(0, 0, 0, 0.3)",
+                    overflow: "hidden"
+                }),
+                bindValue(dataObj, "title")
+            ],
+
             recordsMessageContainer = NList.getElement([
                 styles({
                     position: "absolute",
                     left: "0",
-                    top: "0",
+                    top: "25px",
                     width: "100%",
                     bottom: "27px",
                     whiteSpace: "pre-wrap",

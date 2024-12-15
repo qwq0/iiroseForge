@@ -1,5 +1,5 @@
 import { RcoContext } from "../../lib/jsRco.js";
-import { mouseBind } from "../../lib/qwqframe.js";
+import { eventName, mouseBind } from "../../lib/qwqframe.js";
 import { touchBind } from "../../lib/qwqframe.js";
 import { getNElement, NList, createNStyle as style, NTagName, NAsse, NEvent, NElement, createNStyleList as styles } from "../../lib/qwqframe.js";
 import { showBeautifyMenu } from "../feature/beautify.js";
@@ -110,13 +110,13 @@ export function getForgeMenu()
                 ...([ // 菜单列表项
                     ...(
                         (
-                            ((new Date("2023/12/20")).getTime() < Date.now() && Date.now() < (new Date("2024/1/16")).getTime()) ||
+                            ((new Date("2025/1/1")).getTime() < Date.now() && Date.now() < (new Date("2025/1/26")).getTime()) ||
                             (storageContext.local.enableExperimental && storageContext.local.experimentalOption["annualReport"])
                         ) ?
                             [
                                 {
                                     title: "(限时) 蔷薇年报",
-                                    text: "获取你的2023蔷薇年报",
+                                    text: "获取你的2024蔷薇年报",
                                     icon: "fire",
                                     onClick: async () =>
                                     {
@@ -530,25 +530,31 @@ export function getForgeMenu()
                         })()
                     },
                     {
-                        title: "安装iiroseForge",
-                        text: "下次使用无需注入",
+                        title: "forge装卸",
+                        text: "安装/卸载 forge",
                         icon: "puzzle",
                         onClick: async () =>
                         {
-                            localStorage.setItem("installForge", "true");
-                            writeForgeToCache(true);
-                            showInfoBox("安装iiroseForge", "已完成");
-                        }
-                    },
-                    {
-                        title: "卸载iiroseForge",
-                        text: "下次启动清除iiroseForge",
-                        icon: "puzzle",
-                        onClick: async () =>
-                        {
-                            localStorage.removeItem("installForge");
-                            removeForgeFromCache();
-                            showInfoBox("卸载iiroseForge", "已完成");
+                            showMenu([
+                                NList.getElement([
+                                    "安装forge",
+                                    eventName.click(e =>
+                                    {
+                                        localStorage.setItem("installForge", "true");
+                                        writeForgeToCache(true);
+                                        showInfoBox("安装iiroseForge", "已完成");
+                                    })
+                                ]),
+                                NList.getElement([
+                                    "卸载forge",
+                                    eventName.click(e =>
+                                    {
+                                        localStorage.removeItem("installForge");
+                                        removeForgeFromCache();
+                                        showInfoBox("卸载iiroseForge", "已完成");
+                                    })
+                                ]),
+                            ]);
                         }
                     },
                     {

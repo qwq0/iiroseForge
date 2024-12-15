@@ -472,7 +472,6 @@
 	/**
 	 * Comment节点的封装
 	 * 用于进行节点定位
-	 * @typedef {import("./NElement").NElement} NElement
 	 * @typedef {import("./NText").NText} NText
 	 */
 	class NLocate
@@ -492,6 +491,15 @@
 	            this.node = node;
 	        else
 	            this.node = new Comment();
+	    }
+
+	    /**
+	     * 获取父元素
+	     * @returns {NElement}
+	     */
+	    getParent()
+	    {
+	        return NElement.byElement(this.node.parentElement);
 	    }
 
 	    /**
@@ -525,7 +533,6 @@
 	/**
 	 * Text节点的封装
 	 * 用于进行节点定位
-	 * @typedef {import("./NElement").NElement} NElement
 	 * @typedef {import("./NLocate").NLocate} NLocate
 	 */
 	class NText
@@ -549,6 +556,15 @@
 	            if (text)
 	                this.setText(text);
 	        }
+	    }
+
+	    /**
+	     * 获取父元素
+	     * @returns {NElement}
+	     */
+	    getParent()
+	    {
+	        return NElement.byElement(this.node.parentElement);
 	    }
 
 	    /**
@@ -947,7 +963,7 @@
 	        let tagName = this.getTagName();
 	        if (tagName == "")
 	            tagName = "div";
-	        let ele = getNElement(document.createElement(tagName));
+	        let ele = NElement.byElement(document.createElement(tagName));
 	        this.apply(ele);
 	        return ele;
 	    }
@@ -965,11 +981,14 @@
 
 	    /**
 	     * 获取(生成)元素
-	     * @param {NList_list} list
+	     * @param {NList_list | NList} list
 	     */
 	    static getElement(list)
 	    {
-	        return (new NList(list)).getElement();
+	        if (list instanceof NList)
+	            return list.getElement();
+	        else
+	            return (new NList(list)).getElement();
 	    }
 	}
 
@@ -1016,6 +1035,15 @@
 	    }
 
 	    /**
+	     * 获取父元素
+	     * @returns {NElement}
+	     */
+	    getParent()
+	    {
+	        return NElement.byElement(this.node.parentElement);
+	    }
+
+	    /**
 	     * 添加单个子节点
 	     * @param {NElement | NLocate | NText | Node | string | HookBindInfo} chi
 	     */
@@ -1049,8 +1077,8 @@
 	                }
 	                else
 	                {
-	                    let newNode = (initVal == null ? new NLocate() : (typeof (initVal) == "string" ? new NText(initVal) : initVal));
-	                    currentNode.replaceWith(currentNode);
+	                    let newNode = (val == null ? new NLocate() : (typeof (val) == "string" ? new NText(val) : val));
+	                    currentNode.replaceWith(newNode);
 	                    currentNode = newNode;
 	                }
 	            }).bindDestroy(this);
@@ -1170,7 +1198,7 @@
 	     */
 	    getChilds()
 	    {
-	        return Array.from(this.node.children).map(o => getNElement(/** @type {HTMLElement} */(o)));
+	        return Array.from(this.node.children).map(o => NElement.byElement(/** @type {HTMLElement} */(o)));
 	    }
 
 	    /**
@@ -1180,7 +1208,7 @@
 	     */
 	    getChild(ind)
 	    {
-	        return getNElement(/** @type {HTMLElement} */(this.node.children[ind]));
+	        return NElement.byElement(/** @type {HTMLElement} */(this.node.children[ind]));
 	    }
 
 	    /**
@@ -13688,6 +13716,7 @@
 	    nowSessionUid = nowSessionRecord.uid;
 	    nowPageIndex = 0;
 
+	    dataObj.title = `与 ${targetName}(${uid}) 的私聊记录`;
 	    await showRecordViewerWindow();
 	    refreshDisplay();
 	}
@@ -13728,6 +13757,7 @@
 	    nowSessionUid = "";
 	    nowPageIndex = 0;
 
+	    dataObj.title = `在私聊记录中搜索 "${keyword}" 的所有结果`;
 	    await showRecordViewerWindow();
 	    refreshDisplay();
 	}
@@ -13746,7 +13776,8 @@
 	let recordsMessageContainer = null;
 
 	let dataObj = createHookObj({
-	    pageInfo: ""
+	    pageInfo: "",
+	    title: ""
 	});
 
 	/**
@@ -13910,11 +13941,27 @@
 	                height: "100%",
 	            }),
 
+	            [
+	                createNStyleList({
+	                    position: "absolute",
+	                    top: "0",
+	                    left: "0",
+	                    width: "100%",
+	                    height: "25px",
+	                    whiteSpace: "pre",
+	                    color: "white",
+	                    boxShadow: "border-box",
+	                    borderBottom: "1px solid rgba(0, 0, 0, 0.3)",
+	                    overflow: "hidden"
+	                }),
+	                bindValue(dataObj, "title")
+	            ],
+
 	            recordsMessageContainer = NList.getElement([
 	                createNStyleList({
 	                    position: "absolute",
 	                    left: "0",
-	                    top: "0",
+	                    top: "25px",
 	                    width: "100%",
 	                    bottom: "27px",
 	                    whiteSpace: "pre-wrap",
@@ -14041,6 +14088,27 @@
 	}
 
 	/**
+	 * 使用fetch绕过referrerpolicy在css上不生效的错误
+	 * @param {string} orgUrl
+	 * @returns {Promise<string>}
+	 */
+	async function fetchImgToBlobUrl(orgUrl)
+	{
+	    try
+	    {
+	        let file = await (await fetch(orgUrl, {
+	            referrerPolicy: "no-referrer"
+	        })).blob();
+	        return URL.createObjectURL(file);
+	    }
+	    catch (err)
+	    {
+	        console.error(err);
+	        return "";
+	    }
+	}
+
+	/**
 	 * 用户年报生成
 	 */
 	async function reportGeneration()
@@ -14049,8 +14117,8 @@
 
 	    let userUid = forgeApi.operation.getUserUid();
 	    let userName = forgeApi.operation.getUserName();
-	    let statisticsStartTime = (new Date("2023/1/1")).getTime();
-	    let statisticsEndTime = (new Date("2024/1/1")).getTime();
+	    let statisticsStartTime = (new Date("2024/1/1")).getTime();
+	    let statisticsEndTime = (new Date("2025/1/1")).getTime();
 	    const oneDay = 24 * 60 * 60 * 1000;
 	    let dayOfThisYear = Math.round((statisticsEndTime - statisticsStartTime) / oneDay);
 
@@ -14498,12 +14566,12 @@
 	        ( // 1
 	            [
 	                [
-	                    "在2023年里,",
+	                    "在2024年里,",
 	                    `你一共和 ${sessionCount} 位用户私聊过。`,
 	                    "",
-	                    `共发出了 ${sendCount}条私信,`,
+	                    `共发出了 ${sendCount} 条私信,`,
 	                    `总共约 ${sendCharCount} 字;`,
-	                    `共收到了 ${receiveCount}条私信,`,
+	                    `共收到了 ${receiveCount} 条私信,`,
 	                    `总共约 ${receiveCharCount} 字。`,
 	                    (
 	                        sendCount < 1000 ?
@@ -14654,26 +14722,16 @@
 	    ]).filter(o => o != null);
 
 	    let longPictureBackgroundList = [
-	        "https://r.iirose.com/i/23/12/19/15/3650-3T.png",
-	        "https://r.iirose.com/i/23/12/19/15/3658-TW.png",
-	        "https://r.iirose.com/i/23/12/19/15/3707-0C.jpg",
-	        "https://r.iirose.com/i/23/12/19/15/3720-73.jpg",
-	        "https://r.iirose.com/i/23/12/19/15/3725-Z0.jpg",
-	        "https://r.iirose.com/i/23/12/19/15/3734-09.png",
-	        "https://r.iirose.com/i/23/12/19/15/3739-SD.png",
-	        "https://r.iirose.com/i/23/12/19/15/3746-Q9.jpg",
-	        "https://r.iirose.com/i/23/12/19/15/3756-LZ.jpg",
-	        "https://r.iirose.com/i/23/12/19/15/3800-BF.jpg",
-	        "https://r.iirose.com/i/23/12/19/15/3805-UG.png",
-	        "https://r.iirose.com/i/23/12/19/15/3808-W0.jpg",
-	        "https://r.iirose.com/i/23/12/19/15/3813-M5.jpg"
+	        "https://r.iirose.com/i/24/12/15/19/5435-JX.jpg",
+	        "https://r.iirose.com/i/24/12/15/19/5451-9H.jpg",
+	        "https://r.iirose.com/i/24/12/15/19/5323-UV.jpg",
 	    ];
 
 	    showReportPages(
-	        "2023蔷薇私聊年报",
+	        "2024蔷薇私聊年报",
 	        ([
 	            NList.getElement([
-	                "向上滑动\n领取你的2023蔷薇私聊年报"
+	                "向上滑动\n领取你的2024蔷薇私聊年报"
 	            ]),
 	            ...pageMainBody.map(o => NList.getElement(o)),
 	            NList.getElement([
@@ -14728,6 +14786,7 @@
 	                                    resolve(image);
 	                                });
 	                                image.crossOrigin = "anonymous";
+	                                image.referrerPolicy = "no-referrer";
 	                                image.src = `${longPictureBackgroundList[Math.floor(Math.random() * longPictureBackgroundList.length)]}`;
 	                            }),
 	                            delayPromise(4500)
@@ -14749,7 +14808,7 @@
 	                        }
 
 	                        {
-	                            let titleText = "蔷薇花园2023年报";
+	                            let titleText = "蔷薇花园2024年报";
 	                            canvasContext.font = `40px "noto", serif`;
 	                            canvasContext.textAlign = "center";
 	                            canvasContext.strokeStyle = "rgba(0, 0, 0, 0.7)";
@@ -14778,7 +14837,7 @@
 	                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
 	                            canvasContext.font = `24px "noto", serif`;
 	                            canvasContext.textAlign = "center";
-	                            canvasContext.fillText("由 iirose-Forge 使用 ❤ 生成", canvas.width / 2, canvas.height - 27);
+	                            canvasContext.fillText("年报由 iirose-Forge 用 ❤ 生成", canvas.width / 2, canvas.height - 27);
 
 	                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
 	                            canvasContext.font = `24px "noto", serif`;
@@ -14822,18 +14881,21 @@
 	            ]),
 	        ]),
 	        [
-	            "https://r.iirose.com/i/23/10/11/21/3338-QK.jpg",
-	            "https://r.iirose.com/i/22/12/18/15/4513-0A.png",
-	            "https://r.iirose.com/i/22/5/11/15/3838-IY.jpg",
-	            "https://r.iirose.com/i/23/9/7/1/1047-5Y.jpg",
-	            "https://r.iirose.com/i/23/8/24/5/0224-LF.jpg",
-	            "https://r.iirose.com/i/23/12/17/16/2214-M1.jpg",
-	            "https://r.iirose.com/i/23/12/17/16/2223-ZH.jpg",
-	            "https://r.iirose.com/i/23/12/17/16/2229-EV.jpg",
-	            "https://r.iirose.com/i/23/12/17/16/2237-6O.jpg",
-	            "https://r.iirose.com/i/23/12/17/16/2242-AR.jpg",
-	            "https://r.iirose.com/i/23/12/17/16/2334-XA.jpg",
-	            "https://r.iirose.com/i/23/12/17/16/2319-TO.png"
+	            "https://r.iirose.com/i/24/12/15/19/5310-ZW.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5320-V5.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5330-WA.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5334-3M.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5339-RL.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5345-8X.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5355-NG.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5408-OJ.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5412-ZB.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5418-CU.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5431-6G.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5439-B3.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5445-G6.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5456-YG.jpg",
+	            "https://r.iirose.com/i/24/12/15/19/5502-89.jpg"
 	        ]
 	    );
 	}
@@ -14858,9 +14920,9 @@
 	 */
 	function showReportPages(title, pages, backgroundList)
 	{
-	    let nowPageIndex = 0;
+	    let nowPageIndex = -1;
 	    let pageData = createHookObj({
-	        textElement: pages[nowPageIndex]
+	        textElement: null
 	    });
 	    /**
 	     * @type {NElement}
@@ -14911,7 +14973,12 @@
 	            }
 	        ], 300);
 
-	        backgroundElement.setStyle("backgroundImage", `url("${backgroundList[index % backgroundList.length]}")`);
+	        (async (ind) =>
+	        {
+	            let url = await fetchImgToBlobUrl(backgroundList[index % backgroundList.length]);
+	            if (ind == index)
+	                backgroundElement.setStyle("backgroundImage", `url("${url}")`);
+	        })(index);
 	        await delayPromise(700);
 	        pageData.textElement = pages[index];
 
@@ -15074,6 +15141,7 @@
 	                    backgroundSize: "cover",
 	                    zIndex: "1"
 	                }),
+	                new NAttr("referrerpolicy", "no-referrer"),
 
 	                ele => backgroundElement = ele,
 	            ],
@@ -15174,6 +15242,7 @@
 	        ]
 	    ]);
 	    iframeContext.iframeBody.addChild(page);
+	    switchPageTo(0);
 	}
 
 	/**
@@ -16173,7 +16242,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.24.0"
+	    version: "alpha v1.24.1"
 	};
 
 	/**
@@ -16477,13 +16546,13 @@
 	                ...([ // 菜单列表项
 	                    ...(
 	                        (
-	                            ((new Date("2023/12/20")).getTime() < Date.now() && Date.now() < (new Date("2024/1/16")).getTime()) ||
+	                            ((new Date("2025/1/1")).getTime() < Date.now() && Date.now() < (new Date("2025/1/26")).getTime()) ||
 	                            (storageContext.local.enableExperimental && storageContext.local.experimentalOption["annualReport"])
 	                        ) ?
 	                            [
 	                                {
 	                                    title: "(限时) 蔷薇年报",
-	                                    text: "获取你的2023蔷薇年报",
+	                                    text: "获取你的2024蔷薇年报",
 	                                    icon: "fire",
 	                                    onClick: async () =>
 	                                    {
@@ -16845,25 +16914,31 @@
 	                        })()
 	                    },
 	                    {
-	                        title: "安装iiroseForge",
-	                        text: "下次使用无需注入",
+	                        title: "forge装卸",
+	                        text: "安装/卸载 forge",
 	                        icon: "puzzle",
 	                        onClick: async () =>
 	                        {
-	                            localStorage.setItem("installForge", "true");
-	                            writeForgeToCache(true);
-	                            showInfoBox("安装iiroseForge", "已完成");
-	                        }
-	                    },
-	                    {
-	                        title: "卸载iiroseForge",
-	                        text: "下次启动清除iiroseForge",
-	                        icon: "puzzle",
-	                        onClick: async () =>
-	                        {
-	                            localStorage.removeItem("installForge");
-	                            removeForgeFromCache();
-	                            showInfoBox("卸载iiroseForge", "已完成");
+	                            showMenu([
+	                                NList.getElement([
+	                                    "安装forge",
+	                                    eventName.click(e =>
+	                                    {
+	                                        localStorage.setItem("installForge", "true");
+	                                        writeForgeToCache(true);
+	                                        showInfoBox("安装iiroseForge", "已完成");
+	                                    })
+	                                ]),
+	                                NList.getElement([
+	                                    "卸载forge",
+	                                    eventName.click(e =>
+	                                    {
+	                                        localStorage.removeItem("installForge");
+	                                        removeForgeFromCache();
+	                                        showInfoBox("卸载iiroseForge", "已完成");
+	                                    })
+	                                ]),
+	                            ]);
 	                        }
 	                    },
 	                    {
