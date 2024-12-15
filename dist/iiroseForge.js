@@ -14725,6 +14725,12 @@
 	        "https://r.iirose.com/i/24/12/15/19/5435-JX.jpg",
 	        "https://r.iirose.com/i/24/12/15/19/5451-9H.jpg",
 	        "https://r.iirose.com/i/24/12/15/19/5323-UV.jpg",
+	        "https://r.iirose.com/i/24/12/15/19/5418-CU.jpg",
+	        "https://r.iirose.com/i/24/12/15/19/5431-6G.jpg",
+	        "https://r.iirose.com/i/24/12/15/19/5439-B3.jpg",
+	        "https://r.iirose.com/i/24/12/15/19/5445-G6.jpg",
+	        "https://r.iirose.com/i/24/12/15/19/5456-YG.jpg",
+	        "https://r.iirose.com/i/24/12/15/19/5502-89.jpg"
 	    ];
 
 	    showReportPages(
@@ -14735,7 +14741,7 @@
 	            ]),
 	            ...pageMainBody.map(o => NList.getElement(o)),
 	            NList.getElement([
-	                "后面没有啦\n\n",
+	                "2024已经结束\n愿你在新的一年亦能有所得\n\n",
 	                [
 	                    createNStyleList({
 	                        display: "inline-block",
@@ -14808,7 +14814,7 @@
 	                        }
 
 	                        {
-	                            let titleText = "蔷薇花园2024年报";
+	                            let titleText = "IIROSE 2024私聊年报";
 	                            canvasContext.font = `40px "noto", serif`;
 	                            canvasContext.textAlign = "center";
 	                            canvasContext.strokeStyle = "rgba(0, 0, 0, 0.7)";
@@ -14834,12 +14840,12 @@
 	                        });
 
 	                        {
-	                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
+	                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.52)";
 	                            canvasContext.font = `24px "noto", serif`;
 	                            canvasContext.textAlign = "center";
 	                            canvasContext.fillText("年报由 iirose-Forge 用 ❤ 生成", canvas.width / 2, canvas.height - 27);
 
-	                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.5)";
+	                            canvasContext.fillStyle = "rgba(255, 255, 255, 0.57)";
 	                            canvasContext.font = `24px "noto", serif`;
 	                            canvasContext.textAlign = "right";
 	                            canvasContext.fillText(`${userName} 的私聊年报`, canvas.width - 35, 24 + 35);
@@ -16242,7 +16248,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.24.1"
+	    version: "alpha v1.24.2"
 	};
 
 	/**
