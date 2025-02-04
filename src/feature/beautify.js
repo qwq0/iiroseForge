@@ -90,6 +90,18 @@ export async function enableBeautify()
                 ]).join("\n");
             }
         },
+        { // 消息图片最大宽度
+            key: "messageImgMaxWidth",
+            cb: (/** @type {string} */ o) =>
+            {
+                styleStr += ([
+                    ".roomChatContentBox img, .privatemsgMessagesBodyItemBodyBox img",
+                    "{",
+                    `max-width: ${o}px !important;`,
+                    "}",
+                ].join("\n"));
+            }
+        },
         { // 消息头像圆角半径
             key: "messageAvatarBorderRadius",
             cb: (/** @type {string} */ o) =>
@@ -186,8 +198,8 @@ export async function enableBeautify()
 
                     ".chatContentHolder:not(.publicMsgHasBubble)",
                     "{",
-                        `border-radius: ${o}px;`,
-                        "overflow: hidden;",
+                    `border-radius: ${o}px;`,
+                    "overflow: hidden;",
                     "}",
 
                     `.room_chat_content[style*="border-right"]>div[style*="top:0;bottom:0;right:-6px;"]>div`,
@@ -315,6 +327,11 @@ export function showBeautifyMenu()
             {
                 name: "消息图片圆角半径",
                 key: "messageImgBorderRadius",
+                type: "number"
+            },
+            {
+                name: "消息图片最大宽度",
+                key: "messageImgMaxWidth",
                 type: "number"
             },
             {
