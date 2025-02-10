@@ -10144,6 +10144,18 @@
 	                ]).join("\n");
 	            }
 	        },
+	        { // 消息图片最大宽度
+	            key: "messageImgMaxWidth",
+	            cb: (/** @type {string} */ o) =>
+	            {
+	                styleStr += ([
+	                    ".roomChatContentBox img, .privatemsgMessagesBodyItemBodyBox img",
+	                    "{",
+	                    `max-width: ${o}px !important;`,
+	                    "}",
+	                ].join("\n"));
+	            }
+	        },
 	        { // 消息头像圆角半径
 	            key: "messageAvatarBorderRadius",
 	            cb: (/** @type {string} */ o) =>
@@ -10240,8 +10252,8 @@
 
 	                    ".chatContentHolder:not(.publicMsgHasBubble)",
 	                    "{",
-	                        `border-radius: ${o}px;`,
-	                        "overflow: hidden;",
+	                    `border-radius: ${o}px;`,
+	                    "overflow: hidden;",
 	                    "}",
 
 	                    `.room_chat_content[style*="border-right"]>div[style*="top:0;bottom:0;right:-6px;"]>div`,
@@ -10369,6 +10381,11 @@
 	            {
 	                name: "消息图片圆角半径",
 	                key: "messageImgBorderRadius",
+	                type: "number"
+	            },
+	            {
+	                name: "消息图片最大宽度",
+	                key: "messageImgMaxWidth",
 	                type: "number"
 	            },
 	            {
@@ -16248,7 +16265,7 @@
 	}
 
 	const versionInfo = {
-	    version: "alpha v1.24.2"
+	    version: "alpha v1.24.3"
 	};
 
 	/**
